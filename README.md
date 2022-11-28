@@ -1,1 +1,1 @@
-# causal-poset-discovery
+# Ordered Causal Discovery (OCD)
