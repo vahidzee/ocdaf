@@ -5,6 +5,11 @@ from tqdm import tqdm
 import os
 import gzip
 import shutil
+from torchvision import transforms as tv_transforms
+from ocd.utils import get_value, process_function_description
+import torch
+import inspect
+
 
 def get_bnlearn_dag(name, import_configs=None):
     import_configs = import_configs if import_configs is not None else {}
@@ -64,3 +69,26 @@ def generate_interventions(dag, num_samples_per_value, node_list=None, show_prog
         interventions.append(node_interventions)
     return interventions
 
+
+
+def initialize_transforms(transforms: th.Optional[th.Union[list, dict, th.Any]]):
+    if transforms is None or (not inspect.isclass(transforms) and callable(transforms)):
+        return transforms
+
+    # list of other transforms
+    if isinstance(transforms, list):
+        return tv_transforms.Compose([initialize_transforms(i) for i in transforms])
+
+    # either a class and args, or a code block and entry function
+    if isinstance(transforms, dict):
+        if "class_path" in transforms:
+            return get_value(transforms["class_path"])(**transforms.get("init_args", dict()))
+        value = process_function_description(transforms, "transform")
+        return value() if inspect.isclass(value) else value
+    if isinstance(transforms, str):
+        try:
+            return get_value(transforms)()
+        except:
+            return process_function_description(transforms, "transform")
+
+    raise ValueError(f"Invalid transforms: {transforms}")

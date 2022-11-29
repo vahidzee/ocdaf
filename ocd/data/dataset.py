@@ -45,7 +45,7 @@ class CausalDataset(torch.utils.data.Dataset):
 
 
 def generate_datasets(
-    name, observation_size, intervention_size, node_list=None, dag=None, import_configs=None, show_progress=False
+    name, observation_size, intervention_size=0, node_list=None, dag=None, import_configs=None, show_progress=False
 ):
     """
     Generate a list of datasets, first dataset is the original dataset, the rest are interventions
@@ -54,7 +54,7 @@ def generate_datasets(
         name (str): name of the dataset (or link to the dataset)
         dag (bnlearn.BayesianModel): the DAG
         observation_size (int): number of samples in the original dataset (observational data)
-        intervention_size (int): number of samples in each intervention (per value) dataset
+        intervention_size (int): number of samples in each intervention (per value) dataset (default: 0)
         node_list (list): list of nodes to intervene on (default is all nodes)
         import_configs (dict): configs to pass to bnlearn.import_DAG
         show_progress (bool): show progress bar for sampling
@@ -70,6 +70,8 @@ def generate_datasets(
     datasets = [
         CausalDataset(name=name, samples=dag["model"].simulate(observation_size, show_progress=show_progress), dag=dag)
     ]
+    if intervention_size == 0:
+        return datasets
     # generate interventional data
     interventions = generate_interventions(
         dag=dag, num_samples_per_value=intervention_size, node_list=node_list, show_progress=show_progress
