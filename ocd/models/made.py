@@ -4,6 +4,44 @@ import functools
 from .layers import OrderedBlock, AutoRegressiveDensityEstimator1D
 
 class SingleMaskedBlockMADE(torch.nn.Module):
+    """
+    A Masked Autoregressive Density Estimator (MADE) that can work with multiple domain data
+    this model takes in a list of categorical variables (one-hot encoded)
+    and given a doubly stochastic matrix P (permutation matrix), it will create masks according to 
+    that permutation matrix and then apply the masks to each of the layers to obtain the final output in an autoregressive fashion
+
+    The model is defined as follows:
+
+    Args:
+        in_covariate_features: a list of integers that specifies the number of features for each covariate
+        hidden_features_per_covariate: a list of lists of integers that specifies the number of hidden features for each layer for each covariate
+        bias: whether to use bias in the layers
+        activation: the activation function to use in the layers
+        activation_args: the arguments to pass to the activation function
+        batch_norm: whether to use batch normalization in the layers
+        batch_norm_args: the arguments to pass to the batch normalization layers
+        seed: the seed to use for the random number generator
+        device: the device to use for the model
+        dtype: the dtype to use for the model
+
+        Example of made construction:
+        model = SingleMaskedBlockMADE(
+            in_covariate_features=[3, 4, 2, 3],
+            hidden_features_per_covariate=[[10, 20, 30, 10],
+                                           [20, 30, 10, 5],
+                                           [40, 30, 10, 7]],
+            bias=True,
+            activation=torch.nn.ReLU,
+        )
+
+        This MADE takes in 4 covariates with 3, 4, 2, and 3 features respectively
+        and in the output after calling forward it will output (3 + 4 + 2 + 3) probability values
+        - The first three will indicate the probability of the first covariate being 0, 1, or 2
+        - The next four will indicate the probability of the second covariate being 0, 1, 2, or 3
+        - The next two will indicate the probability of the third covariate being 0 or 1
+        - The last three will indicate the probability of the fourth covariate being 0, 1, or 2
+
+    """
     def __init__(
         self,
         in_covariate_features: th.List[int],

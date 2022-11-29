@@ -29,5 +29,5 @@ def log_prob(probas: torch.Tensor,
     assert (categories < torch.tensor(cov_features)).all(), "All category values must be less than the number of categories for that covariate"
     idx = categories + cummulative
     ps = torch.vstack([probas[i, idx[i]] for i in range(probas.shape[0])])
-    # ps = torch.log(ps)
+    ps = torch.log(ps)
     return ps.sum(-1) if reduce else ps
