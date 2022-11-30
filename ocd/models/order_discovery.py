@@ -22,7 +22,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
 
                  # Sinkhorn parameters
                  n_iter: int = 10,
-                 tau: float = 0.01,
+                 tau: float = 0.1,
                 
                 # general
                  seed: int = 0,

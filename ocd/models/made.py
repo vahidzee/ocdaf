@@ -120,12 +120,6 @@ class SingleMaskedBlockMADE(torch.nn.Module):
             P = P.to(inputs.device)
             P = P.type(inputs.dtype)
             perm = P
-        else:
-            # Check if perm is a square matrix
-            assert perm.shape[0] == perm.shape[1], "perm must be a square matrix"
-            # check if perm is doubly stochastic
-            assert torch.allclose(perm.sum(dim=0), torch.ones(perm.shape[0])), "perm must be doubly stochastic"
-            assert torch.allclose(perm.sum(dim=1), torch.ones(perm.shape[0])), "perm must be doubly stochastic"
             
         results, perm = self.layers((inputs, perm))
         results = self.density_estimator(results, perm)
