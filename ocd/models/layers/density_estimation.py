@@ -12,6 +12,7 @@ class AutoRegressiveDensityEstimator1D(OrderedLinear):
     Then using softmax over all the categories on the logits, it calculates the probability of each category.
     Hence, out_cov_features[i] yields the number of categories for the ith covariate.
     """
+
     def __init__(
         self,
         in_cov_features: th.List[int],
@@ -31,7 +32,6 @@ class AutoRegressiveDensityEstimator1D(OrderedLinear):
             auto_connection=auto_connection,
             mask_dtype=mask_dtype,
         )
-  
 
     def forward(self, inputs, P) -> torch.Tensor:
         """

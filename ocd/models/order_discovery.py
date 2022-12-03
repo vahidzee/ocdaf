@@ -1,35 +1,32 @@
-
 import torch
 from .made import SingleMaskedBlockMADE
 from torch.nn.parameter import Parameter
 import typing as th
 from .sinkhorn import sinkhorn
 
+
 class SinkhornOrderDiscovery(torch.nn.Module):
-    """
-    
-    """
+    """ """
 
-    def __init__(self,
-                 # MADE parameters
-                 in_covariate_features: th.List[int],
-                 hidden_features_per_covariate: th.List[th.List[int]],
-                 bias: bool = True,
-                 activation: th.Optional[str] = "torch.nn.ReLU",
-                 activation_args: th.Optional[dict] = None,
-                 batch_norm: bool = True,
-                 batch_norm_args: th.Optional[dict] = None,
-
-                 # Sinkhorn parameters
-                 n_iter: int = 10,
-                 tau: float = 0.1,
-                
-                # general
-                 seed: int = 0,
-                 device: th.Optional[torch.device] = None,
-                 dtype: th.Optional[torch.dtype] = None,
-                 safe_grad_hook: str = "lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad)",
-                 ) -> None:
+    def __init__(
+        self,
+        # MADE parameters
+        in_covariate_features: th.List[int],
+        hidden_features_per_covariate: th.List[th.List[int]],
+        bias: bool = True,
+        activation: th.Optional[str] = "torch.nn.ReLU",
+        activation_args: th.Optional[dict] = None,
+        batch_norm: bool = True,
+        batch_norm_args: th.Optional[dict] = None,
+        # Sinkhorn parameters
+        n_iter: int = 10,
+        tau: float = 0.1,
+        # general
+        seed: int = 0,
+        device: th.Optional[torch.device] = None,
+        dtype: th.Optional[torch.dtype] = None,
+        safe_grad_hook: str = "lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad)",
+    ) -> None:
         super().__init__()
         self.made = SingleMaskedBlockMADE(
             in_covariate_features=in_covariate_features,
@@ -48,10 +45,10 @@ class SinkhornOrderDiscovery(torch.nn.Module):
         self.Gamma = Parameter(torch.randn(n, n, device=device, dtype=dtype))
         self.tau = tau
         self.n_iter = n_iter
-    
+
     def set_tau(self, tau: float) -> None:
         self.tau = tau
-    
+
     def set_n_iter(self, n_iter: int) -> None:
         self.n_iter = n_iter
 

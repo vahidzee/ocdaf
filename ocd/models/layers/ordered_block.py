@@ -1,7 +1,6 @@
 import typing as th
 import torch
 from .ordered_linear import OrderedLinear
-# from ocd.utils import get_value
 
 
 class OrderedBlock(torch.nn.Module):
@@ -18,26 +17,22 @@ class OrderedBlock(torch.nn.Module):
     batch_norm: boolean indicating whether batch norm should be applied after the linear layer
     batch_norm_args: dictionary containing the input parameters to the batch norm layer
     """
+
     def __init__(
         self,
         # linear args
         in_cov_features: th.List[int],
         out_cov_features: th.List[int],
-
-        # bias in linears        
+        # bias in linears
         bias: bool = True,
-
         # activation
-        activation = None,
+        activation=None,
         activation_args: th.Optional[dict] = None,
-
         # batch norm
         batch_norm: bool = True,
         batch_norm_args: th.Optional[dict] = None,
-        
         # ordering args
         auto_connection: bool = True,
-        
         # general parameters
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -54,11 +49,13 @@ class OrderedBlock(torch.nn.Module):
         # self.activation = get_value(activation)(**(activation_args or dict())) if activation else None
         self.activation = activation(**(activation_args or dict())) if activation else None
         self.batch_norm = (
-            torch.nn.BatchNorm1d(num_features=sum(out_cov_features), dtype=dtype, device=device, **(batch_norm_args or dict()))
+            torch.nn.BatchNorm1d(
+                num_features=sum(out_cov_features), dtype=dtype, device=device, **(batch_norm_args or dict())
+            )
             if batch_norm
             else None
         )
-        
+
     def forward(self, x):
         """
         Same functionality as OrderedLinear, but with optional activation and batch norm.
