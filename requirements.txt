@@ -1,4 +1,6 @@
 torch
 numpy
+lightning
+lightning_toolbox
 #
 bnlearn
