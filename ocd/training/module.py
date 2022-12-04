@@ -95,8 +95,7 @@ class OrderedTrainingModule(TrainingModule):
 
         # the number of classes for each covariate is set in
         # self.model.in_covariate_features and the number of covariates is the length of this list
-    
-        
+
         if not transform_batch:
             return transformed_batch if transformed_batch is not None else batch
 
@@ -125,9 +124,10 @@ class OrderedTrainingModule(TrainingModule):
         if interventional_batch_size > 0:
             # split the batch into observational and interventional
             transformed_batch = [
-                transformed_batch[:batch_size - interventional_batch_size],
-                transformed_batch[batch_size - interventional_batch_size:],
+                transformed_batch[: batch_size - interventional_batch_size],
+                transformed_batch[batch_size - interventional_batch_size :],
             ]
+
         return transformed_batch
 
     def step(

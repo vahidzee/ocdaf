@@ -40,19 +40,32 @@ class OrderedLikelihoodTerm(CriterionTerm):
         if interventional:
             batch = torch.cat(batch, dim=0)
             original_batch = torch.cat(original_batch, dim=0)
+
+        training_module.term_batch = batch
+        training_module.term_original_batch = original_batch
+
         model_output = training_module(batch)
         # get likelihoods
         log_likelihoods = log_prob(
             probas=model_output,
-            cov_features=training_module.model.cov_features,
+            cov_features=training_module.model.in_covariate_features,
             categories=original_batch,
             reduce=False,
         )
-        # add interventional support (remove min from log_likelihoods and add to log_likelihoods)
+        # add interventional support
         if interventional:
-            log_likelihoods[-interventional_batch_size:] = (
-                log_likelihoods[-interventional_batch_size:]
-                - log_likelihoods[-interventional_batch_size:].min(dim=1, keepdim=True).values
+            int_log_likelihoods = log_likelihoods[-interventional_batch_size:]
+            log_likelihoods = log_likelihoods[:-interventional_batch_size]
+
+            # get the argmin over each sample in the interventional batch
+            argmin = torch.argmin(int_log_likelihoods, dim=1)
+            # mask the log likelihoods with the argmin with 0
+            int_log_likelihoods = torch.where(
+                argmin[:, None] == torch.arange(int_log_likelihoods.shape[1], device=argmin.device)[None, :],
+                torch.zeros_like(int_log_likelihoods),
+                int_log_likelihoods,
             )
+            # add the interventional log likelihoods to the non-interventional log likelihoods
+            log_likelihoods = torch.cat([log_likelihoods, int_log_likelihoods], dim=0)
 
         return -log_likelihoods.sum(dim=1).mean()
