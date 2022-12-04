@@ -1,13 +1,13 @@
 import torch
 import typing as th
-import functools
 from .layers import OrderedBlock, AutoRegressiveDensityEstimator1D
+
 
 class SingleMaskedBlockMADE(torch.nn.Module):
     """
     A Masked Autoregressive Density Estimator (MADE) that can work with multiple domain data
     this model takes in a list of categorical variables (one-hot encoded)
-    and given a doubly stochastic matrix P (permutation matrix), it will create masks according to 
+    and given a doubly stochastic matrix P (permutation matrix), it will create masks according to
     that permutation matrix and then apply the masks to each of the layers to obtain the final output in an autoregressive fashion
 
     The model is defined as follows:
@@ -42,38 +42,33 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         - The last three will indicate the probability of the fourth covariate being 0, 1, or 2
 
     """
+
     def __init__(
         self,
         in_covariate_features: th.List[int],
         hidden_features_per_covariate: th.List[th.List[int]],
-
         # layers
         bias: bool = True,
-
         # Properties of the activations used in each layer
         activation: th.Optional[str] = "torch.nn.ReLU",
         activation_args: th.Optional[dict] = None,
-
         # Properties of the batch normalization layers
         batch_norm: bool = True,
         batch_norm_args: th.Optional[dict] = None,
-        
         # general
         seed: int = 0,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
-        
         # grad safety
         safe_grad_hook: str = "lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad)",
     ) -> None:
         super().__init__()
-
         self.L = len(hidden_features_per_covariate)
         self.layers = torch.nn.Sequential(
             *[
                 OrderedBlock(
-                    in_cov_features = in_covariate_features if not i else hidden_features_per_covariate[i - 1],
-                    out_cov_features = hidden_features_per_covariate[i],
+                    in_cov_features=in_covariate_features if not i else hidden_features_per_covariate[i - 1],
+                    out_cov_features=hidden_features_per_covariate[i],
                     bias=bias,
                     activation=activation,
                     activation_args=activation_args,
@@ -105,7 +100,7 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         inputs,
         perm: th.Union[th.List[int], torch.Tensor],
     ):
-        # Takes in inputs of shape (batch_size, sum of [input features per covariate]) 
+        # Takes in inputs of shape (batch_size, sum of [input features per covariate])
         # and either a permutation of the covariates or a permanent matrix for permuting the covariates
         # If the permutation is a list, the gradients are off, otherwise, they will flow through the permutation matrix
 
@@ -120,11 +115,10 @@ class SingleMaskedBlockMADE(torch.nn.Module):
             P = P.to(inputs.device)
             P = P.type(inputs.dtype)
             perm = P
-            
+
         results, perm = self.layers((inputs, perm))
         results = self.density_estimator(results, perm)
-        
+
         # if results.requires_grad and safe_grad:
         #     results.register_hook(self.safe_grad_hook_function)
         return results
-

@@ -6,8 +6,23 @@ import typing as th
 
 class CausalDataset(torch.utils.data.Dataset):
     def __init__(
-        self, samples: th.Any, dag, intervention_node=None, intervention_values=None, name: th.Optional[str] = None
+        self,
+        samples: pd.DataFrame,
+        dag,
+        intervention_node: th.Optional[str] = None,
+        intervention_values: th.Optional[th.List[th.Any]] = None,
+        name: th.Optional[str] = None,
     ):
+        """
+        A wrapper around samples from bnlearn DAGs.
+
+        Args:
+            samples: a pd.DataFrame with the samples
+            dag: a bnlearn DAG
+            intervention_node: the node which has been intervened on (todo: add support for multiple nodes)
+            intervention_values: the values of the intervened node (split equally and sequentially among the samples)
+            name: name of the dataset (optional, used for printing)
+        """
         self.name = name
         self.samples = samples
 
@@ -17,7 +32,9 @@ class CausalDataset(torch.utils.data.Dataset):
         self.intervention_values = intervention_values
 
         self.dag = dag
+        # self.features is a list of the nodes in the DAG
         self.features = list(samples.columns) if isinstance(samples, pd.DataFrame) else None
+        
         self.features_values = [dag["model"].get_cpds(node).values.shape[0] for node in dag["model"].nodes()]
 
     def __len__(self):
@@ -36,17 +53,22 @@ class CausalDataset(torch.utils.data.Dataset):
         )
 
     def get_adjacency_matrix(self):
-        adjmat= self.dag["adjmat"] if self.dag is not None else None # a pd.DataFrame
+        adjmat = self.dag["adjmat"] if self.dag is not None else None  # a pd.DataFrame
         # adjmat is a pd.DataFrame, with the nodes as index and columns and the values are 1 if there is an edge, 0 otherwise
         # convert it into a numpy array and return it
         return adjmat.values
 
 
-
-
 def generate_datasets(
-    name, observation_size, intervention_size=0, node_list=None, dag=None, import_configs=None, show_progress=False
-):
+    name,
+    observation_size,
+    intervention_size=0,
+    node_list=None,
+    dag=None,
+    import_configs=None,
+    show_progress=False,
+    seed=0,
+) -> th.List[CausalDataset]:
     """
     Generate a list of datasets, first dataset is the original dataset, the rest are interventions
 
@@ -58,6 +80,7 @@ def generate_datasets(
         node_list (list): list of nodes to intervene on (default is all nodes)
         import_configs (dict): configs to pass to bnlearn.import_DAG
         show_progress (bool): show progress bar for sampling
+        seed (int): seed for sampling (default: 0)
 
     Returns:
         list: list of datasets (CausalDataset) (first dataset is the original dataset, the rest are interventions)
@@ -68,13 +91,19 @@ def generate_datasets(
     name = name.split("/")[-1].split(".")[0]
 
     datasets = [
-        CausalDataset(name=name, samples=dag["model"].simulate(observation_size, show_progress=show_progress), dag=dag)
+        CausalDataset(
+            name=name, samples=dag["model"].simulate(observation_size, show_progress=show_progress, seed=seed), dag=dag
+        )
     ]
     if intervention_size == 0:
         return datasets
     # generate interventional data
     interventions = generate_interventions(
-        dag=dag, num_samples_per_value=intervention_size, node_list=node_list, show_progress=show_progress
+        dag=dag,
+        num_samples_per_value=intervention_size,
+        node_list=node_list,
+        show_progress=show_progress,
+        seed=seed + 1,  # seed for the interventions
     )
     for node_intervention in interventions:
         # merge sample dataframes into one dataframe

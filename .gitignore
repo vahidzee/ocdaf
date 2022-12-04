@@ -140,3 +140,4 @@ dmypy.json
 data/*
 temp/*
 
+lightning_logs/*
