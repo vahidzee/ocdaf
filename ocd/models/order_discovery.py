@@ -28,6 +28,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
         safe_grad_hook: str = "lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad)",
     ) -> None:
         super().__init__()
+        self.in_covariate_features = in_covariate_features  # todo: cleanup
         self.made = SingleMaskedBlockMADE(
             in_covariate_features=in_covariate_features,
             hidden_features_per_covariate=hidden_features_per_covariate,
