@@ -1,11 +1,11 @@
-import pytorch_lightning as pl
+import lightning
 import typing as th
 import torch
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import random_split, DataLoader, ConcatDataset
 from .dataset import generate_datasets
 
 
-class CausalDataModule(pl.LightningDataModule):
+class CausalDataModule(lightning.LightningDataModule):
     def __init__(
         self,
         # dataset (train and val)
@@ -117,7 +117,7 @@ class CausalDataModule(pl.LightningDataModule):
                 show_progress=False,
                 import_configs=self.import_configs,
             )
-
+            self.datasets = datasets
             if not self.val_size:
                 # setup train data only (no validation)
                 self.train_data = datasets
@@ -136,6 +136,11 @@ class CausalDataModule(pl.LightningDataModule):
                     train_data, val_data = random_split(dataset, [train_len, len(dataset) - train_len], generator=prng)
                     self.train_data.append(train_data)
                     self.val_data.append(val_data)
+            # chain the interventional datasets together
+            if len(self.datasets) > 1:
+                self.train_data = [self.train_data[0], ConcatDataset(self.train_data[1:])]
+                if self.val_data:
+                    self.val_data = [self.val_data[0], ConcatDataset(self.val_data[1:])]
 
         elif stage == "test" and self.test_batch_size:
             raise NotImplementedError("test stage is not implemented yet")
