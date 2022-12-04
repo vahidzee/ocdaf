@@ -48,5 +48,8 @@ class AutoRegressiveDensityEstimator1D(OrderedLinear):
         logits, P = super().forward(inputs, P)
         logits = torch.exp(logits)
         # Create a blocked diagonal matrix according to a list of block sizes
-        probas = logits / (logits @ torch.block_diag(*[torch.ones((x, x)) for x in self.out_cov_features.tolist()]))
+        probas = logits / (
+            logits
+            @ torch.block_diag(*[torch.ones((x, x), device=inputs.device) for x in self.out_cov_features.tolist()])
+        )
         return probas

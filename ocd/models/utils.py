@@ -25,13 +25,13 @@ def log_prob(
     """
     cummulative = calculate_cumsum(cov_features)
     if isinstance(categories, list):
-        categories = torch.tensor(categories)
+        categories = torch.tensor(categories, device=probas.device)
 
     # check if all the elements in categories are less than the corresponding element in cov_features
     assert (
-        categories < torch.tensor(cov_features)
+        categories < torch.tensor(cov_features, device=probas.device)
     ).all(), "All category values must be less than the number of categories for that covariate"
-    idx = categories + cummulative
+    idx = categories + cummulative.to(categories.device)
     ps = torch.vstack([probas[i, idx[i]] for i in range(probas.shape[0])])
     ps = torch.log(ps)
     return ps.sum(-1) if reduce else ps

@@ -8,6 +8,7 @@ import dycode as dy
 
 class OrderedLikelihoodTerm(CriterionTerm):
     def __init__(
+        self,
         name: th.Optional[str] = "nll",
         factor: th.Optional[th.Union[float, dy.FunctionDescriptor]] = None,
         scale_factor: th.Optional[str] = None,

@@ -145,6 +145,8 @@ class OrderedTrainingModule(TrainingModule):
     ):
         # anneal tau
         self.model.set_tau(self.tau_scheduler(training_module=self))
+        if log_results:
+            self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
         return super().step(
             batch=batch,
             batch_idx=batch_idx,
@@ -165,7 +167,6 @@ class OrderedTrainingModule(TrainingModule):
         permutation = sample_permutation_matrix(self.model.Gamma, n_samples=1, train=False)[0].argmax(-1)
         # compare to the true graph structure
         # get datamodule
-        print(count_backward(permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values))
         self.log(
             "metrics/backwards_count",
             count_backward(permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
