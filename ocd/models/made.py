@@ -63,7 +63,6 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         safe_grad_hook: str = "lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad)",
     ) -> None:
         super().__init__()
-
         self.L = len(hidden_features_per_covariate)
         self.layers = torch.nn.Sequential(
             *[

@@ -147,6 +147,7 @@ def sample_permutation_matrix(
     Samples a permutation matrix from the
     """
     all_samples = []
+    # todo: parallelize sampling process
     for i in range(n_samples):
         # sample a matrix of gumbel noise
         gumbel_noise = -torch.log(-torch.log(torch.rand_like(Gamma)))
