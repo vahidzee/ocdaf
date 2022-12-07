@@ -33,9 +33,22 @@ class CausalDataset(torch.utils.data.Dataset):
 
         self.dag = dag
         # self.features is a list of the nodes in the DAG
-        self.features = list(samples.columns) if isinstance(samples, pd.DataFrame) else None
-        
-        self.features_values = [dag["model"].get_cpds(node).values.shape[0] for node in dag["model"].nodes()]
+        all_features_values = [x.variable_card for x in dag['model'].cpds]
+        all_features = [x.variable for x in dag['model'].cpds]
+        # create a mapping dictionary from self.features to self.feature_values
+        self.feature_values_dict = dict(
+            zip(all_features, all_features_values))
+
+        # Create the self.feature_values that corresponds to the category sizes
+        # and create self.featrues that corresponds to the category names
+        self.features_values = []
+        self.features = []
+        for x in self.samples.columns:
+            self.features.append(x)
+            self.features_values.append(self.feature_values_dict[x])
+
+    def get_category_size(self, category_name: str) -> int:
+        return self.feature_values_dict[category_name]
 
     def __len__(self):
         return len(self.samples)
@@ -53,7 +66,8 @@ class CausalDataset(torch.utils.data.Dataset):
         )
 
     def get_adjacency_matrix(self):
-        adjmat = self.dag["adjmat"] if self.dag is not None else None  # a pd.DataFrame
+        # a pd.DataFrame
+        adjmat = self.dag["adjmat"] if self.dag is not None else None
         # adjmat is a pd.DataFrame, with the nodes as index and columns and the values are 1 if there is an edge, 0 otherwise
         # convert it into a numpy array and return it
         return adjmat.values
@@ -86,7 +100,8 @@ def generate_datasets(
         list: list of datasets (CausalDataset) (first dataset is the original dataset, the rest are interventions)
     """
     # generate observational data
-    dag = dag if dag is not None else get_bnlearn_dag(name, import_configs=import_configs)
+    dag = dag if dag is not None else get_bnlearn_dag(
+        name, import_configs=import_configs)
     # get last slug of the name, remove the extension
     name = name.split("/")[-1].split(".")[0]
 
@@ -115,7 +130,8 @@ def generate_datasets(
                 name=name,
                 samples=samples,
                 intervention_node=node_intervention[0][0],
-                intervention_values=[value for _, value, _ in node_intervention],
+                intervention_values=[value for _,
+                                     value, _ in node_intervention],
             )
         )
     return datasets
