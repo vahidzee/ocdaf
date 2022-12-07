@@ -46,10 +46,15 @@ class AutoRegressiveDensityEstimator1D(OrderedLinear):
             probas: (batch_size, sum of [out_cov_features])
         """
         logits, P = super().forward(inputs, P)
-        logits = torch.exp(logits)
-        # Create a blocked diagonal matrix according to a list of block sizes
-        probas = logits / (
-            logits
-            @ torch.block_diag(*[torch.ones((x, x), device=inputs.device) for x in self.out_cov_features.tolist()])
-        )
-        return probas
+        # take logsoftmax over the covariate cagetories
+        # first take the cumulative sum of the out_cov_features (add a zero at the beginning)
+        cumsum_out_cov_features = torch.cat(
+            (torch.zeros(1, device=inputs.device), torch.cumsum(self.out_cov_features, dim=0))
+        ).int()
+
+        log_softmax = [
+            torch.log_softmax(logits[:, cumsum_out_cov_features[i] : cumsum_out_cov_features[i + 1]], dim=1)
+            for i in range(len(self.out_cov_features))
+        ]
+        log_softmax = torch.cat(log_softmax, dim=1)
+        return log_softmax

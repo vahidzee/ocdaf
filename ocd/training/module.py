@@ -3,7 +3,7 @@ import torch
 from lightning_toolbox import TrainingModule
 import functools
 import dycode as dy
-from ocd.models.sinkhorn import sample_permutation_matrix
+from ocd.models.sinkhorn import sinkhorn
 from ocd.evaluation import count_backward
 
 
@@ -89,6 +89,8 @@ class OrderedTrainingModule(TrainingModule):
         transformed_batch: th.Optional[th.Any] = None,
         transform_batch: bool = True,
     ):
+        if transform_batch:
+            self.temp_batch = batch
         # batch would be a batch_size * num_covariates matrix
         # transformed batch should be one hot encoded for each covariate
         # for binary covariates it should be batch_size * (num_covariates * 2)
@@ -161,10 +163,10 @@ class OrderedTrainingModule(TrainingModule):
             **kwargs,
         )
 
-    def on_train_epoch_end(self) -> None:
+    def on_train_epoch_start(self) -> None:
         # check the predicted graph structure
         # get the predicted graph structure
-        permutation = sample_permutation_matrix(self.model.Gamma, n_samples=1, train=False)[0].argmax(-1)
+        permutation = sinkhorn(self.model.Gamma, n_iter=self.model.n_iter, tau=self.model.tau).argmax(-1)
         # compare to the true graph structure
         # get datamodule
         self.log(
@@ -175,4 +177,4 @@ class OrderedTrainingModule(TrainingModule):
             prog_bar=True,
             logger=True,
         )
-        return super().on_train_epoch_end()
+        return super().on_train_epoch_start()

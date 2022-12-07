@@ -1,19 +1,17 @@
 import torch
 import typing as th
+import numpy as np
 
 
 def sinkhorn(Gamma: torch.Tensor, tau: float, n_iter: int) -> torch.Tensor:
     """
     Sinkhorn algorithm for computing the optimal transport matrix P.
     """
-    P = -Gamma / tau
+    P = Gamma / tau
     for i in range(n_iter):
         P = P - torch.logsumexp(P, dim=1, keepdim=True)
         P = P - torch.logsumexp(P, dim=0, keepdim=True)
     return P.exp()
-
-
-import numpy as np
 
 
 def min_zero_row(zero_mat, mark_zero):
