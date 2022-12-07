@@ -25,7 +25,8 @@ class OrderedTrainingModule(TrainingModule):
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
         optimizer: th.Union[str, th.List[str]] = "torch.optim.Adam",
-        optimizer_is_active: th.Optional[th.Union[dy.FunctionDescriptor, th.List[dy.FunctionDescriptor]]] = None,
+        optimizer_is_active: th.Optional[th.Union[dy.FunctionDescriptor,
+                                                  th.List[dy.FunctionDescriptor]]] = None,
         optimizer_parameters: th.Optional[th.Union[th.List[str], str]] = None,
         optimizer_args: th.Optional[dict] = None,
         # learning rate
@@ -40,7 +41,8 @@ class OrderedTrainingModule(TrainingModule):
         scheduler_monitor: th.Optional[th.Union[str, th.List[str]]] = None,
     ):
         # initialize model and optimizer/scheduler configs
-        _criterion_args = dict(terms=["ocd.training.terms.OrderedLikelihoodTerm"])
+        _criterion_args = dict(
+            terms=["ocd.training.terms.OrderedLikelihoodTerm"])
         _criterion_args.update(criterion_args or {})
         super().__init__(
             model_cls="ocd.models.order_discovery.SinkhornOrderDiscovery",
@@ -101,7 +103,8 @@ class OrderedTrainingModule(TrainingModule):
         if not transform_batch:
             return transformed_batch if transformed_batch is not None else batch
 
-        interventional_batch_size = batch[1].shape[0] if isinstance(batch, (list, tuple)) else 0
+        interventional_batch_size = batch[1].shape[0] if isinstance(
+            batch, (list, tuple)) else 0
 
         if isinstance(batch, (list, tuple)):
             # concat the batches in the list in the first dimension
@@ -114,7 +117,8 @@ class OrderedTrainingModule(TrainingModule):
         batch_size = batch.shape[0]
         num_covariates = len(num_classes_per_covariate)
         num_classes = sum(num_classes_per_covariate)
-        transformed_batch = torch.zeros(batch_size, num_classes, device=batch.device)
+        transformed_batch = torch.zeros(
+            batch_size, num_classes, device=batch.device)
         start_idx = 0
         for i in range(num_covariates):
             end_idx = start_idx + num_classes_per_covariate[i]
@@ -127,7 +131,7 @@ class OrderedTrainingModule(TrainingModule):
             # split the batch into observational and interventional
             transformed_batch = [
                 transformed_batch[: batch_size - interventional_batch_size],
-                transformed_batch[batch_size - interventional_batch_size :],
+                transformed_batch[batch_size - interventional_batch_size:],
             ]
 
         return transformed_batch
@@ -148,7 +152,8 @@ class OrderedTrainingModule(TrainingModule):
         # anneal tau
         self.model.set_tau(self.tau_scheduler(training_module=self))
         if log_results:
-            self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
+            self.log("metrics/tau", self.model.tau,
+                     on_step=False, on_epoch=True)
         return super().step(
             batch=batch,
             batch_idx=batch_idx,
@@ -159,19 +164,22 @@ class OrderedTrainingModule(TrainingModule):
             return_results=return_results,
             return_factors=return_factors,
             log_results=log_results,
-            original_batch=batch,  # to be used by the log likelihood (todo: clean this up)
+            # to be used by the log likelihood (todo: clean this up)
+            original_batch=batch,
             **kwargs,
         )
 
     def on_train_epoch_start(self) -> None:
         # check the predicted graph structure
         # get the predicted graph structure
-        permutation = sinkhorn(self.model.Gamma, n_iter=self.model.n_iter, tau=self.model.tau).argmax(-1)
+        permutation = sinkhorn(
+            self.model.Gamma, n_iter=self.model.n_iter, tau=self.model.tau).argmax(-1)
         # compare to the true graph structure
         # get datamodule
         self.log(
             "metrics/backwards_count",
-            count_backward(permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
+            count_backward(
+                permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
             on_step=False,
             on_epoch=True,
             prog_bar=True,

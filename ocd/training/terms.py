@@ -29,7 +29,8 @@ class OrderedLikelihoodTerm(CriterionTerm):
         self,
         batch: th.Any = None,  # one-hot encoded batch
         original_batch: th.Any = None,  # not one-hot encoded
-        training_module: lightning.LightningModule = None,  # training module (.model to access model)
+        # training module (.model to access model)
+        training_module: lightning.LightningModule = None,
         **kwargs,
     ):
         # get model output
@@ -46,6 +47,7 @@ class OrderedLikelihoodTerm(CriterionTerm):
         training_module.term_original_batch = original_batch
 
         model_output = training_module(batch)
+
         # get likelihoods
         log_likelihoods = log_prob(
             probas=model_output,
@@ -53,6 +55,7 @@ class OrderedLikelihoodTerm(CriterionTerm):
             categories=original_batch,
             reduce=False,
         )
+
         # add interventional support
         if interventional:
             int_log_likelihoods = log_likelihoods[-interventional_batch_size:]
@@ -62,11 +65,13 @@ class OrderedLikelihoodTerm(CriterionTerm):
             argmin = torch.argmin(int_log_likelihoods, dim=1)
             # mask the log likelihoods with the argmin with 0
             int_log_likelihoods = torch.where(
-                argmin[:, None] == torch.arange(int_log_likelihoods.shape[1], device=argmin.device)[None, :],
+                argmin[:, None] == torch.arange(
+                    int_log_likelihoods.shape[1], device=argmin.device)[None, :],
                 torch.zeros_like(int_log_likelihoods),
                 int_log_likelihoods,
             )
             # add the interventional log likelihoods to the non-interventional log likelihoods
-            log_likelihoods = torch.cat([log_likelihoods, int_log_likelihoods], dim=0)
+            log_likelihoods = torch.cat(
+                [log_likelihoods, int_log_likelihoods], dim=0)
 
         return -log_likelihoods.sum(dim=1).mean()
