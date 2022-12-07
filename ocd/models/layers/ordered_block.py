@@ -47,7 +47,8 @@ class OrderedBlock(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.activation = dycode.eval(activation)(**(activation_args or dict())) if activation else None
+        self.activation = dycode.eval(activation)(
+            **(activation_args or dict())) if activation else None
         self.batch_norm = (
             torch.nn.BatchNorm1d(
                 num_features=sum(out_cov_features), dtype=dtype, device=device, **(batch_norm_args or dict())
