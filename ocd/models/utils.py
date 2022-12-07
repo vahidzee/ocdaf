@@ -11,6 +11,7 @@ def log_prob(
     cov_features: th.List[int],
     categories: th.Union[torch.Tensor, th.List[th.Any]],
     reduce: bool = False,
+    log_probas: bool = True,
 ) -> torch.Tensor:
     """
     Given the input and the permutation matrix, calculates the log probability of the categories.
@@ -33,5 +34,6 @@ def log_prob(
     ).all(), "All category values must be less than the number of categories for that covariate"
     idx = categories + cummulative.to(categories.device)
     ps = torch.vstack([probas[i, idx[i]] for i in range(probas.shape[0])])
-    ps = torch.log(ps)
+    if not log_probas:
+        ps = torch.log(ps)
     return ps.sum(-1) if reduce else ps
