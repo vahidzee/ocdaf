@@ -3,6 +3,8 @@ import typing as th
 
 
 def calculate_cumsum(x: th.List[int]) -> th.List[int]:
+    """Takes a list of size n and returns a list of size n+1 where 
+    the first element is 0 and the rest are the cumsum of the input list"""
     return torch.cumsum(torch.tensor([0] + x[:-1]), dim=0)
 
 

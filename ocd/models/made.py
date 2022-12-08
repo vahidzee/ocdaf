@@ -67,7 +67,8 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         self.layers = torch.nn.Sequential(
             *[
                 OrderedBlock(
-                    in_cov_features=in_covariate_features if not i else hidden_features_per_covariate[i - 1],
+                    in_cov_features=in_covariate_features if not i else hidden_features_per_covariate[
+                        i - 1],
                     out_cov_features=hidden_features_per_covariate[i],
                     bias=bias,
                     activation=activation,
@@ -81,7 +82,6 @@ class SingleMaskedBlockMADE(torch.nn.Module):
             ]
         )
 
-        # TODO: finalize this
         self.density_estimator = AutoRegressiveDensityEstimator1D(
             in_cov_features=hidden_features_per_covariate[-1],
             out_cov_features=in_covariate_features,
@@ -108,7 +108,8 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         if isinstance(perm, list):
             n = len(perm)
             # check if perm is a permutation
-            assert set(perm) == set(range(n)), "perm must be a permutation of [0, 1, ..., n-1]"
+            assert set(perm) == set(
+                range(n)), "perm must be a permutation of [0, 1, ..., n-1]"
             # Create a permutation tensor from a permutation list
             P = torch.zeros((n, n))
             P[torch.arange(n), perm] = 1
