@@ -3,8 +3,9 @@ import torch
 from lightning_toolbox import TrainingModule
 import functools
 import dycode as dy
-from ocd.models.sinkhorn import sinkhorn
+
 from ocd.evaluation import backward_score, count_backward
+from ocd.permutation_tools import sample_permutation, derive_deterministic_permutation
 
 
 class OrderedTrainingModule(TrainingModule):
@@ -21,6 +22,7 @@ class OrderedTrainingModule(TrainingModule):
         n_sinkhorn_iterations: int = 10,
         tau: float = 0.1,  # used as initial temperature for sinkhorn
         tau_scheduler: th.Optional[dy.FunctionDescriptor] = None,
+        n_sinkhorn_scheduler: th.Optional[dy.FunctionDescriptor] = None,
         # criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
@@ -78,6 +80,14 @@ class OrderedTrainingModule(TrainingModule):
         )
         # set tau scheduler
         self.__tau_scheduler = tau_scheduler  # processed in self.tau_scheduler
+        # processed in self.n_sinkhorn_scheduler
+        self.__n_sinkhorn_scheduler = n_sinkhorn_scheduler
+
+    @functools.cached_property
+    def n_sinkhorn_scheduler(self):
+        if self.__n_sinkhorn_scheduler:
+            return dy.eval_function(self.__n_sinkhorn_scheduler, function_of_interest="n_iter", dynamic_args=True)
+        return dy.dynamic_args_wrapper(lambda: self.model.n_iter)
 
     @functools.cached_property
     def tau_scheduler(self):
@@ -149,11 +159,10 @@ class OrderedTrainingModule(TrainingModule):
         log_results: bool = True,
         **kwargs,  # additional arguments to pass to the criterion and attacker
     ):
-        # anneal tau
+        # anneal tau and change the number of sinkhorn iterations accordingly
         self.model.set_tau(self.tau_scheduler(training_module=self))
-        if log_results:
-            self.log("metrics/tau", self.model.tau,
-                     on_step=False, on_epoch=True)
+        self.model.set_n_iter(self.n_sinkhorn_scheduler(training_module=self))
+
         return super().step(
             batch=batch,
             batch_idx=batch_idx,
@@ -172,10 +181,13 @@ class OrderedTrainingModule(TrainingModule):
     def on_train_epoch_start(self) -> None:
         # check the predicted graph structure
         # get the predicted graph structure
-        permutation = sinkhorn(
-            self.model.Gamma, n_iter=self.model.n_iter, tau=self.model.tau).argmax(-1)
+        permutation = derive_deterministic_permutation(self.model.Gamma)
         # compare to the true graph structure
         # get datamodule
+        self.log("metrics/tau", self.model.tau,
+                 on_step=False, on_epoch=True)
+        self.log("metrics/n_iter", self.model.n_iter,
+                 on_step=False, on_epoch=True)
         self.log(
             "metrics/backwards_count",
             count_backward(
