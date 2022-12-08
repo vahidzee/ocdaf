@@ -4,7 +4,7 @@ from lightning_toolbox import TrainingModule
 import functools
 import dycode as dy
 from ocd.models.sinkhorn import sinkhorn
-from ocd.evaluation import count_backward
+from ocd.evaluation import backward_score, count_backward
 
 
 class OrderedTrainingModule(TrainingModule):
@@ -179,6 +179,15 @@ class OrderedTrainingModule(TrainingModule):
         self.log(
             "metrics/backwards_count",
             count_backward(
+                permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
+        self.log(
+            "metrics/backwards_count_divided_by_num_edges",
+            backward_score(
                 permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
             on_step=False,
             on_epoch=True,
