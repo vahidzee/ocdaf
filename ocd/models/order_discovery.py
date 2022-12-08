@@ -2,7 +2,6 @@ import torch
 from .made import SingleMaskedBlockMADE
 from torch.nn.parameter import Parameter
 import typing as th
-from .sinkhorn import sinkhorn
 
 
 class SinkhornOrderDiscovery(torch.nn.Module):
@@ -43,7 +42,8 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             safe_grad_hook=safe_grad_hook,
         )
         n = len(in_covariate_features)
-        self.Gamma = Parameter(torch.randn(n, n, device=device, dtype=dtype))
+        p = torch.zeros(n, n, requires_grad=True, device=device, dtype=dtype)
+        self.Gamma = torch.nn.Parameter(p)
         self.tau = tau
         self.n_iter = n_iter
 
@@ -53,6 +53,17 @@ class SinkhornOrderDiscovery(torch.nn.Module):
     def set_n_iter(self, n_iter: int) -> None:
         self.n_iter = n_iter
 
+    def sinkhorn(self) -> torch.Tensor:
+        """
+        Sinkhorn algorithm for computing the optimal transport matrix P.
+        """
+        P = torch.nn.functional.logsigmoid(self.Gamma)
+        P = P / self.tau
+        for i in range(self.n_iter):
+            P = P - torch.logsumexp(P, dim=1, keepdim=True)
+            P = P - torch.logsumexp(P, dim=0, keepdim=True)
+        return P.exp()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        P = sinkhorn(self.Gamma, self.tau, self.n_iter)
+        P = self.sinkhorn()
         return self.made(x, P)
