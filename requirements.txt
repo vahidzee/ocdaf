@@ -4,3 +4,4 @@ lightning
 lightning_toolbox
 #
 bnlearn
+seaborn
