@@ -17,7 +17,7 @@ class OrderedTrainingModule(TrainingModule):
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.ReLU",
         activation_args: th.Optional[dict] = None,
-        batch_norm: bool = True,
+        batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         n_sinkhorn_iterations: int = 10,
         tau: float = 0.1,  # used as initial temperature for sinkhorn
