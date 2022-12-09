@@ -181,29 +181,36 @@ class OrderedTrainingModule(TrainingModule):
     def on_train_epoch_start(self) -> None:
         # check the predicted graph structure
         # get the predicted graph structure
-        permutation = derive_deterministic_permutation(self.model.Gamma)
-        # compare to the true graph structure
-        # get datamodule
-        self.log("metrics/tau", self.model.tau,
-                 on_step=False, on_epoch=True)
-        self.log("metrics/n_iter", self.model.n_iter,
-                 on_step=False, on_epoch=True)
-        self.log(
-            "metrics/backwards_count",
-            count_backward(
-                permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-        self.log(
-            "metrics/backwards_count_divided_by_num_edges",
-            backward_score(
-                permutation, self.trainer.datamodule.datasets[0].dag["adjmat"].values),
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
+        with torch.no_grad():
+            permutation = derive_deterministic_permutation(self.model.Gamma)
+            # compare to the true graph structure
+            # get datamodule
+            self.log("metrics/tau", self.model.tau,
+                     on_step=False, on_epoch=True)
+            self.log("metrics/n_iter", self.model.n_iter,
+                     on_step=False, on_epoch=True)
+            self.log(
+                "metrics/backwards_count",
+                count_backward(
+                    permutation, self.trainer.datamodule.datasets[0].dag),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
+            self.log(
+                "metrics/backwards_count_divided_by_num_edges",
+                backward_score(
+                    permutation, self.trainer.datamodule.datasets[0].dag),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
         return super().on_train_epoch_start()
+
+    def get_ordering(self):
+        # get the predicted causal ordering
+        with torch.no_grad():
+            permutation = derive_deterministic_permutation(self.model.Gamma)
+            return permutation
