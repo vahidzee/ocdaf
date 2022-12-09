@@ -2,6 +2,7 @@ import torch
 from .utils import generate_interventions, get_bnlearn_dag
 import pandas as pd
 import typing as th
+import numpy as np
 
 
 class CausalDataset(torch.utils.data.Dataset):
@@ -24,14 +25,14 @@ class CausalDataset(torch.utils.data.Dataset):
             name: name of the dataset (optional, used for printing)
         """
         self.name = name
-        self.samples = samples
+        # sort columns of samples alphabetically
+        self.samples = samples.reindex(sorted(samples.columns), axis=1)
 
         # intervention_node is the node that we intervened on
         self.intervention_node = intervention_node
         # intervention_values is the value that we intervened on
         self.intervention_values = intervention_values
 
-        self.dag = dag
         # self.features is a list of the nodes in the DAG
         all_features_values = [x.variable_card for x in dag['model'].cpds]
         all_features = [x.variable for x in dag['model'].cpds]
@@ -46,6 +47,13 @@ class CausalDataset(torch.utils.data.Dataset):
         for x in self.samples.columns:
             self.features.append(x)
             self.features_values.append(self.feature_values_dict[x])
+
+        # assign self.dag
+        self.dag = np.zeros((len(self.features), len(self.features)))
+        for i, x in enumerate(self.samples.columns):
+            for j, y in enumerate(self.samples.columns):
+                if dag['adjmat'][x][y]:
+                    self.dag[j][i] = 1
 
     def get_category_size(self, category_name: str) -> int:
         return self.feature_values_dict[category_name]
