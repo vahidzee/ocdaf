@@ -3,6 +3,8 @@ import torch
 from lightning_toolbox import TrainingModule
 import functools
 import dycode as dy
+import matplotlib.pyplot as plt
+import numpy as np
 
 from ocd.evaluation import backward_score, count_backward
 from ocd.permutation_tools import sample_permutation, derive_deterministic_permutation
@@ -17,6 +19,8 @@ class OrderedTrainingModule(TrainingModule):
         # Fix for a permutation just to check if it works at all
         fixed_permutation: th.Optional[th.Union[th.List[int],
                                                 torch.Tensor]] = None,
+        log_permutation: bool = False,
+        log_permutation_freq: int = 1,
         # data transform
         embedding_dim: int = 0,  # 0 for one-hot encoding
         # None for no normalization,
@@ -98,6 +102,12 @@ class OrderedTrainingModule(TrainingModule):
         if fixed_permutation is not None:
             self.fixed_permutation = fixed_permutation.copy()
             self.model.set_permutation(self.fixed_permutation)
+
+        # Set a history for permutations
+        self.log_permutation_enabled = log_permutation
+        self.permutation_history = None
+        self.log_permutation_freq = log_permutation_freq
+        self.log_permutation_rem = 0
 
         # embedding
         self.features_embedding = (
@@ -246,11 +256,88 @@ class OrderedTrainingModule(TrainingModule):
             **kwargs,
         )
 
+    def log_permutation(self, permutation: th.List[int], phase: str = 'train') -> None:
+        self.log_permutation_rem = (
+            self.log_permutation_rem + 1) % self.log_permutation_freq
+
+        if self.log_permutation_rem != 1:
+            return
+
+        # TODO: clean this up!
+
+        logger = self.logger.experiment
+        # plot the permutation using matplotlib and save it to a numpy array
+        fig, ax = plt.subplots()
+        try:
+            # concatenate permutation to the history as a new column
+            if self.permutation_history is None:
+                self.permutation_history = np.array([permutation])
+            else:
+                self.permutation_history = np.concatenate(
+                    (self.permutation_history, np.array([permutation])))
+
+            # print(self.permutation_history.shape)
+            for i in range(self.permutation_history.shape[1]):
+                # print(self.permutation_history[:, i])
+                ax.plot(
+                    self.permutation_history[:, i], label=f'p_{i}', alpha=0.5)
+
+            ax.legend()
+            ax.set_title(f'Permutation')
+            ax.set_xlabel('epoch')
+            ax.set_ylabel('permutation')
+            fig.canvas.draw()
+            # convert the figure to a numpy array
+            data = np.fromstring(fig.canvas.tostring_rgb(),
+                                 dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            # log the figure to tensorboard
+            logger.add_image(f'belief_system/permutation', data,
+                             self.current_epoch, dataformats='HWC')
+        finally:
+            plt.close()
+
+        fig, ax = plt.subplots()
+        try:
+            mask_guider = self.model.get_permanent_matrix()
+            # plot self.mask_guider as a heatmap
+            ax.imshow(mask_guider, interpolation='none')
+            ax.set_title(f'mask_guider (represent a permanent matrix)')
+            fig.canvas.draw()
+            # convert the figure to a numpy array
+            data = np.fromstring(fig.canvas.tostring_rgb(),
+                                 dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            # log the figure to tensorboard
+            logger.add_image(f'belief_system/mask_guider', data,
+                             self.current_epoch, dataformats='HWC')
+        finally:
+            plt.close()
+
+        fig, ax = plt.subplots()
+        try:
+            belief = self.model.Gamma
+            # plot self.mask_guider as a heatmap
+            ax.imshow(belief, interpolation='none')
+            ax.set_title(f'Gamma (summarizes the belief parameters)')
+            fig.canvas.draw()
+            # convert the figure to a numpy array
+            data = np.fromstring(fig.canvas.tostring_rgb(),
+                                 dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            # log the figure to tensorboard
+            logger.add_image(f'belief_system/gamma', data,
+                             self.current_epoch, dataformats='HWC')
+        finally:
+            plt.close()
+
     def on_train_epoch_start(self) -> None:
         # check the predicted graph structure
         # get the predicted graph structure
         with torch.no_grad():
             permutation = self.model.get_permutation()
+            if self.log_permutation_enabled:
+                self.log_permutation(permutation, phase='train')
             # compare to the true graph structure
             # get datamodule
             self.log("metrics/tau", self.model.tau,

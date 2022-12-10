@@ -43,7 +43,8 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             safe_grad_hook=safe_grad_hook,
         )
         n = len(in_covariate_features)
-        p = torch.zeros(n, n, requires_grad=True, device=device, dtype=dtype)
+        p = torch.randn(n, n, requires_grad=True, device=device, dtype=dtype)
+
         self.Gamma = torch.nn.Parameter(p)
         self.tau = tau
         self.n_iter = n_iter
@@ -90,12 +91,17 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             P = P - torch.logsumexp(P, dim=0, keepdim=True)
         return P.exp()
 
-    def get_permutation(self) -> torch.Tensor:
+    def get_permutation(self) -> th.List[int]:
+        """
+        Returns the permutation of the input variables.
+
+        It should not be called for training but just for checking and evaluation.
+        """
         if self.permutation is not None:
             return self.permutation_list.copy()
         else:
             with torch.no_grad():
-                return derive_deterministic_permutation(self.Gamma)
+                return derive_deterministic_permutation(self.Gamma).tolist()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         P = self.get_permanent_matrix()
