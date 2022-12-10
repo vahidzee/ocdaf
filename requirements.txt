@@ -3,5 +3,8 @@ numpy
 lightning
 lightning_toolbox
 #
+pandas
+tqdm
+#
 bnlearn
 seaborn
