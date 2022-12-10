@@ -35,7 +35,8 @@ class OrderedLikelihoodTerm(CriterionTerm):
     ):
         # get model output
         batch_sizes = (
-            [batch[i].shape[0] for i in range(len(batch))] if isinstance(batch, (list, tuple)) else [batch.shape[0]]
+            [batch[i].shape[0] for i in range(len(batch))] if isinstance(
+                batch, (list, tuple)) else [batch.shape[0]]
         )
 
         if len(batch_sizes) > 1:
@@ -76,8 +77,42 @@ class OrderedLikelihoodTerm(CriterionTerm):
         )  # concatenate interventional batches into one tensor to process them simoultaneously
         interventional_log_likelihoods = torch.where(
             mask,
-            torch.zeros_like(interventional_log_likelihoods, device=results.device),
+            torch.zeros_like(interventional_log_likelihoods,
+                             device=results.device),
             interventional_log_likelihoods,
         )
         results = results - interventional_log_likelihoods.sum(dim=1).mean()
         return results
+
+
+class PermanentMatrixPenalizer(CriterionTerm):
+    def __init__(
+        self,
+        name: th.Optional[str] = "nll",
+        factor: th.Optional[th.Union[float, dy.FunctionDescriptor]] = None,
+        scale_factor: th.Optional[str] = None,
+        term_function: th.Optional[dy.FunctionDescriptor] = None,
+        factor_application: str = "multiply",  # multiply or add
+        **kwargs,  # function description dictionary
+    ):
+        super().__init__(
+            name=name,
+            factor=factor,
+            scale_factor=scale_factor,
+            term_function=term_function,
+            factor_application=factor_application,
+            **kwargs,
+        )
+
+    def __call__(
+        self,
+        batch: th.Any = None,
+        original_batch: th.Any = None,  # not one-hot encoded
+        training_module: lightning.LightningModule = None,
+        **kwargs,
+    ):
+        P = training_module.model.get_permanent_matrix()
+        # assign a penalty to the permanent matrix
+        # if it is smooth then it will have large penalty
+        P = torch.nn.functional.relu(P * (1 - P))
+        return 0.0001 * torch.sum(P)
