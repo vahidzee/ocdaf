@@ -11,6 +11,7 @@ import typing as th
 import pandas as pd
 import sklearn as sk
 from tqdm import tqdm
+import scipy as sp
 
 # define a python enum for the different pruning methods
 
@@ -21,12 +22,18 @@ class PruningMethod:
     LEAVE_ONE_OUT = 2
 
 
-def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.array] = None, threshold: float = 0.05, sample_threshold: int = 20) -> bool:
+class IndependceTestingMethod:
+    MUTUAL_INFORMATION = 0
+    CHI_SQUARED = 1
+
+
+def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.array] = None, threshold: float = 0.05, sample_threshold: int = 20,
+                                  categorical: bool = True, independence_test: IndependceTestingMethod = IndependceTestingMethod.CHI_SQUARED) -> bool:
     """
     This algorithm takes in two variables and a conditioning set and performs a conditional independence test.
     The test is performed by computing the mutual information between the two variables and conditioning on the conditioning set.
     We will first group the conditioning set by unique values and then perform the independence test on each group.
-    To do so, on each group we calculate a mutual information score and then average the scores weighted by the number of samples in each group.
+    To do so, on each group we calculate a score and then average the scores weighted by the number of samples in each group.
     For the groups that have less than the sample threshold, we ignore them.
     If the average score is less than the threshold then we return True, otherwise we return False.
 
@@ -40,29 +47,59 @@ def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.ar
     Returns:
         bool: True if the variables are conditionally independent, False otherwise
     """
+
+    if categorical:
+        # get the number of unique values in x and y
+        x_unique = np.unique(x)
+        y_unique = np.unique(y)
+
+    def calculate_score(x, y):
+        if independence_test == IndependceTestingMethod.MUTUAL_INFORMATION:
+            return sk.metrics.mutual_info_score(x, y)
+        elif independence_test == IndependceTestingMethod.CHI_SQUARED:
+            tab = pd.crosstab(x, y)
+            p_value = sp.stats.chi2_contingency(tab)[1]
+            return p_value
+        else:
+            raise ValueError("Invalid independence test method")
+
+    def compare_with_threshod(score, threshold):
+        if independence_test == IndependceTestingMethod.MUTUAL_INFORMATION:
+            return score < threshold
+        else:
+            return score > threshold
+
     if z is None:
-        mut = sk.metrics.mutual_info_score(x, y)
-        return mut < threshold
+        return compare_with_threshod(calculate_score(x, y), threshold)
 
     # group rows of z by unique values and do an independence test on each group
-
     z_unique, z_unique_idx, z_unique_inv, z_unique_counts = np.unique(
         z, axis=0, return_index=True, return_inverse=True, return_counts=True)
     sm = 0
     count = 0
-
     for i in range(len(z_unique_counts)):
         if z_unique_counts[i] < sample_threshold:
             continue
-        mut = sk.metrics.mutual_info_score(
-            x[z_unique_inv == i], y[z_unique_inv == i])
+        xs = x[z_unique_inv == i]
+        ys = y[z_unique_inv == i]
+        # check positivity
+        positivity = True
+        if categorical:
+            if len(np.unique(xs)) != len(x_unique) or len(np.unique(ys)) != len(y_unique):
+                positivity = False
+        if not positivity:
+            continue
+        # calculate score
+        score = calculate_score(xs, ys)
         count += z_unique_counts[i]
-        sm += z_unique_counts[i] * mut
-    return True if count == 0 else sm / count < threshold
+        sm += z_unique_counts[i] * score
+    if count == 0:
+        return True
+    # compare the average score with threshold
+    return compare_with_threshod(sm/count, threshold)
 
 
-def prune_cit(data: pd.DataFrame, y: int, x: int, all_prec: th.List[int],
-              threshold: float = 0.05, sample_threshold: int = 20) -> bool:
+def prune_cit(data: pd.DataFrame, y: int, x: int, all_prec: th.List[int], *args, **kwargs) -> bool:
     """
     Prune the edge from y->x using conditional independence testing
     It is assumed that x depends on a subset of all_prec and we want to make sure
@@ -86,17 +123,18 @@ def prune_cit(data: pd.DataFrame, y: int, x: int, all_prec: th.List[int],
     # do a conditional independence test between x and y conditioned on all_prec
     # if the p-value is above the threshold, then y is not a parent of x
     # otherwise, y is a parent of x
+
     cp_all_prec = all_prec.copy()
     cp_all_prec.remove(y)
     x = data.iloc[:, x].values
     y = data.iloc[:, y].values
     if len(cp_all_prec) == 0:
         return conditional_independence_test(
-            x, y, None, threshold, sample_threshold)
+            x, y, None, *args, **kwargs)
     z = data.iloc[:, cp_all_prec].values
 
     return conditional_independence_test(
-        x, y, z, threshold, sample_threshold)
+        x, y, z, *args, **kwargs)
 
 
 def prune_sp(data: pd.DataFrame, x: int, all_prec: th.List[int]) -> th.List[int]:
