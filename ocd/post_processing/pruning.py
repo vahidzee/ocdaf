@@ -173,7 +173,9 @@ def create_dag_from_ordering(ordering: th.List[int]) -> np.array:
     return dag
 
 
-def prune(ordering: th.List[int], data: pd.DataFrame, method: PruningMethod,
+def prune(ordering: th.List[int], data: pd.DataFrame,
+          method: PruningMethod,
+          interventional_column: th.Optional[int] = None,
           dag: th.Optional[np.array] = None, verbose: int = 0,
           method_params: th.Optional[dict] = None) -> np.array:
     """
@@ -221,6 +223,11 @@ def prune(ordering: th.List[int], data: pd.DataFrame, method: PruningMethod,
             print("Pruning parents of node: ", ordering[i])
 
         x = ordering[i]
+
+        # Ignore the interventional column
+        if interventional_column is not None and x == interventional_column:
+            continue
+
         # Create a list of all the parents of x in all_prec
         all_prec = []
         for j in range(i):
