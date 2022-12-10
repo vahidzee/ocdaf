@@ -103,13 +103,13 @@ def listperm2matperm(listperm):
     return eye
 
 
-def derive_deterministic_permutation(permutation_table: torch.Tensor, output_matrix: bool = False):
+def derive_deterministic_permutation(permutation_table: torch.Tensor, output_matrix: bool = False) -> torch.Tensor:
     """
     Args:
         permutation_table: [batch_size, n, n] or [n, n]
         output_matrix: if True, returns a matrix representation of permutations
     Returns:
-        permutation: [batch_size, n] or [n]
+        permutation: [n]
     """
     return sample_permutation(permutation_table, noise_factor=0, n_samples=1, mode='hard', output_matrix=output_matrix)[0]
 
