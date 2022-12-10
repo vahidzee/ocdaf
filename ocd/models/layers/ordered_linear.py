@@ -51,11 +51,14 @@ class OrderedLinear(torch.nn.Linear):
 
         n = len(in_cov_features)
         if n != len(out_cov_features):
-            raise ValueError("in_cov_features and out_cov_features must have the same length")
+            raise ValueError(
+                "in_cov_features and out_cov_features must have the same length")
 
-        dependencies = torch.tril(torch.ones(n, n, device=device, dtype=mask_dtype))
+        dependencies = torch.tril(torch.ones(
+            n, n, device=device, dtype=mask_dtype))
         if not auto_connection:
-            dependencies = dependencies - torch.eye(n, device=device, dtype=mask_dtype)
+            dependencies = dependencies - \
+                torch.eye(n, device=device, dtype=mask_dtype)
 
         self.register_buffer(
             "default_mask",
