@@ -30,6 +30,9 @@ class CausalDataset(torch.utils.data.Dataset):
 
         # intervention_node is the node that we intervened on
         self.intervention_node = intervention_node
+        # get the intervention column index
+        self.intervention_column = self.samples.columns.get_loc(
+            intervention_node) if intervention_node is not None else None
         # intervention_values is the value that we intervened on
         self.intervention_values = intervention_values
 
@@ -107,7 +110,8 @@ def generate_datasets(
         list: list of datasets (CausalDataset) (first dataset is the original dataset, the rest are interventions)
     """
     # generate observational data
-    dag = dag if dag is not None else get_bnlearn_dag(name, import_configs=import_configs)
+    dag = dag if dag is not None else get_bnlearn_dag(
+        name, import_configs=import_configs)
     # get last slug of the name, remove the extension
     name = name.split("/")[-1].split(".")[0]
 
@@ -136,7 +140,8 @@ def generate_datasets(
                 name=name,
                 samples=samples,
                 intervention_node=node_intervention[0][0],
-                intervention_values=[value for _, value, _ in node_intervention],
+                intervention_values=[value for _,
+                                     value, _ in node_intervention],
             )
         )
     return datasets
