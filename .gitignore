@@ -140,4 +140,5 @@ dmypy.json
 data/*
 temp/*
 
-lightning_logs/*
+# experimental log files
+*lightning_logs
