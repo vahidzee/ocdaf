@@ -141,4 +141,4 @@ data/*
 temp/*
 
 # experimental log files
-*lightning_logs
+notebooks/lightning_logs/version_*
