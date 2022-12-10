@@ -34,11 +34,10 @@ class CausalDataset(torch.utils.data.Dataset):
         self.intervention_values = intervention_values
 
         # self.features is a list of the nodes in the DAG
-        all_features_values = [x.variable_card for x in dag['model'].cpds]
-        all_features = [x.variable for x in dag['model'].cpds]
+        all_features_values = [x.variable_card for x in dag["model"].cpds]
+        all_features = [x.variable for x in dag["model"].cpds]
         # create a mapping dictionary from self.features to self.feature_values
-        self.feature_values_dict = dict(
-            zip(all_features, all_features_values))
+        self.feature_values_dict = dict(zip(all_features, all_features_values))
 
         # Create the self.feature_values that corresponds to the category sizes
         # and create self.featrues that corresponds to the category names
@@ -52,7 +51,7 @@ class CausalDataset(torch.utils.data.Dataset):
         self.dag = np.zeros((len(self.features), len(self.features)))
         for i, x in enumerate(self.samples.columns):
             for j, y in enumerate(self.samples.columns):
-                if dag['adjmat'][x][y]:
+                if dag["adjmat"][x][y]:
                     self.dag[j][i] = 1
 
     def get_category_size(self, category_name: str) -> int:
@@ -108,8 +107,7 @@ def generate_datasets(
         list: list of datasets (CausalDataset) (first dataset is the original dataset, the rest are interventions)
     """
     # generate observational data
-    dag = dag if dag is not None else get_bnlearn_dag(
-        name, import_configs=import_configs)
+    dag = dag if dag is not None else get_bnlearn_dag(name, import_configs=import_configs)
     # get last slug of the name, remove the extension
     name = name.split("/")[-1].split(".")[0]
 
@@ -138,8 +136,7 @@ def generate_datasets(
                 name=name,
                 samples=samples,
                 intervention_node=node_intervention[0][0],
-                intervention_values=[value for _,
-                                     value, _ in node_intervention],
+                intervention_values=[value for _, value, _ in node_intervention],
             )
         )
     return datasets

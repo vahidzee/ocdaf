@@ -9,10 +9,20 @@ import typing as th
 
 
 def get_bnlearn_dag(name, import_configs=None):
-    import_configs = import_configs if import_configs is not None else {}
+    """
+    Get the DAG from bnlearn using the given name (or link to the dataset)
+
+    Args:
+        name (str): name of the dataset (or link to the dataset)
+        import_configs (dict): configs to pass to bnlearn.import_DAG (default is verbose=2)
+
+    Returns:
+        bnlearn.BayesianModel: the DAG
+    """
+    _import_configs = dict(verbose=2)
+    _import_configs.update(import_configs if import_configs is not None else {})
     # if name is a link, download it into a temp file
     if name.startswith("http"):
-
         # download the file, and show the progress
         r = requests.get(name, stream=True)
         total_size = int(r.headers.get("content-length", 0))
@@ -36,13 +46,13 @@ def get_bnlearn_dag(name, import_configs=None):
             f.name = f_out.name
 
         # import dag from the file
-        dag = bnlearn.import_DAG(f.name)
+        dag = bnlearn.import_DAG(f.name, **_import_configs)
         # remove the temp file, after importing the dag
         os.remove(f.name)
         return dag
 
     # load the dag using bnlearn.import_DAG
-    dag = bnlearn.import_DAG(name)
+    dag = bnlearn.import_DAG(name, **_import_configs)
     return dag
 
 

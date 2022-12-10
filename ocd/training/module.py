@@ -142,7 +142,9 @@ class OrderedTrainingModule(TrainingModule):
         if not transform_batch:
             return transformed_batch if transformed_batch is not None else batch
 
-        interventional_batch_size = batch[1].shape[0] if isinstance(batch, (list, tuple)) else 0
+        batch_sizes = (
+            [batch[i].shape[0] for i in range(len(batch))] if isinstance(batch, (list, tuple)) else [batch.shape[0]]
+        )
 
         if isinstance(batch, (list, tuple)):
             # concat the batches in the list in the first dimension
@@ -185,12 +187,8 @@ class OrderedTrainingModule(TrainingModule):
                 )
                 start_idx = end_idx
 
-        if interventional_batch_size > 0:
-            # split the batch into observational and interventional
-            transformed_batch = [
-                transformed_batch[: batch_size - interventional_batch_size],
-                transformed_batch[batch_size - interventional_batch_size :],
-            ]
+        # split the batch back into the original list
+        transformed_batch = torch.split(transformed_batch, batch_sizes) if len(batch_sizes) > 1 else transformed_batch
 
         return transformed_batch
 

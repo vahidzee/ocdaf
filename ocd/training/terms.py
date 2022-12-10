@@ -34,20 +34,16 @@ class OrderedLikelihoodTerm(CriterionTerm):
         **kwargs,
     ):
         # get model output
-        interventional: bool = isinstance(
-            batch, (list, tuple)
-        )  # whether to use interventional or non-interventional loss
-        interventional_batch_size: int = batch[1].shape[0] if interventional else 0
+        batch_sizes = (
+            [batch[i].shape[0] for i in range(len(batch))] if isinstance(batch, (list, tuple)) else [batch.shape[0]]
+        )
 
-        if interventional:
+        if len(batch_sizes) > 1:
             batch = torch.cat(batch, dim=0)
             original_batch = torch.cat(original_batch, dim=0)
 
-        training_module.term_batch = batch
-        training_module.term_original_batch = original_batch
-
+        # get logits
         model_output = training_module(batch)
-
         # get likelihoods
         log_likelihoods = log_prob(
             probas=model_output,
@@ -56,22 +52,32 @@ class OrderedLikelihoodTerm(CriterionTerm):
             reduce=False,
         )
 
-        # add interventional support
-        if interventional:
-            int_log_likelihoods = log_likelihoods[-interventional_batch_size:]
-            log_likelihoods = log_likelihoods[:-interventional_batch_size]
+        # split likelihoods into batches
+        log_likelihoods = torch.split(log_likelihoods, batch_sizes, dim=0)
 
-            # get the argmin over each sample in the interventional batch
-            argmin = torch.argmin(int_log_likelihoods, dim=1)
-            # mask the log likelihoods with the argmin with 0
-            int_log_likelihoods = torch.where(
-                argmin[:, None] == torch.arange(
-                    int_log_likelihoods.shape[1], device=argmin.device)[None, :],
-                torch.zeros_like(int_log_likelihoods),
-                int_log_likelihoods,
-            )
-            # add the interventional log likelihoods to the non-interventional log likelihoods
-            log_likelihoods = torch.cat(
-                [log_likelihoods, int_log_likelihoods], dim=0)
+        # for each interventional batch, put aside the logit with the lowest likelihood on average
+        # and set it to 0
+        results = -log_likelihoods[0].sum(dim=1).mean()  # observational data
+        intervention_idx = (
+            torch.stack(log_likelihoods[1:]).mean(dim=1).argmin(dim=1)
+        )  # probable intervention index in each interventional batch
 
-        return -log_likelihoods.sum(dim=1).mean()
+        # create a mask to set the logit with the lowest likelihood to 0
+        mask = intervention_idx.reshape(-1, 1) == torch.arange(
+            log_likelihoods[0].shape[-1], device=results.device
+        ).reshape(1, -1)
+        mask = mask.repeat_interleave(
+            torch.tensor(batch_sizes[1:]).to(device=results.device), dim=0
+        )  # repeat each row of mask by the number of samples in the corresponding batch
+
+        # mask the logit with the lowest likelihood
+        interventional_log_likelihoods = torch.cat(
+            log_likelihoods[1:]
+        )  # concatenate interventional batches into one tensor to process them simoultaneously
+        interventional_log_likelihoods = torch.where(
+            mask,
+            torch.zeros_like(interventional_log_likelihoods, device=results.device),
+            interventional_log_likelihoods,
+        )
+        results = results - interventional_log_likelihoods.sum(dim=1).mean()
+        return results

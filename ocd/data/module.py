@@ -136,11 +136,6 @@ class CausalDataModule(lightning.LightningDataModule):
                     train_data, val_data = random_split(dataset, [train_len, len(dataset) - train_len], generator=prng)
                     self.train_data.append(train_data)
                     self.val_data.append(val_data)
-            # chain the interventional datasets together
-            if len(self.datasets) > 1:
-                self.train_data = [self.train_data[0], ConcatDataset(self.train_data[1:])]
-                if self.val_data:
-                    self.val_data = [self.val_data[0], ConcatDataset(self.val_data[1:])]
 
         elif stage == "test" and self.test_batch_size:
             raise NotImplementedError("test stage is not implemented yet")
