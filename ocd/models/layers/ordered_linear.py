@@ -68,6 +68,15 @@ class OrderedLinear(torch.nn.Linear):
         self.in_cov_features = torch.tensor(in_cov_features)
         self.out_cov_features = torch.tensor(out_cov_features)
 
+    def get_masked_weight(self, P) -> torch.Tensor:
+        """
+
+        """
+        mask = P @ self.default_mask @ P.T
+        mask = torch.repeat_interleave(mask, self.in_cov_features, dim=1)
+        mask = torch.repeat_interleave(mask, self.out_cov_features, dim=0)
+        return mask * self.weight
+
     def get_masked_weights(self, P: torch.Tensor) -> torch.Tensor:
         """
         Returns masked weights.
@@ -97,8 +106,13 @@ class OrderedLinear(torch.nn.Linear):
             A `torch.Tensor` which equals to masked linear operation on inputs, or:
                 `inputs @ (mask * weights).T + bias` plus the input P
         """
-        masked_weights = self.get_masked_weights(P)
-        ret = torch.bmm(masked_weights, inputs[:, :, None]).squeeze()
-        if self.bias is not None:
-            ret = ret + self.bias
+        perm_size = len(P.shape)
+        if perm_size == 3:
+            masked_weights = self.get_masked_weights(P)
+            ret = torch.bmm(masked_weights, inputs[:, :, None]).squeeze()
+            if self.bias is not None:
+                ret = ret + self.bias
+        elif perm_size == 2:
+            masked_weight = self.get_masked_weight(P)
+            ret = torch.nn.functional.linear(inputs, masked_weight, self.bias)
         return ret, P

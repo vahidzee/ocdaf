@@ -22,6 +22,8 @@ class SinkhornOrderDiscovery(torch.nn.Module):
         n_iter: int = 10,
         tau: float = 0.1,
         noise_factor: float = 0.1,
+        different_noise_per_batch: bool = False,
+        gamma_scaling: float = 1,
         # general
         seed: int = 0,
         device: th.Optional[torch.device] = None,
@@ -48,7 +50,8 @@ class SinkhornOrderDiscovery(torch.nn.Module):
                         device=device, dtype=dtype)
 
         self.noise_factor = noise_factor
-        self.Gamma = torch.nn.Parameter(p)
+        self.different_noise_per_batch = different_noise_per_batch
+        self.Gamma = torch.nn.Parameter(gamma_scaling * p)
         self.tau = tau
         self.n_iter = n_iter
 
@@ -80,10 +83,26 @@ class SinkhornOrderDiscovery(torch.nn.Module):
     def unset_permutation(self) -> None:
         self.permutation = None
 
-    def get_permanent_matrices(self, n_sample: int) -> torch.Tensor:
+    def get_permanent_matrices(self, n_sample: int, trial_and_error: int = 10) -> torch.Tensor:
         if self.permutation is None:
-            return sample_permutation(self.Gamma, self.noise_factor, n_sample,
-                                      mode='soft', sinkhorn_temp=self.tau, sinkhorn_iters=self.n_iter)
+            # sample a set of differentiable matrices
+            all_perms = sample_permutation(self.Gamma, self.noise_factor, n_sample * trial_and_error,
+                                           mode='soft', sinkhorn_temp=self.tau, sinkhorn_iters=self.n_iter)
+            # do trial and error because sinkhorn operator is imperfect some rows might not sum to 1
+            # per each sample, we will sample 'trial_and_error' amount of samples
+            # and pick the one producing the maximum minimum row sum (which should be 1)
+            if trial_and_error == 1:
+                return all_perms
+
+            candidate_indices = []
+            for i in range(n_sample):
+                perms = all_perms[i *
+                                  trial_and_error:(i+1) * trial_and_error, :, :]
+                row_sums = torch.sum(perms, axis=1)
+                min_row_sums = torch.min(row_sums, axis=-1)[0]
+                candidate_indices.append(min_row_sums.argmax())
+            # ensure that the sampled matrices are actually permanent
+            return all_perms[candidate_indices, :, :]
         else:
             return self.permutation.unsqueeze(0).repeat(n_sample, 1, 1)
 
@@ -100,5 +119,8 @@ class SinkhornOrderDiscovery(torch.nn.Module):
                 return derive_deterministic_permutation(self.Gamma).tolist()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        P = self.get_permanent_matrices(x.shape[0])
+        if self.different_noise_per_batch:
+            P = self.get_permanent_matrices(x.shape[0])
+        else:
+            P = self.get_permanent_matrices(1)[0]
         return self.made(x, P)

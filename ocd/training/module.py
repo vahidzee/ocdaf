@@ -33,6 +33,8 @@ class OrderedTrainingModule(TrainingModule):
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         n_sinkhorn_iterations: int = 10,
+        gamma_scaling: float = 1,
+        different_noise_per_batch: bool = False,
         tau: float = 0.1,  # used as initial temperature for sinkhorn
         tau_scheduler: th.Optional[dy.FunctionDescriptor] = None,
         n_sinkhorn_scheduler: th.Optional[dy.FunctionDescriptor] = None,
@@ -78,6 +80,8 @@ class OrderedTrainingModule(TrainingModule):
                 n_iter=n_sinkhorn_iterations,
                 tau=tau if isinstance(tau, float) else 0.1,
                 noise_factor=noise_factor,
+                different_noise_per_batch=different_noise_per_batch,
+                gamma_scaling=gamma_scaling,
             ),
             # criterion
             criterion="lightning_toolbox.Criterion",
@@ -306,6 +310,14 @@ class OrderedTrainingModule(TrainingModule):
                 # plot self.mask_guider as a heatmap
                 ax.imshow(mask_guider, interpolation='none')
                 ax.set_title(f'mask_guider (represent a permanent matrix)')
+                sm0 = mask_guider.sum(axis=0)
+                sm1 = mask_guider.sum(axis=1)
+
+                ax.set_xlabel(
+                    f'row sum in [{round(sm0.min().item(), 2)}, {round(sm0.max().item(), 2)}]')
+                ax.set_ylabel(
+                    f'row sum in [{round(sm1.min().item(), 2)}, {round(sm1.max().item(), 2)}]')
+
                 fig.canvas.draw()
                 # convert the figure to a numpy array
                 data = np.fromstring(fig.canvas.tostring_rgb(),
@@ -319,10 +331,12 @@ class OrderedTrainingModule(TrainingModule):
 
         fig, ax = plt.subplots()
         try:
-            belief = self.model.Gamma
+            belief = self.model.Gamma.detach()
             # plot self.mask_guider as a heatmap
             ax.imshow(belief, interpolation='none')
             ax.set_title(f'Gamma (summarizes the belief parameters)')
+            ax.set_xlabel(
+                f'all_values in [{round(belief.min().item(), 2)}, {round(belief.max().item(), 2)}')
             fig.canvas.draw()
             # convert the figure to a numpy array
             data = np.fromstring(fig.canvas.tostring_rgb(),
