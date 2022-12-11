@@ -35,8 +35,7 @@ class OrderedLikelihoodTerm(CriterionTerm):
     ):
         # get model output
         batch_sizes = (
-            [batch[i].shape[0] for i in range(len(batch))] if isinstance(
-                batch, (list, tuple)) else [batch.shape[0]]
+            [batch[i].shape[0] for i in range(len(batch))] if isinstance(batch, (list, tuple)) else [batch.shape[0]]
         )
 
         if len(batch_sizes) > 1:
@@ -77,8 +76,7 @@ class OrderedLikelihoodTerm(CriterionTerm):
         )  # concatenate interventional batches into one tensor to process them simoultaneously
         interventional_log_likelihoods = torch.where(
             mask,
-            torch.zeros_like(interventional_log_likelihoods,
-                             device=results.device),
+            torch.zeros_like(interventional_log_likelihoods, device=results.device),
             interventional_log_likelihoods,
         )
         results = results - interventional_log_likelihoods.sum(dim=1).mean()
@@ -111,8 +109,8 @@ class PermanentMatrixPenalizer(CriterionTerm):
         training_module: lightning.LightningModule = None,
         **kwargs,
     ):
-        P = training_module.model.get_permanent_matrix()
+        P = training_module.model.P
         # assign a penalty to the permanent matrix
         # if it is smooth then it will have large penalty
         P = torch.nn.functional.relu(P * (1 - P))
-        return 0.0001 * torch.sum(P)
+        return 0.0001 * torch.sum(P, dim=[-1, -2]).mean()  # sum over each matrix, mean over different matrices

@@ -21,7 +21,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
         # Sinkhorn parameters
         n_iter: int = 10,
         tau: float = 0.1,
-        noise_factor: float = 0.1,
+        noise_factor: float = 0.0,
         different_noise_per_batch: bool = False,
         gamma_scaling: float = 1,
         # general
@@ -46,8 +46,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             safe_grad_hook=safe_grad_hook,
         )
         n = len(in_covariate_features)
-        p = torch.randn(n, n, requires_grad=True,
-                        device=device, dtype=dtype)
+        p = torch.randn(n, n, requires_grad=True, device=device, dtype=dtype)
 
         self.noise_factor = noise_factor
         self.different_noise_per_batch = different_noise_per_batch
@@ -67,16 +66,15 @@ class SinkhornOrderDiscovery(torch.nn.Module):
 
     def set_permutation(self, permutation: th.Union[th.List[int], torch.Tensor]) -> None:
         # Set the list version
-        self.permutation_list = permutation if isinstance(
-            permutation, list) else permutation.tolist()
+        self.permutation_list = permutation if isinstance(permutation, list) else permutation.tolist()
 
         # Convert list into torch tensor
         if isinstance(permutation, list):
-            permutation = torch.tensor(
-                permutation, dtype=torch.int, device=self.Gamma.device)
+            permutation = torch.tensor(permutation, dtype=torch.int, device=self.Gamma.device)
         # Set the permanent matrix version
-        self.permutation = listperm2matperm(torch.tensor(permutation) if isinstance(
-            permutation, list) else permutation.unsqueeze(0)).squeeze(0)
+        self.permutation = listperm2matperm(
+            torch.tensor(permutation) if isinstance(permutation, list) else permutation.unsqueeze(0)
+        ).squeeze(0)
         # change the dtype of self.permutation to match the dtype of self.Gamma
         self.permutation = self.permutation.to(self.Gamma.dtype)
 
@@ -86,8 +84,14 @@ class SinkhornOrderDiscovery(torch.nn.Module):
     def get_permanent_matrices(self, n_sample: int, trial_and_error: int = 10) -> torch.Tensor:
         if self.permutation is None:
             # sample a set of differentiable matrices
-            all_perms = sample_permutation(self.Gamma, self.noise_factor, n_sample * trial_and_error,
-                                           mode='soft', sinkhorn_temp=self.tau, sinkhorn_iters=self.n_iter)
+            all_perms = sample_permutation(
+                self.Gamma,
+                self.noise_factor,
+                n_sample * trial_and_error,
+                mode="soft",
+                sinkhorn_temp=self.tau,
+                sinkhorn_iters=self.n_iter,
+            )
             # do trial and error because sinkhorn operator is imperfect some rows might not sum to 1
             # per each sample, we will sample 'trial_and_error' amount of samples
             # and pick the one producing the maximum minimum row sum (which should be 1)
@@ -96,8 +100,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
 
             candidate_indices = []
             for i in range(n_sample):
-                perms = all_perms[i *
-                                  trial_and_error:(i+1) * trial_and_error, :, :]
+                perms = all_perms[i * trial_and_error : (i + 1) * trial_and_error, :, :]
                 row_sums = torch.sum(perms, axis=1)
                 min_row_sums = torch.min(row_sums, axis=-1)[0]
                 candidate_indices.append(min_row_sums.argmax())
@@ -123,4 +126,5 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             P = self.get_permanent_matrices(x.shape[0])
         else:
             P = self.get_permanent_matrices(1)[0]
+        self.P = P 
         return self.made(x, P)

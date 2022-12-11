@@ -16,9 +16,8 @@ class OrderedTrainingModule(TrainingModule):
         # model
         in_covariate_features: th.List[int],
         hidden_features_per_covariate: th.List[th.List[int]],
-        # Fix for a permutation just to check if it works at all
-        fixed_permutation: th.Optional[th.Union[th.List[int],
-                                                torch.Tensor]] = None,
+        # fix for a permutation just to check if it works at all
+        fixed_permutation: th.Optional[th.Union[th.List[int], torch.Tensor]] = None,
         log_permutation: bool = False,
         log_permutation_freq: int = 1,
         # data transform
@@ -33,18 +32,18 @@ class OrderedTrainingModule(TrainingModule):
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         n_sinkhorn_iterations: int = 10,
+        # sinkhorn parameters
         gamma_scaling: float = 1,
-        different_noise_per_batch: bool = False,
+        noise_factor: float = 0,
+        different_noise_per_batch: bool = False,  # add a noise for each element of the batch or not
         tau: float = 0.1,  # used as initial temperature for sinkhorn
         tau_scheduler: th.Optional[dy.FunctionDescriptor] = None,
         n_sinkhorn_scheduler: th.Optional[dy.FunctionDescriptor] = None,
-        noise_factor: float = 1,
         # criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
         optimizer: th.Union[str, th.List[str]] = "torch.optim.Adam",
-        optimizer_is_active: th.Optional[th.Union[dy.FunctionDescriptor,
-                                                  th.List[dy.FunctionDescriptor]]] = None,
+        optimizer_is_active: th.Optional[th.Union[dy.FunctionDescriptor, th.List[dy.FunctionDescriptor]]] = None,
         optimizer_parameters: th.Optional[th.Union[th.List[str], str]] = None,
         optimizer_args: th.Optional[dict] = None,
         # learning rate
@@ -61,15 +60,13 @@ class OrderedTrainingModule(TrainingModule):
         # input stats
         self.in_covariate_features = in_covariate_features
         # initialize model and optimizer/scheduler configs
-        _criterion_args = dict(
-            terms=["ocd.training.terms.OrderedLikelihoodTerm"])
+        _criterion_args = dict(terms=["ocd.training.terms.OrderedLikelihoodTerm"])
         _criterion_args.update(criterion_args or {})
         super().__init__(
             model_cls="ocd.models.order_discovery.SinkhornOrderDiscovery",
             model_args=dict(
                 in_covariate_features=(
-                    in_covariate_features if not embedding_dim else [
-                        embedding_dim] * len(in_covariate_features)
+                    in_covariate_features if not embedding_dim else [embedding_dim] * len(in_covariate_features)
                 ),
                 hidden_features_per_covariate=hidden_features_per_covariate,
                 bias=bias,
@@ -135,8 +132,7 @@ class OrderedTrainingModule(TrainingModule):
         self.embedding_normalization = embedding_normalization
         self.embedding_normalization_eps = embedding_normalization_eps
         # register cummulative feature counts (for efficient embedding)
-        self.register_buffer("features_cumsum", torch.cumsum(
-            torch.tensor([0] + in_covariate_features[:-1]), dim=0))
+        self.register_buffer("features_cumsum", torch.cumsum(torch.tensor([0] + in_covariate_features[:-1]), dim=0))
 
         # set tau scheduler
         self.__tau_scheduler = tau_scheduler  # processed in self.tau_scheduler
@@ -174,8 +170,7 @@ class OrderedTrainingModule(TrainingModule):
             return transformed_batch if transformed_batch is not None else batch
 
         batch_sizes = (
-            [batch[i].shape[0] for i in range(len(batch))] if isinstance(
-                batch, (list, tuple)) else [batch.shape[0]]
+            [batch[i].shape[0] for i in range(len(batch))] if isinstance(batch, (list, tuple)) else [batch.shape[0]]
         )
 
         if isinstance(batch, (list, tuple)):
@@ -193,29 +188,24 @@ class OrderedTrainingModule(TrainingModule):
             # linearly embed the covariates each covariate embedding is = value embedding  + feature embedding
             # where we have the same number of features as covariates, and the same number of values as the sum of the number of classes per covariate
             features_embeddings = self.features_embedding(
-                torch.arange(len(self.in_covariate_features),
-                             device=batch.device)
+                torch.arange(len(self.in_covariate_features), device=batch.device)
             )
             value_embeddings = self.embeddings(batch + self.features_cumsum)
             # normalize the embeddings
             if self.embedding_normalization is not None:
                 features_embeddings = features_embeddings / (
-                    features_embeddings.norm(
-                        p=self.embedding_normalization, dim=1, keepdim=True)
+                    features_embeddings.norm(p=self.embedding_normalization, dim=1, keepdim=True)
                     + self.embedding_normalization_eps
                 )
                 value_embeddings = value_embeddings / (
-                    value_embeddings.norm(
-                        p=self.embedding_normalization, dim=1, keepdim=True)
+                    value_embeddings.norm(p=self.embedding_normalization, dim=1, keepdim=True)
                     + self.embedding_normalization_eps
                 )
-            transformed_batch = (value_embeddings +
-                                 features_embeddings).reshape(batch_size, -1)
+            transformed_batch = (value_embeddings + features_embeddings).reshape(batch_size, -1)
         else:
             # apply one hot encoding to each covariate
             # batch_size * num_covariates -> batchsize * sum(num_classes_per_covariate)
-            transformed_batch = torch.zeros(
-                batch_size, num_classes, device=batch.device)
+            transformed_batch = torch.zeros(batch_size, num_classes, device=batch.device)
             start_idx = 0
             for i in range(num_covariates):
                 end_idx = start_idx + num_classes_per_covariate[i]
@@ -225,8 +215,7 @@ class OrderedTrainingModule(TrainingModule):
                 start_idx = end_idx
 
         # split the batch back into the original list
-        transformed_batch = torch.split(transformed_batch, batch_sizes) if len(
-            batch_sizes) > 1 else transformed_batch
+        transformed_batch = torch.split(transformed_batch, batch_sizes) if len(batch_sizes) > 1 else transformed_batch
 
         return transformed_batch
 
@@ -262,9 +251,8 @@ class OrderedTrainingModule(TrainingModule):
             **kwargs,
         )
 
-    def log_permutation(self, permutation: th.List[int], phase: str = 'train') -> None:
-        self.log_permutation_rem = (
-            self.log_permutation_rem + 1) % self.log_permutation_freq
+    def log_permutation(self, permutation: th.List[int], phase: str = "train") -> None:
+        self.log_permutation_rem = (self.log_permutation_rem + 1) % self.log_permutation_freq
 
         if self.log_permutation_freq != 1 and self.log_permutation_rem != 1:
             return
@@ -279,27 +267,23 @@ class OrderedTrainingModule(TrainingModule):
             if self.permutation_history is None:
                 self.permutation_history = np.array([permutation])
             else:
-                self.permutation_history = np.concatenate(
-                    (self.permutation_history, np.array([permutation])))
+                self.permutation_history = np.concatenate((self.permutation_history, np.array([permutation])))
 
             # print(self.permutation_history.shape)
             for i in range(self.permutation_history.shape[1]):
                 # print(self.permutation_history[:, i])
-                ax.plot(
-                    self.permutation_history[:, i], label=f'p_{i}', alpha=0.5)
+                ax.plot(self.permutation_history[:, i], label=f"p_{i}", alpha=0.5)
 
             ax.legend()
-            ax.set_title(f'Permutation')
-            ax.set_xlabel('epoch')
-            ax.set_ylabel('permutation')
+            ax.set_title(f"Permutation")
+            ax.set_xlabel("epoch")
+            ax.set_ylabel("permutation")
             fig.canvas.draw()
             # convert the figure to a numpy array
-            data = np.fromstring(fig.canvas.tostring_rgb(),
-                                 dtype=np.uint8, sep='')
+            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
             # log the figure to tensorboard
-            logger.add_image(f'belief_system/permutation', data,
-                             self.current_epoch, dataformats='HWC')
+            logger.add_image(f"belief_system/permutation", data, self.current_epoch, dataformats="HWC")
         finally:
             plt.close()
 
@@ -308,24 +292,20 @@ class OrderedTrainingModule(TrainingModule):
             mask_guiders = self.model.get_permanent_matrices(4)
             for i, mask_guider in enumerate(mask_guiders):
                 # plot self.mask_guider as a heatmap
-                ax.imshow(mask_guider, interpolation='none')
-                ax.set_title(f'mask_guider (represent a permanent matrix)')
+                ax.imshow(mask_guider, interpolation="none")
+                ax.set_title(f"mask_guider (represent a permanent matrix)")
                 sm0 = mask_guider.sum(axis=0)
                 sm1 = mask_guider.sum(axis=1)
 
-                ax.set_xlabel(
-                    f'row sum in [{round(sm0.min().item(), 2)}, {round(sm0.max().item(), 2)}]')
-                ax.set_ylabel(
-                    f'row sum in [{round(sm1.min().item(), 2)}, {round(sm1.max().item(), 2)}]')
+                ax.set_xlabel(f"row sum in [{round(sm0.min().item(), 2)}, {round(sm0.max().item(), 2)}]")
+                ax.set_ylabel(f"row sum in [{round(sm1.min().item(), 2)}, {round(sm1.max().item(), 2)}]")
 
                 fig.canvas.draw()
                 # convert the figure to a numpy array
-                data = np.fromstring(fig.canvas.tostring_rgb(),
-                                     dtype=np.uint8, sep='')
+                data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
                 data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
                 # log the figure to tensorboard
-                logger.add_image(f'belief_system/mask_guider_{i}', data,
-                                 self.current_epoch, dataformats='HWC')
+                logger.add_image(f"belief_system/mask_guider_{i}", data, self.current_epoch, dataformats="HWC")
         finally:
             plt.close()
 
@@ -333,18 +313,15 @@ class OrderedTrainingModule(TrainingModule):
         try:
             belief = self.model.Gamma.detach()
             # plot self.mask_guider as a heatmap
-            ax.imshow(belief, interpolation='none')
-            ax.set_title(f'Gamma (summarizes the belief parameters)')
-            ax.set_xlabel(
-                f'all_values in [{round(belief.min().item(), 2)}, {round(belief.max().item(), 2)}')
+            ax.imshow(belief, interpolation="none")
+            ax.set_title(f"Gamma (summarizes the belief parameters)")
+            ax.set_xlabel(f"all_values in [{round(belief.min().item(), 2)}, {round(belief.max().item(), 2)}")
             fig.canvas.draw()
             # convert the figure to a numpy array
-            data = np.fromstring(fig.canvas.tostring_rgb(),
-                                 dtype=np.uint8, sep='')
+            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
             # log the figure to tensorboard
-            logger.add_image(f'belief_system/gamma', data,
-                             self.current_epoch, dataformats='HWC')
+            logger.add_image(f"belief_system/gamma", data, self.current_epoch, dataformats="HWC")
         finally:
             plt.close()
 
@@ -354,17 +331,14 @@ class OrderedTrainingModule(TrainingModule):
         with torch.no_grad():
             permutation = self.model.get_permutation()
             if self.log_permutation_enabled:
-                self.log_permutation(permutation, phase='train')
+                self.log_permutation(permutation, phase="train")
             # compare to the true graph structure
             # get datamodule
-            self.log("metrics/tau", self.model.tau,
-                     on_step=False, on_epoch=True)
-            self.log("metrics/n_iter", self.model.n_iter,
-                     on_step=False, on_epoch=True)
+            self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
+            self.log("metrics/n_iter", self.model.n_iter, on_step=False, on_epoch=True)
             self.log(
                 "metrics/backwards_count",
-                count_backward(
-                    permutation, self.trainer.datamodule.datasets[0].dag),
+                count_backward(permutation, self.trainer.datamodule.datasets[0].dag),
                 on_step=False,
                 on_epoch=True,
                 prog_bar=True,
@@ -372,11 +346,10 @@ class OrderedTrainingModule(TrainingModule):
             )
             self.log(
                 "metrics/normalized_backwards_count",
-                backward_score(
-                    permutation, self.trainer.datamodule.datasets[0].dag),
+                backward_score(permutation, self.trainer.datamodule.datasets[0].dag),
                 on_step=False,
                 on_epoch=True,
-                prog_bar=True,
+                prog_bar=False,
                 logger=True,
             )
         return super().on_train_epoch_start()

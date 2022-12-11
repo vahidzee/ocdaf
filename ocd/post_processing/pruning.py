@@ -27,8 +27,15 @@ class IndependceTestingMethod:
     CHI_SQUARED = 1
 
 
-def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.array] = None, threshold: float = 0.05, sample_threshold: int = 20,
-                                  categorical: bool = True, independence_test: IndependceTestingMethod = IndependceTestingMethod.CHI_SQUARED) -> bool:
+def conditional_independence_test(
+    x: np.array,
+    y: np.array,
+    z: th.Optional[np.array] = None,
+    threshold: float = 0.05,
+    sample_threshold: int = 20,
+    categorical: bool = True,
+    independence_test: IndependceTestingMethod = IndependceTestingMethod.CHI_SQUARED,
+) -> bool:
     """
     This algorithm takes in two variables and a conditioning set and performs a conditional independence test.
     The test is performed by computing the mutual information between the two variables and conditioning on the conditioning set.
@@ -38,7 +45,7 @@ def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.ar
     If the average score is less than the threshold then we return True, otherwise we return False.
 
     Args:
-        x (np.array): first (set) of variables 
+        x (np.array): first (set) of variables
         y (np.array): second variable
         z (np.array): conditioning set (optional) if set to None then it is a simple independence test
         threshold (float): threshold for the p-value
@@ -74,7 +81,8 @@ def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.ar
 
     # group rows of z by unique values and do an independence test on each group
     z_unique, z_unique_idx, z_unique_inv, z_unique_counts = np.unique(
-        z, axis=0, return_index=True, return_inverse=True, return_counts=True)
+        z, axis=0, return_index=True, return_inverse=True, return_counts=True
+    )
     sm = 0
     count = 0
     for i in range(len(z_unique_counts)):
@@ -96,7 +104,7 @@ def conditional_independence_test(x: np.array, y: np.array, z: th.Optional[np.ar
     if count == 0:
         return True
     # compare the average score with threshold
-    return compare_with_threshod(sm/count, threshold)
+    return compare_with_threshod(sm / count, threshold)
 
 
 def prune_cit(data: pd.DataFrame, y: int, x: int, all_prec: th.List[int], *args, **kwargs) -> bool:
@@ -129,12 +137,10 @@ def prune_cit(data: pd.DataFrame, y: int, x: int, all_prec: th.List[int], *args,
     x = data.iloc[:, x].values
     y = data.iloc[:, y].values
     if len(cp_all_prec) == 0:
-        return conditional_independence_test(
-            x, y, None, *args, **kwargs)
+        return conditional_independence_test(x, y, None, *args, **kwargs)
     z = data.iloc[:, cp_all_prec].values
 
-    return conditional_independence_test(
-        x, y, z, *args, **kwargs)
+    return conditional_independence_test(x, y, z, *args, **kwargs)
 
 
 def prune_sp(data: pd.DataFrame, x: int, all_prec: th.List[int]) -> th.List[int]:
@@ -168,16 +174,20 @@ def create_dag_from_ordering(ordering: th.List[int]) -> np.array:
     n = len(ordering)
     dag = np.zeros((n, n))
     for i in range(n):
-        for j in range(i+1, n):
+        for j in range(i + 1, n):
             dag[ordering[i], ordering[j]] = 1
     return dag
 
 
-def prune(ordering: th.List[int], data: pd.DataFrame,
-          method: PruningMethod,
-          interventional_column: th.Optional[int] = None,
-          dag: th.Optional[np.array] = None, verbose: int = 0,
-          method_params: th.Optional[dict] = None) -> np.array:
+def prune(
+    ordering: th.List[int],
+    data: pd.DataFrame,
+    method: PruningMethod,
+    interventional_column: th.Optional[int] = None,
+    dag: th.Optional[np.array] = None,
+    verbose: int = 0,
+    method_params: th.Optional[dict] = None,
+) -> np.array:
     """
     This function prunes a given DAG or a given ordering with a corresponding DAG tournament.
     The pruning method is specified by the method parameter and the parameters for the method
@@ -187,7 +197,7 @@ def prune(ordering: th.List[int], data: pd.DataFrame,
     and then using a pruning technique, it decides if the parents are essential or not.
     If they are not essential, then the edge is removed.
 
-    Args: 
+    Args:
         ordering (list): causal ordering of the nodes
         dag (np.array): adjacency matrix of the DAG if initialized
         data (pd.DataFrame): data
@@ -236,15 +246,14 @@ def prune(ordering: th.List[int], data: pd.DataFrame,
         # Get a list of current parents of x
         if method == PruningMethod.SPARSE_PREDICTION:
             # Get all the essential parents via sparse regression
-            essential_parents = prune_sp(
-                data, x, all_prec, **method_params)
+            essential_parents = prune_sp(data, x, all_prec, **method_params)
             for y in all_prec:
                 if y not in essential_parents:
                     dag[y, x] = 0
             continue
 
         # The other methods are based on pruning each edge one by one
-        if 'n_repeat' not in method_params:
+        if "n_repeat" not in method_params:
             method_params["n_repeat"] = 1
         n_repeat = method_params["n_repeat"]
         method_params.pop("n_repeat", None)
@@ -256,11 +265,9 @@ def prune(ordering: th.List[int], data: pd.DataFrame,
                 # check if the edge is necessary
                 do_prune = False
                 if method == PruningMethod.CONDITIONAL_INDEPENDENCE_TESTING:
-                    do_prune = prune_cit(
-                        data, y, x, current_parents, **method_params)
+                    do_prune = prune_cit(data, y, x, current_parents, **method_params)
                 elif method == PruningMethod.LEAVE_ONE_OUT:
-                    do_prune = prune_loo(
-                        data, y, x, current_parents, **method_params)
+                    do_prune = prune_loo(data, y, x, current_parents, **method_params)
                 else:
                     raise ValueError("Invalid pruning method")
 
