@@ -72,25 +72,33 @@ class OrderedLinear(torch.nn.Linear):
         """
         Returns masked weights.
         Args:
-            P: Permutation matrix [len(in_cov_features) x len(out_cov_features)]
+            P: Permutation matrices [Batch_size, len(in_cov_features) x len(out_cov_features)]
         Returns:
             A `torch.Tensor` which equals to `self.weight * self.mask`.
         """
         # Permute the default mask using the permutation matrix
-        mask = P @ self.default_mask @ P.T
+        # permute the mask using the permutation matrix
+        batch_size = P.size(0)
+        P_inv = P.transpose(1, 2)
+        mask = P @ self.default_mask.unsqueeze(
+            0).repeat(batch_size, 1, 1) @ P_inv
         # repeat mask[i,j] in_cov_features[i] times along the first dimension and out_cov_features[j] times along the 0th dimension
-        mask = torch.repeat_interleave(mask, self.in_cov_features, dim=1)
-        mask = torch.repeat_interleave(mask, self.out_cov_features, dim=0)
-        return self.weight * mask
+        mask = torch.repeat_interleave(mask, self.in_cov_features, dim=2)
+        mask = torch.repeat_interleave(mask, self.out_cov_features, dim=1)
+        return mask * self.weight
 
     def forward(self, inputs: torch.Tensor, P: torch.Tensor) -> torch.Tensor:
         """
         Computes masked linear operation.
         Args:
             inputs: Input tensor [batch_size x [sum of [in_feautures per covariate]]]
-            P: Permutation matrix [len(in_cov_features) x len(out_cov_features)]
+            P: Permutation matrices [batch_size x len(in_cov_features) x len(out_cov_features)]
         Returns:
             A `torch.Tensor` which equals to masked linear operation on inputs, or:
                 `inputs @ (mask * weights).T + bias` plus the input P
         """
-        return torch.nn.functional.linear(inputs, self.get_masked_weights(P), self.bias), P
+        masked_weights = self.get_masked_weights(P)
+        ret = torch.bmm(masked_weights, inputs[:, :, None]).squeeze()
+        if self.bias is not None:
+            ret = ret + self.bias
+        return ret, P

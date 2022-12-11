@@ -3,12 +3,11 @@ activation_args: null
 batch_norm: false
 batch_norm_args: null
 batch_transform: null
-bias: false
+bias: true
 criterion: lightning_toolbox.Criterion
 criterion_args:
   terms:
   - ocd.training.terms.OrderedLikelihoodTerm
-  - ocd.training.terms.PermanentMatrixPenalizer
   - factor: 0
     name: norm(gamma)
     term_function: 'lambda training_module: training_module.model.Gamma.norm(float("inf"))'
@@ -56,22 +55,24 @@ in_covariate_features: &id002
 - 2
 initialize_superclass: true
 log_permutation: true
-log_permutation_freq: 5
+log_permutation_freq: 1
 lr: 0.001
 model_args:
   activation: torch.nn.ReLU
   activation_args: null
   batch_norm: false
   batch_norm_args: null
-  bias: false
+  bias: true
   hidden_features_per_covariate: *id001
   in_covariate_features: *id002
   n_iter: 10
+  noise_factor: 1
   tau: 0.1
 model_cls: ocd.models.order_discovery.SinkhornOrderDiscovery
 n_sinkhorn_iterations: 10
 n_sinkhorn_scheduler: 'lambda training_module: min(60, max(20, 20 + ((training_module.current_epoch
   - 20) // 10)))'
+noise_factor: 1
 optimizer:
 - torch.optim.Adam
 - torch.optim.Adam
@@ -94,5 +95,5 @@ scheduler_monitor: null
 scheduler_name: null
 scheduler_optimizer: null
 tau: 0.1
-tau_scheduler: 'lambda training_module: max(0.003, 0.5 * 0.8 ** (training_module.current_epoch
+tau_scheduler: 'lambda training_module: max(0.003, 0.5 * 0.89 ** (training_module.current_epoch
   // 1))'

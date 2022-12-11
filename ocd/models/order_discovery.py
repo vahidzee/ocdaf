@@ -2,7 +2,7 @@ import torch
 from .made import SingleMaskedBlockMADE
 from torch.nn.parameter import Parameter
 import typing as th
-from ocd.permutation_tools import listperm2matperm, derive_deterministic_permutation
+from ocd.permutation_tools import listperm2matperm, derive_deterministic_permutation, sample_permutation
 
 
 class SinkhornOrderDiscovery(torch.nn.Module):
@@ -21,6 +21,7 @@ class SinkhornOrderDiscovery(torch.nn.Module):
         # Sinkhorn parameters
         n_iter: int = 10,
         tau: float = 0.1,
+        noise_factor: float = 0.1,
         # general
         seed: int = 0,
         device: th.Optional[torch.device] = None,
@@ -43,8 +44,10 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             safe_grad_hook=safe_grad_hook,
         )
         n = len(in_covariate_features)
-        p = torch.randn(n, n, requires_grad=True, device=device, dtype=dtype)
+        p = torch.randn(n, n, requires_grad=True,
+                        device=device, dtype=dtype)
 
+        self.noise_factor = noise_factor
         self.Gamma = torch.nn.Parameter(p)
         self.tau = tau
         self.n_iter = n_iter
@@ -77,19 +80,12 @@ class SinkhornOrderDiscovery(torch.nn.Module):
     def unset_permutation(self) -> None:
         self.permutation = None
 
-    def get_permanent_matrix(self) -> torch.Tensor:
-        return self.sinkhorn() if self.permutation is None else self.permutation
-
-    def sinkhorn(self) -> torch.Tensor:
-        """
-        Sinkhorn algorithm for computing the optimal transport matrix P.
-        """
-        P = torch.nn.functional.logsigmoid(self.Gamma)
-        P = P / self.tau
-        for i in range(self.n_iter):
-            P = P - torch.logsumexp(P, dim=1, keepdim=True)
-            P = P - torch.logsumexp(P, dim=0, keepdim=True)
-        return P.exp()
+    def get_permanent_matrices(self, n_sample: int) -> torch.Tensor:
+        if self.permutation is None:
+            return sample_permutation(self.Gamma, self.noise_factor, n_sample,
+                                      mode='soft', sinkhorn_temp=self.tau, sinkhorn_iters=self.n_iter)
+        else:
+            return self.permutation.unsqueeze(0).repeat(n_sample, 1, 1)
 
     def get_permutation(self) -> th.List[int]:
         """
@@ -104,5 +100,5 @@ class SinkhornOrderDiscovery(torch.nn.Module):
                 return derive_deterministic_permutation(self.Gamma).tolist()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        P = self.get_permanent_matrix()
+        P = self.get_permanent_matrices(x.shape[0])
         return self.made(x, P)

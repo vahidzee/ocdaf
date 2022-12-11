@@ -104,19 +104,6 @@ class SingleMaskedBlockMADE(torch.nn.Module):
         # and either a permutation of the covariates or a permanent matrix for permuting the covariates
         # If the permutation is a list, the gradients are off, otherwise, they will flow through the permutation matrix
 
-        # The permutation matrix is a doubly stochastic matrix that is used to (soft)permute the covariates
-        if isinstance(perm, list):
-            n = len(perm)
-            # check if perm is a permutation
-            assert set(perm) == set(
-                range(n)), "perm must be a permutation of [0, 1, ..., n-1]"
-            # Create a permutation tensor from a permutation list
-            P = torch.zeros((n, n))
-            P[torch.arange(n), perm] = 1
-            P = P.to(inputs.device)
-            P = P.type(inputs.dtype)
-            perm = P
-
         results, perm = self.layers((inputs, perm))
         results = self.density_estimator(results, perm)
 

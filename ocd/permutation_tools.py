@@ -116,7 +116,7 @@ def derive_deterministic_permutation(permutation_table: torch.Tensor, output_mat
 
 def sample_permutation(permutation_table: torch.Tensor, noise_factor: float, n_samples: int, mode: str,
                        sinkhorn_temp: th.Optional[float] = None, sinkhorn_iters: th.Optional[int] = None,
-                       output_matrix: bool = True):
+                       output_matrix: bool = True) -> torch.Tensor:
     """
     Args:
         n_samples: number of samples

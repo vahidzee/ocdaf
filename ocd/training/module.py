@@ -27,7 +27,7 @@ class OrderedTrainingModule(TrainingModule):
         embedding_normalization: th.Optional[th.Union[int, str]] = None,
         embedding_normalization_eps: float = 0,
         # architecture
-        bias: bool = False,
+        bias: bool = True,
         activation: th.Optional[str] = "torch.nn.ReLU",
         activation_args: th.Optional[dict] = None,
         batch_norm: bool = False,
@@ -36,6 +36,7 @@ class OrderedTrainingModule(TrainingModule):
         tau: float = 0.1,  # used as initial temperature for sinkhorn
         tau_scheduler: th.Optional[dy.FunctionDescriptor] = None,
         n_sinkhorn_scheduler: th.Optional[dy.FunctionDescriptor] = None,
+        noise_factor: float = 1,
         # criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
@@ -76,6 +77,7 @@ class OrderedTrainingModule(TrainingModule):
                 batch_norm_args=batch_norm_args,
                 n_iter=n_sinkhorn_iterations,
                 tau=tau if isinstance(tau, float) else 0.1,
+                noise_factor=noise_factor,
             ),
             # criterion
             criterion="lightning_toolbox.Criterion",
@@ -260,7 +262,7 @@ class OrderedTrainingModule(TrainingModule):
         self.log_permutation_rem = (
             self.log_permutation_rem + 1) % self.log_permutation_freq
 
-        if self.log_permutation_rem != 1:
+        if self.log_permutation_freq != 1 and self.log_permutation_rem != 1:
             return
 
         # TODO: clean this up!
@@ -299,18 +301,19 @@ class OrderedTrainingModule(TrainingModule):
 
         fig, ax = plt.subplots()
         try:
-            mask_guider = self.model.get_permanent_matrix()
-            # plot self.mask_guider as a heatmap
-            ax.imshow(mask_guider, interpolation='none')
-            ax.set_title(f'mask_guider (represent a permanent matrix)')
-            fig.canvas.draw()
-            # convert the figure to a numpy array
-            data = np.fromstring(fig.canvas.tostring_rgb(),
-                                 dtype=np.uint8, sep='')
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            # log the figure to tensorboard
-            logger.add_image(f'belief_system/mask_guider', data,
-                             self.current_epoch, dataformats='HWC')
+            mask_guiders = self.model.get_permanent_matrices(4)
+            for i, mask_guider in enumerate(mask_guiders):
+                # plot self.mask_guider as a heatmap
+                ax.imshow(mask_guider, interpolation='none')
+                ax.set_title(f'mask_guider (represent a permanent matrix)')
+                fig.canvas.draw()
+                # convert the figure to a numpy array
+                data = np.fromstring(fig.canvas.tostring_rgb(),
+                                     dtype=np.uint8, sep='')
+                data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                # log the figure to tensorboard
+                logger.add_image(f'belief_system/mask_guider_{i}', data,
+                                 self.current_epoch, dataformats='HWC')
         finally:
             plt.close()
 
