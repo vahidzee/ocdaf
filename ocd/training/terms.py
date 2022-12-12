@@ -86,7 +86,7 @@ class OrderedLikelihoodTerm(CriterionTerm):
 class PermanentMatrixPenalizer(CriterionTerm):
     def __init__(
         self,
-        name: th.Optional[str] = "nll",
+        name: th.Optional[str] = "penalize_smooth_perms",
         factor: th.Optional[th.Union[float, dy.FunctionDescriptor]] = None,
         scale_factor: th.Optional[str] = None,
         term_function: th.Optional[dy.FunctionDescriptor] = None,
@@ -113,4 +113,4 @@ class PermanentMatrixPenalizer(CriterionTerm):
         # assign a penalty to the permanent matrix
         # if it is smooth then it will have large penalty
         P = torch.nn.functional.relu(P * (1 - P))
-        return 0.0001 * torch.sum(P, dim=[-1, -2]).mean()  # sum over each matrix, mean over different matrices
+        return torch.sum(P, dim=[-1, -2]).mean()  # sum over each matrix, mean over different matrices
