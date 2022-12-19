@@ -50,13 +50,17 @@ class SinkhornOrderDiscovery(torch.nn.Module):
 
         self.noise_factor = noise_factor
         self.different_noise_per_batch = different_noise_per_batch
-        self.Gamma = torch.nn.Parameter(gamma_scaling * p)
+        self._gamma = torch.nn.Parameter(gamma_scaling * p)
         self.tau = tau
         self.n_iter = n_iter
 
         # the following is set for turning off the structure learning part
         self.permutation = None
         self.permutation_list = None
+
+    @property
+    def Gamma(self) -> torch.Tensor:
+        return torch.linalg.qr(self._gamma)[0]
 
     def set_tau(self, tau: float) -> None:
         self.tau = tau
@@ -126,5 +130,5 @@ class SinkhornOrderDiscovery(torch.nn.Module):
             P = self.get_permanent_matrices(x.shape[0])
         else:
             P = self.get_permanent_matrices(1)[0]
-        self.P = P 
+        self.P = P
         return self.made(x, P)
