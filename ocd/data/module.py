@@ -2,17 +2,25 @@ import lightning
 import typing as th
 import torch
 from torch.utils.data import random_split, DataLoader, ConcatDataset
-from .dataset import generate_datasets
+import dycode
+
+from ocd.data.scm import SCMGenerator
+from .dataset import OCDDataset
+import numpy as np
 
 
-class CausalDataModule(lightning.LightningDataModule):
+class OCDDataModule(lightning.LightningDataModule):
     def __init__(
         self,
         # dataset (train and val)
-        name: str,
         observation_size: int,
-        intervention_size: int = 0,
-        import_configs: th.Optional[th.Dict[str, th.Any]] = None,  # configs to pass to bnlearn
+        # local interventional episodes
+        interventional_episode_count: th.Optional[int] = None,
+        interventional_episode_size: th.Optional[int] = None,
+        intervention_function: th.Optional[th.Union[th.Callable, str]] = None,
+        # scm generator
+        scm_generator_class: th.Optional[th.Union[th.Type, str]] = None,
+        scm_generator_args: th.Optional[th.Dict] = None,
         # validation (split from train)
         val_size: th.Optional[th.Union[int, float]] = None,
         # seed
@@ -43,10 +51,8 @@ class CausalDataModule(lightning.LightningDataModule):
         Datamodule for causal datasets.
 
         Args:
-            name: name of the dataset (bnlearn dataset name or download url)
             observation_size: size of the observational data
             intervention_size: size of the interventional data (if 0, only observational data is used)
-            import_configs: configs to pass to bnlearn.import_DAG
             val_size: size of the validation set (if 0 or None, no validation set is used)
             seed: seed for random_split
             dl_args: arguments to pass to DataLoader
@@ -69,17 +75,34 @@ class CausalDataModule(lightning.LightningDataModule):
         self.seed = seed
 
         # data
-        self.name = name
         self.observation_size = observation_size
-        self.intervention_size = intervention_size
-        self.import_configs = import_configs
 
+        # SCM generator
+        # setup the class
+        self.scm_generator_class = scm_generator_class
+        if self.scm_generator_class is not None:
+            self.scm_generator_class = dycode.eval(self.scm_generator_class) if isinstance(
+                self.scm_generator_class, str) else self.scm_generator_class
+        # setup the class constructor arguments
+        self.scm_generator_args = scm_generator_args if scm_generator_args is not None else {}
+        self.generator = None
+
+        # interventions
+        self.interventional_episode_size = interventional_episode_size
+        self.interventional_episode_count = interventional_episode_count
+        self.intervention_function = intervention_function
+        if self.intervention_function is not None:
+            self.intervention_function = dycode.eval(self.intervention_function) if isinstance(
+                self.intervention_function, str) else self.intervention_function
+
+        # training and validation
         self.train_data, self.val_data = None, None
         self.train_dl_args = train_dl_args or dl_args or {}
         self.val_dl_args = val_dl_args or dl_args or {}
         self.val_size = val_size
         assert (
-            val_size is None or isinstance(val_size, int) or (isinstance(val_size, float) and val_size < 1)
+            val_size is None or isinstance(val_size, int) or (
+                isinstance(val_size, float) and val_size < 1)
         ), "invalid validation size is provided (either int, float (between zero and one) or None)"
 
         # batch_size
@@ -98,6 +121,50 @@ class CausalDataModule(lightning.LightningDataModule):
         self.train_num_workers = train_num_workers if train_num_workers is not None else num_workers
         self.val_num_workers = val_num_workers if val_num_workers is not None else num_workers
 
+    def generate_datasets(self) -> th.List[OCDDataset]:
+        """
+        Generate the datasets (interventional and observational)
+
+        Returns:
+            list of datasets where the first one is observational and the rest is interventional
+        """
+        # create a generator if it is the first time
+        if self.generator is None:
+            self.generator = self.scm_generator_class(
+                seed=self.seed, **self.scm_generator_args)
+
+        # create an scm from the generator
+        scm = self.generator.generate_scm()
+
+        # TODO: This should be implemented better
+        self.scm = scm
+
+        # simulate the observational dataset
+        datasets = [
+            OCDDataset(samples=scm.simulate(self.observation_size, seed=self.seed), dag=scm.dag, name='observational')]
+
+        # go for interventional datasets
+        if self.interventional_episode_count:
+            nodes = list(scm.nodes())
+
+            # permute the nodes according to the seed
+            np.random.seed(self.seed)
+            nodes = np.random.permutation(nodes)
+
+            assert len(nodes) >= self.interventional_episode_count, "interventional episode size is larger than the number of nodes (try increasing the episode sizes instead)"
+            for i in range(self.interventional_episode_count):
+                new_dataset = OCDDataset(
+                    samples=scm.simulate(
+                        self.interventional_episode_size, seed=self.seed+i+1,
+                        intervention_node=nodes[i], intervention_function=self.intervention_function),
+                    dag=scm.dag,
+                    intervention_column=nodes[i],
+                    name=f'interventional_{i}'
+                )
+                datasets.append(new_dataset)
+
+        return datasets
+
     def setup(self, stage: th.Optional[str] = None) -> None:
         """
         Setup the data for training and validation. this method is called on every GPU in distributed training.
@@ -110,13 +177,7 @@ class CausalDataModule(lightning.LightningDataModule):
         """
         if (stage == "fit" or stage == "tune") and self.train_batch_size:
             # generate the datasets (interventional and observational)
-            datasets = generate_datasets(
-                self.name,
-                self.observation_size,
-                self.intervention_size,
-                show_progress=False,
-                import_configs=self.import_configs,
-            )
+            datasets = self.generate_datasets()
             self.datasets = datasets
             if not self.val_size:
                 # setup train data only (no validation)
@@ -133,7 +194,8 @@ class CausalDataModule(lightning.LightningDataModule):
                         if isinstance(self.val_size, int)
                         else int(len(dataset) * (1 - self.val_size))
                     )
-                    train_data, val_data = random_split(dataset, [train_len, len(dataset) - train_len], generator=prng)
+                    train_data, val_data = random_split(
+                        dataset, [train_len, len(dataset) - train_len], generator=prng)
                     self.train_data.append(train_data)
                     self.val_data.append(val_data)
 
@@ -149,6 +211,8 @@ class CausalDataModule(lightning.LightningDataModule):
         pin_memory: th.Optional[bool] = None,
         **params,
     ):
+        # TODO: should fix this such that instead of a list of dataloaders, it merges everything into one
+        # dataloader but you will have the ability to choose which dataset to use
         """
         Generic function to create dataloaders for train and val sets.
 
@@ -168,10 +232,14 @@ class CausalDataModule(lightning.LightningDataModule):
         dl_args = getattr(self, f"{name}_dl_args", {})
         dl_args.update(params)  # override with extra params
 
-        batch_size = batch_size if batch_size is not None else getattr(self, f"{name}_batch_size")
-        shuffle = shuffle if shuffle is not None else getattr(self, f"{name}_shuffle")
-        num_workers = num_workers if num_workers is not None else getattr(self, f"{name}_num_workers")
-        pin_memory = pin_memory if pin_memory is not None else getattr(self, f"{name}_pin_memory")
+        batch_size = batch_size if batch_size is not None else getattr(
+            self, f"{name}_batch_size")
+        shuffle = shuffle if shuffle is not None else getattr(
+            self, f"{name}_shuffle")
+        num_workers = num_workers if num_workers is not None else getattr(
+            self, f"{name}_num_workers")
+        pin_memory = pin_memory if pin_memory is not None else getattr(
+            self, f"{name}_pin_memory")
         # create dataloaders
         data_loaders = [
             DataLoader(

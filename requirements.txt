@@ -8,3 +8,5 @@ tqdm
 #
 bnlearn
 seaborn
+# for graphs generation and sampling
+networkx

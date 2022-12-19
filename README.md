@@ -17,6 +17,8 @@ Notebooks for reproducing the experiments in the paper are available in the `not
 - [Sanity check for log-likelihoods](notebooks/sanity_check.ipynb)
 - [Pruning of causal orders](notebooks/pruning.ipynb)
 - [Ordered Causal Discovery with MADE](notebooks/ocd.ipynb)
+- [Generating Generic SCMs](notebooks/scm_tutorial.ipynb)
+- [Working with the datamodule for observational and interventional data creation](notebooks/datamodule_test.ipynb)
 
 ## License
 

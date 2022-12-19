@@ -1,2 +1,2 @@
-from .dataset import CausalDataset, generate_datasets
-from .module import CausalDataModule
+from .dataset import OCDDataset
+from .module import OCDDataModule
