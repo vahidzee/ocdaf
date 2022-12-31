@@ -1,7 +1,6 @@
 import torch
 import typing as th
 from .block import MaskedBlock
-from .linear import MaskedLinear
 import functools
 
 
