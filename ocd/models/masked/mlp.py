@@ -10,6 +10,8 @@ class MaskedMLP(torch.nn.ModuleList):
         in_features: th.Union[th.List[int], int],
         out_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
+        # residual
+        residual: bool = False,
         # blocks
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -60,6 +62,7 @@ class MaskedMLP(torch.nn.ModuleList):
                     activation_args=activation_args if i < len(layers) - 1 else None,
                     batch_norm=batch_norm if i < len(layers) - 1 else False,
                     batch_norm_args=batch_norm_args if i < len(layers) - 1 else None,
+                    residual=residual if i < len(layers) - 1 else False,
                     device=device,
                     dtype=dtype,
                 )
