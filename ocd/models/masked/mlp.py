@@ -23,7 +23,7 @@ class MaskedMLP(torch.nn.ModuleList):
         num_masks: int = 1,
         masks_kind: th.Literal["repeat", "random"] = "repeat",
         # general parameters
-        auto_connection: bool = True,
+        auto_connection: bool = False,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
@@ -269,7 +269,6 @@ class MaskedMLP(torch.nn.ModuleList):
             self.reorder(mask_index=mask_index)
         results = inputs.reshape(-1, inputs.shape[-1])  # flatten all dimensions except the last one
         for layer in self:
-            print(results.shape)
             results = layer(results, perm_mat=perm_mat)
         if mask_index is not None:
             # restore the original mask
