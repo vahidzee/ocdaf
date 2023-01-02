@@ -10,6 +10,7 @@ class MaskedMLP(torch.nn.ModuleList):
         in_features: th.Union[th.List[int], int],
         out_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
+        elementwise_perm: bool = False,
         # residual
         residual: bool = False,
         # blocks
@@ -44,6 +45,7 @@ class MaskedMLP(torch.nn.ModuleList):
 
         # set architectural hyperparameters
         self.in_features, self.out_features = in_features, layers[-1]
+        self.elementwise_perm = elementwise_perm
         # set ordering hyperparameters
         self.masks_kind, self.num_masks, self.__mask_indicator = masks_kind, num_masks, 0
         # set random ordering hyperparameters and setup initial prng
@@ -56,6 +58,7 @@ class MaskedMLP(torch.nn.ModuleList):
                 MaskedBlock(
                     in_features=in_features if not i else self[-1].out_blocks,
                     out_features=layer_features,
+                    elementwise_perm=elementwise_perm,
                     bias=bias,
                     activation=activation if i < len(layers) - 1 else None,
                     auto_connection=True if i < len(layers) - 1 else auto_connection,
@@ -84,6 +87,7 @@ class MaskedMLP(torch.nn.ModuleList):
         self,
         inputs: th.Optional[torch.Tensor] = None,
         perm_mat: th.Optional[torch.Tensor] = None,
+        elementwise_perm: th.Optional[bool] = None,
         mask_index: th.Optional[int] = None,
         vectorize: bool = False,
     ) -> torch.Tensor:
@@ -123,7 +127,7 @@ class MaskedMLP(torch.nn.ModuleList):
             self.reorder(
                 mask_index=mask_index
             )  # we don't change the mask in forward pass, so backward pass is not affected
-        func = functools.partial(self.__call__, perm_mat=perm_mat)
+        func = functools.partial(self.__call__, perm_mat=perm_mat, elementwise_perm=elementwise_perm)
 
         # compute jacobian of outputs with respect to inputs
         results = torch.autograd.functional.jacobian(func, inputs, vectorize=vectorize)
@@ -247,6 +251,7 @@ class MaskedMLP(torch.nn.ModuleList):
         inputs,
         perm_mat: th.Optional[torch.Tensor] = None,
         mask_index: th.Optional[int] = None,
+        elementwise_perm: th.Optional[bool] = None,
     ):
         """
         Forward pass of the model. This function is called automatically when the model is called.
@@ -263,13 +268,13 @@ class MaskedMLP(torch.nn.ModuleList):
         Returns:
             The output of the model.
         """
-
+        elementwise_perm = self.elementwise_perm if elementwise_perm is None else elementwise_perm
         if mask_index is not None:
             current_mask = self.__mask_indicator  # remember current mask to restore it after forward pass
             self.reorder(mask_index=mask_index)
         results = inputs.reshape(-1, inputs.shape[-1])  # flatten all dimensions except the last one
         for layer in self:
-            results = layer(results, perm_mat=perm_mat)
+            results = layer(results, perm_mat=perm_mat, elementwise_perm=elementwise_perm)
         if mask_index is not None:
             # restore the original mask
             self.reorder(mask_index=current_mask)
@@ -277,7 +282,7 @@ class MaskedMLP(torch.nn.ModuleList):
         # if perm_mat is [NumPerms, N, N], results is now [NumPerms, B*, out_features]
         # but if perm_mat is [N, N], results is [B, out_features], let's make it consistent
         # so that results is always [B*, *, out_features]
-        if perm_mat is not None and perm_mat.ndim == 3:
+        if (perm_mat is not None and perm_mat.ndim == 3) and not elementwise_perm:
             results = results.transpose(0, 1)
         return results.unflatten(0, inputs.shape[:-1])
 

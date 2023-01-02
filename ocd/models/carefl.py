@@ -15,6 +15,7 @@ class CAREFL(NormalizingFlow):
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
+        elementwise_perm: bool = False,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -34,6 +35,7 @@ class CAREFL(NormalizingFlow):
             MaskedAffineAutoregressive(
                 in_features=in_features,
                 layers=layers,
+                elementwise_perm=elementwise_perm,
                 residual=residual,
                 bias=bias,
                 activation=activation,

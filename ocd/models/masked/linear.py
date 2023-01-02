@@ -40,6 +40,7 @@ class MaskedLinear(torch.nn.Linear):
         dtype: th.Optional[torch.dtype] = None,
         auto_connection: bool = True,
         mask_dtype: torch.dtype = torch.uint8,
+        elementwise_perm: bool = False,
     ) -> None:
         """
         innitializes module by initializing an ordering mixin and a linear layer.
@@ -108,6 +109,7 @@ class MaskedLinear(torch.nn.Linear):
                 dtype=mask_dtype,
             ),
         )
+        self.elementwise_perm = elementwise_perm
         self.mode: th.Literal["block", "single"] = "block" if isinstance(self.out_blocks, list) else "single"
 
     def reorder(
@@ -191,7 +193,9 @@ class MaskedLinear(torch.nn.Linear):
         """
         return perm_mat @ self.mask.float() @ perm_mat.transpose(-2, -1)
 
-    def forward(self, inputs: torch.Tensor, perm_mat: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, inputs: torch.Tensor, perm_mat: torch.Tensor, elementwise_perm: th.Optional[bool] = None
+    ) -> torch.Tensor:
         """
         Computes masked linear operation.
 
@@ -203,12 +207,24 @@ class MaskedLinear(torch.nn.Linear):
         Args:
             inputs: Input tensor (batched in the first dimensions.)
             perm_mat: Permutation matrix for the output neurons. ([num_perms], N x N)
-
+            elementwise_perm: If true, the permutation is applied elementwise, meaning
+                that we have [batch_size, N*N] as the perm_mat, and we want to apply
+                each permutation to each batch element. (default: self.elementwise_perm)
         Returns:
             A `torch.Tensor` which equals to masked linear operation on inputs, or:
                 `inputs @ (self.mask * self.weights).T + self.bias`
             output shape is ([num_perms,] batch, out_features) if perm_mat is not None,
         """
+        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
         mask = self.mask if perm_mat is None else self.permute_mask(perm_mat)
         mask = self.reshape_mask(mask)
-        return inputs @ (mask * self.weight).transpose(-2, -1) + self.bias
+        weights = (mask * self.weight).transpose(-2, -1)
+
+        if elementwise_perm and perm_mat.ndim == 3 and perm_mat.shape[0] > 1:
+            # reshape inputs to 3D tensor (num_perms, batch, in_features)
+            inputs = inputs.reshape(inputs.shape[0], 1, inputs.shape[1])
+            results = torch.bmm(inputs, weights)
+        else:
+            results = inputs @ weights  # use matmul in every other case
+        results = results.squeeze() if elementwise_perm else results
+        return results + (self.bias if self.bias is not None else 0)

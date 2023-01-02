@@ -11,6 +11,7 @@ class MaskedBlock(MaskedLinear):
         in_features: th.Union[th.List[int], int],
         out_features: th.Union[th.List[int], int],
         bias: bool = True,
+        elementwise_perm: bool = False,
         # residual
         residual: bool = False,
         # activation
@@ -37,6 +38,7 @@ class MaskedBlock(MaskedLinear):
             device=device,
             dtype=dtype,
             mask_dtype=mask_dtype,
+            elementwise_perm=elementwise_perm,
         )
         self.residual = residual
         self.dropout = torch.nn.Dropout(p=dropout) if dropout else None
@@ -47,13 +49,15 @@ class MaskedBlock(MaskedLinear):
             else None
         )
         self.activation = dycode.eval(activation)(**(activation_args or dict())) if activation else None
-        # todo: add more explicit control over residual 
+        # todo: add more explicit control over residual
         # assert not residual or (
         #     self.in_blocks == self.out_blocks
         # ), "Residual connections are only possible if in_blocks == out_blocks"
 
-    def forward(self, inputs: torch.Tensor, perm_mat: torch.Tensor) -> torch.Tensor:
-        outputs = super().forward(inputs, perm_mat)
+    def forward(
+        self, inputs: torch.Tensor, perm_mat: torch.Tensor, elementwise_perm: th.Optional[bool] = None
+    ) -> torch.Tensor:
+        outputs = super().forward(inputs, perm_mat=perm_mat, elementwise_perm=elementwise_perm)
         outputs = self.batch_norm(outputs) if self.batch_norm else outputs
         outputs = self.activation(outputs) if self.activation else outputs
         outputs = self.dropout(outputs) if self.dropout else outputs
