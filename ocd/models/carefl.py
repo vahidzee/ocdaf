@@ -24,6 +24,8 @@ class CAREFL(NormalizingFlow):
         # additional flow args
         additive: bool = False,
         num_transforms: int = 1,
+        # ordering
+        ordering: th.Optional[torch.IntTensor] = None,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -44,4 +46,24 @@ class CAREFL(NormalizingFlow):
             )
             for _ in range(num_transforms)
         ]
-        super().__init__(flows=flows, q0=dy.get_value(base_distribution)(**(base_distribution_args or dict)))
+        super().__init__(flows=flows, q0=dy.get_value(base_distribution)(**(base_distribution_args or dict())))
+        if ordering is not None:
+            self.reorder(torch.IntTensor(ordering))
+
+    def reorder(
+        self,
+        ordering: th.Optional[torch.IntTensor] = None,
+        **kwargs,
+    ) -> None:
+        if ordering is not None:
+            ordering = torch.IntTensor(ordering)
+        for flow in self.flows:
+            flow.reorder(ordering, **kwargs)
+
+    @property
+    def ordering(self) -> torch.IntTensor:
+        return self.flows[0].ordering
+
+    @property
+    def orderings(self) -> torch.IntTensor:
+        return [flow.orderings for flow in self.flows]

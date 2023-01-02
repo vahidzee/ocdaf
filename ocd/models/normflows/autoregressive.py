@@ -69,3 +69,18 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
             s, t (torch.Tensor): where s could be 0 if additive is True.
         """
         return (torch.zeros_like(ar_params), ar_params) if self.additive else (ar_params[:, 0::2], ar_params[:, 1::2])
+
+    def reorder(
+        self,
+        ordering: th.Optional[torch.IntTensor] = None,
+        **kwargs,
+    ) -> None:
+        return self.autoregressive_net.reorder(ordering=ordering, **kwargs)
+
+    @property
+    def ordering(self):
+        return self.autoregressive_net.ordering
+
+    @property
+    def orderings(self):
+        return self.autoregressive_net.orderings
