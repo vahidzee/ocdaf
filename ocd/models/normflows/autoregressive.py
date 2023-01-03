@@ -47,8 +47,9 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
     def forward(self, inputs, **kwargs):
         autoregressive_params = self.autoregressive_net(inputs, **kwargs)
         s, t = self._unconstrained_scale_and_shift(autoregressive_params)
+        inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(s) + t
-        logabsdet = nf.utils.sum_except_batch(torch.abs(s), num_batch_dims=1)
+        logabsdet = torch.sum(torch.abs(s), dim=-1)
         return outputs, logabsdet
 
     def inverse(self, inputs, **kwargs):
@@ -59,7 +60,7 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
             autoregressive_params = self.autoregressive_net(outputs, **kwargs)
             s, t = self._unconstrained_scale_and_shift(autoregressive_params)
             outputs = (inputs - t) / torch.exp(s)
-            logabsdet = -nf.utils.sum_except_batch(torch.abs(s), num_batch_dims=1)
+            logabsdet = -torch.sum(torch.abs(s), dim=-1)
         return outputs, logabsdet
 
     def _unconstrained_scale_and_shift(self, ar_params):
@@ -70,7 +71,9 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
         Returns:
             s, t (torch.Tensor): where s could be 0 if additive is True.
         """
-        return (torch.zeros_like(ar_params), ar_params) if self.additive else (ar_params[:, 0::2], ar_params[:, 1::2])
+        return (
+            (torch.zeros_like(ar_params), ar_params) if self.additive else (ar_params[..., 0::2], ar_params[..., 1::2])
+        )
 
     def reorder(
         self,

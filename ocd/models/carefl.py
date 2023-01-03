@@ -31,6 +31,7 @@ class CAREFL(NormalizingFlow):
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
+        self.elementwise_perm = elementwise_perm
         flows = [
             MaskedAffineAutoregressive(
                 in_features=in_features,
@@ -51,6 +52,56 @@ class CAREFL(NormalizingFlow):
         super().__init__(flows=flows, q0=dy.get_value(base_distribution)(**(base_distribution_args or dict())))
         if ordering is not None:
             self.reorder(torch.IntTensor(ordering))
+
+    def forward(self, inputs, perm_mat=None, elementwise_perm: th.Optional[bool] = None, **kwargs):
+        """Forward pass through normalizing flow (inputs to latent)
+
+        Args:
+          x: Batch sampled from target distribution
+
+        Returns:
+          Batch of samples from approximate distribution
+        """
+        z = inputs.reshape(-1, inputs.shape[-1])
+        batch_size = z.shape[0]
+        log_dets = 0
+        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
+        batch_perm = perm_mat is not None and perm_mat.ndim == 3
+        permutation = perm_mat
+        for i, flow in enumerate(self.flows):
+            z = z.reshape(-1, inputs.shape[-1])
+            z, log_det = flow(
+                inputs=z,
+                perm_mat=permutation,
+                elementwise_perm=elementwise_perm if not i else True,
+                **kwargs,
+            )
+            if perm_mat is not None and batch_perm and not elementwise_perm:
+                # todo: check if this should be repeat interleave or repeat
+                permutation = perm_mat.repeat(batch_size, 1, 1)
+                log_det = log_det.reshape(-1)
+            log_dets += log_det
+        if perm_mat is not None and batch_perm and not elementwise_perm:
+            log_dets = log_dets.reshape(batch_size, perm_mat.shape[0])
+            z = z.reshape(batch_size, perm_mat.shape[0], inputs.shape[-1])
+
+        return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
+
+    def log_prob(self, x, z=None, log_det=None, **kwargs):
+        """Get log probability for batch
+
+        Args:
+          x: Batch
+          z: Batch of latent variables (optional, otherwise computed)
+        Returns:
+          log probability
+        """
+        z, log_det = self.forward(x, **kwargs) if z is None else (z, log_det)
+        flat_z = z.reshape(-1, z.shape[-1])
+        log_base_prob = self.q0.log_prob(flat_z)
+        log_base_prob = log_base_prob.reshape(z.shape[:-1])
+
+        return log_base_prob - log_det
 
     def reorder(
         self,
