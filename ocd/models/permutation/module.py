@@ -6,11 +6,13 @@ from ocd.models.permutation.utils import hungarian, sinkhorn, sample_gumbel_nois
 
 @dy.dynamize
 class LearnablePermutation(torch.nn.Module):
-    def __init__(self, num_features: int, device: th.Optional[torch.device] = None):
+    def __init__(
+        self, num_features: int, device: th.Optional[torch.device] = None, dtype: th.Optional[torch.dtype] = None
+    ):
         super().__init__()
         self.num_features = num_features
         self.device = device
-        self._gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device))
+        self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
 
     def forward(
         self,
@@ -22,7 +24,7 @@ class LearnablePermutation(torch.nn.Module):
         return_matrix: bool = True,
         **kwargs,
     ):
-        device = inputs.device if inputs is not None else self._gamma.device
+        device = inputs.device if inputs is not None else self.gamma.device
         if soft:
             gumbel_noise = (
                 sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
@@ -32,15 +34,14 @@ class LearnablePermutation(torch.nn.Module):
             perm_mat = self.soft_permutation(gumbel_noise=gumbel_noise, *args, **kwargs)
             results = perm_mat if return_matrix else perm_mat.argmax(-1)
         else:
-            perm_list = self.hard_permutation(return_matrix=return_matrix)
-            results = listperm2matperm(perm_list) if return_matrix else perm_list
+            results = self.hard_permutation(return_matrix=return_matrix)
 
         return (results, gumbel_noise) if return_noise else results
 
     @property
     @dy.method
     def parameterized_gamma(self):
-        return self._gamma
+        return self.gamma
 
     @dy.method
     def sinkhorn_num_iters(self, *args, training_module=None, **kwargs) -> int:
