@@ -9,20 +9,6 @@ class NormalizingFlow(nf.NormalizingFlow):
     Normalizing Flow model to approximate target distribution
     """
 
-    def forward(self, x, **kwargs):
-        """Forward pass through normalizing flow (inputs to latent)
-
-        Args:
-          x: Batch sampled from target distribution
-
-        Returns:
-          Batch of samples from approximate distribution
-        """
-        z = x
-        for flow in self.flows:
-            z, log_det = flow(z, **kwargs)
-        return z
-
     def inverse(self, z, **kwargs):
         """Inverse pass through normalizing flow (latent to inputs)
 
@@ -33,9 +19,11 @@ class NormalizingFlow(nf.NormalizingFlow):
           Batch of samples from target distribution
         """
         x = z
+        log_dets = 0
         for i in range(len(self.flows) - 1, -1, -1):
             x, log_det = self.flows[i].inverse(x, **kwargs)
-        return x
+            log_dets += log_det
+        return x, log_dets
 
     def forward_kld(self, x, **kwargs):
         """Estimates forward KL divergence, see [arXiv 1912.02762](https://arxiv.org/abs/1912.02762)
@@ -102,20 +90,3 @@ class NormalizingFlow(nf.NormalizingFlow):
             z, log_det = flow(z, **kwargs)
             log_q -= log_det
         return z, log_q
-
-    def log_prob(self, x, **kwargs):
-        """Get log probability for batch
-
-        Args:
-          x: Batch
-
-        Returns:
-          log probability
-        """
-        log_q = torch.zeros(len(x), dtype=x.dtype, device=x.device)
-        z = x
-        for i in range(len(self.flows) - 1, -1, -1):
-            z, log_det = self.flows[i].inverse(z, **kwargs)
-            log_q += log_det
-        log_q += self.q0.log_prob(z)
-        return log_q
