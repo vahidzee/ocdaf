@@ -33,6 +33,7 @@ class OrderedTrainingModule(TrainingModule):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
+        learn_permutation: bool = True,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -43,8 +44,9 @@ class OrderedTrainingModule(TrainingModule):
         expectation_epoch_limit: int = 10,
         maximization_epoch_limit: int = 10,
         # switching context parameters
-        overfit_check_patience=10,
-        overfit_check_threshold=0.01,
+        overfit_window_size=10,
+        overfit_check_threshold=0.001,
+        overfitting_patience=10,
         # (3) criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
@@ -88,6 +90,7 @@ class OrderedTrainingModule(TrainingModule):
                 num_transforms=num_transforms,
                 # ordering
                 ordering=ordering,
+                learn_permutation=learn_permutation,
                 # general args
                 device=device,
                 dtype=dtype,
@@ -121,8 +124,10 @@ class OrderedTrainingModule(TrainingModule):
         self.phase_change_rem = phase_change_upper_bound
 
         # overfitting checks
-        self.overfit_check_patience = overfit_check_patience
+        self.overfit_window_size = overfit_window_size
         self.overfit_check_threshold = overfit_check_threshold
+        self.overfitting_patience = overfitting_patience
+        self.overfitting_patience_rem = overfitting_patience
 
         # Keep a list of monitored validation losses
         self.last_monitored_validation_losses = []
@@ -135,7 +140,7 @@ class OrderedTrainingModule(TrainingModule):
             # pop the last element
             self.last_monitored_validation_losses.pop()
         self.last_monitored_validation_losses.append(val)
-        if len(self.last_monitored_validation_losses) > self.overfit_check_patience:
+        if len(self.last_monitored_validation_losses) > self.overfit_window_size:
             self.last_monitored_validation_losses.pop(0)
 
     def end_maximization(self):
@@ -145,9 +150,14 @@ class OrderedTrainingModule(TrainingModule):
         if (
             t > 0
             and self.last_monitored_validation_losses[-1]
-            > sum(self.last_monitored_validation_losses) / t + self.overfit_check_threshold
+            >= sum(self.last_monitored_validation_losses) / t - self.overfit_check_threshold
         ):
+            # If this condition is satisfied multiple times consequetively, then end the maximization phase
+            self.overfitting_patience_rem -= 1
+            if self.overfitting_patience_rem == 0:
+                self.overfitting_patience_rem = self.overfitting_patience
             return True
+        self.overfitting_patience_rem = self.overfitting_patience
         return False
 
     def end_expectation(self):
