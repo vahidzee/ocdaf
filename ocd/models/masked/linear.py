@@ -220,7 +220,7 @@ class MaskedLinear(torch.nn.Linear):
         mask = self.reshape_mask(mask)
         weights = (mask * self.weight).transpose(-2, -1)
 
-        if elementwise_perm and perm_mat.ndim == 3 and perm_mat.shape[0] > 1:
+        if elementwise_perm and perm_mat is not None and perm_mat.ndim == 3 and perm_mat.shape[0] > 1:
             # reshape inputs to 3D tensor (num_perms, batch, in_features)
             inputs = inputs.reshape(inputs.shape[0], 1, inputs.shape[1])
             results = torch.bmm(inputs, weights)
