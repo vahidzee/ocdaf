@@ -1,11 +1,10 @@
-import normflows as nf
 import typing as th
 import torch
 import numpy as np
 from ocd.models.masked import MaskedMLP
 
 
-class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
+class MaskedAffineFlow(MaskedMLP):
     def __init__(
         self,
         # architecture args
@@ -28,7 +27,7 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
         out_features = in_features
         if not additive:
             out_features = in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
-        net = MaskedMLP(
+        super().__init__(
             in_features=in_features,
             layers=layers,
             out_features=out_features,
@@ -42,26 +41,31 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
             device=device,
             dtype=dtype,
         )
-        super().__init__(autoregressive_net=net)
 
     def forward(self, inputs, **kwargs):
-        autoregressive_params = self.autoregressive_net(inputs, **kwargs)
+        autoregressive_params = super().forward(inputs, **kwargs)
         s, t = self._unconstrained_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(s) + t
         logabsdet = torch.sum(torch.abs(s), dim=-1)
         return outputs, logabsdet
 
-    def inverse(self, inputs, **kwargs):
-        num_inputs = np.prod(inputs.shape[1:])
+    def inverse(
+        self, inputs, perm_mat: th.Optional[bool] = None, elementwise_perm: th.Optional[bool] = None, **kwargs
+    ):
+        elementwise_perm: bool = self.elementwise_perm if elementwise_perm is None else elementwise_perm
+        is_perm_batch: bool = perm_mat is not None and perm_mat.ndim == 3
+        if not elementwise_perm and is_perm_batch:
+            perm_mat = perm_mat.repeat_interleave(inputs.numel() // perm_mat.shape[0] // inputs.shape[-1], dim=0)
+        inputs = inputs.reshape(-1, inputs.shape[-1])
         outputs = torch.zeros_like(inputs)
-        logabsdet = None
-        for _ in range(num_inputs):
-            autoregressive_params = self.autoregressive_net(outputs, **kwargs)
+        for _ in range(inputs.shape[-1]):
+            autoregressive_params = super().forward(outputs, perm_mat=perm_mat, elementwise_perm=True, **kwargs)
             s, t = self._unconstrained_scale_and_shift(autoregressive_params)
             outputs = (inputs - t) / torch.exp(s)
             logabsdet = -torch.sum(torch.abs(s), dim=-1)
-        return outputs, logabsdet
+
+        return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])
 
     def _unconstrained_scale_and_shift(self, ar_params):
         """
@@ -74,18 +78,3 @@ class MaskedAffineAutoregressive(nf.flows.affine.autoregressive.Autoregressive):
         return (
             (torch.zeros_like(ar_params), ar_params) if self.additive else (ar_params[..., 0::2], ar_params[..., 1::2])
         )
-
-    def reorder(
-        self,
-        ordering: th.Optional[torch.IntTensor] = None,
-        **kwargs,
-    ) -> None:
-        return self.autoregressive_net.reorder(ordering=ordering, **kwargs)
-
-    @property
-    def ordering(self):
-        return self.autoregressive_net.ordering
-
-    @property
-    def orderings(self):
-        return self.autoregressive_net.orderings

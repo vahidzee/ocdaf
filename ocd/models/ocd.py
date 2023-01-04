@@ -52,13 +52,13 @@ class OCD(torch.nn.Module):
         )
 
         if learn_permutation:
-            self.latent_permutaion_model = LearnablePermutation(
+            self.permutation_model = LearnablePermutation(
                 num_features=in_features if isinstance(in_features, int) else len(in_features),
                 device=device,
                 dtype=dtype,
             )
         else:
-            self.latent_permutaion_model = None
+            self.permutation_model = None
         # setup some model parameters
         self.elementwise_perm = elementwise_perm
 
@@ -75,17 +75,13 @@ class OCD(torch.nn.Module):
         return_noise_prob: bool = False,
         return_prior: bool = False,
     ):
-        elementwise_perm = (
-            elementwise_perm
-            if elementwise_perm is not None
-            else self.carefl.flows[0].autoregressive_net.elementwise_perm
-        )
+        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.carefl.flows[0].elementwise_perm
         if elementwise_perm:
             num_samples = inputs.shape[0]
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
-        if self.latent_permutaion_model is not None and permute:
-            latent_permutation, gumbel_noise = self.latent_permutaion_model(
+        if self.permutation_model is not None and permute:
+            latent_permutation, gumbel_noise = self.permutation_model(
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True
             )
         # log prob inputs, noise_prob, prior
