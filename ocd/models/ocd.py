@@ -26,6 +26,7 @@ class OCD(torch.nn.Module):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
+        learn_permutation: bool = True,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -50,12 +51,14 @@ class OCD(torch.nn.Module):
             dtype=dtype,
         )
 
-        self.latent_permutaion_model = LearnablePermutation(
-            num_features=in_features if isinstance(in_features, int) else len(in_features),
-            device=device,
-            dtype=dtype,
-        )
-
+        if learn_permutation:
+            self.latent_permutaion_model = LearnablePermutation(
+                num_features=in_features if isinstance(in_features, int) else len(in_features),
+                device=device,
+                dtype=dtype,
+            )
+        else:
+            self.latent_permutaion_model = None
         # setup some model parameters
         self.elementwise_perm = elementwise_perm
 
@@ -66,6 +69,7 @@ class OCD(torch.nn.Module):
         num_samples: th.Optional[int] = None,
         elementwise_perm: th.Optional[bool] = None,
         soft: th.Optional[bool] = True,
+        permute: bool = True,
         # return
         return_log_prob: bool = True,
         return_noise_prob: bool = False,
@@ -79,16 +83,18 @@ class OCD(torch.nn.Module):
         if elementwise_perm:
             num_samples = inputs.shape[0]
         # sample latent permutation
-        latent_permutation, gumbel_noise = self.latent_permutaion_model(
-            inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True
-        )
+        latent_permutation, gumbel_noise = None, None
+        if self.latent_permutaion_model is not None and permute:
+            latent_permutation, gumbel_noise = self.latent_permutaion_model(
+                inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True
+            )
         # log prob inputs, noise_prob, prior
         log_prob = self.carefl.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 
         # return log_prob, noise_prob, prior (if requested)
         results = [log_prob] if return_log_prob else []
         if return_noise_prob:
-            results.append(gumbel_log_prob(gumbel_noise))
+            results.append(gumbel_log_prob(gumbel_noise) if gumbel_noise is not None else 0)
         if return_prior:
             raise NotImplementedError("Haven't implemented prior yet.")
         return results[0] if len(results) == 1 else tuple(results)
