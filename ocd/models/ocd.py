@@ -56,6 +56,9 @@ class OCD(torch.nn.Module):
             dtype=dtype,
         )
 
+        # setup some model parameters
+        self.elementwise_perm = elementwise_perm
+
     def forward(
         self,
         inputs: torch.Tensor,
@@ -87,5 +90,5 @@ class OCD(torch.nn.Module):
         if return_noise_prob:
             results.append(gumbel_log_prob(gumbel_noise))
         if return_prior:
-            pass
+            raise NotImplementedError("Haven't implemented prior yet.")
         return results[0] if len(results) == 1 else tuple(results)

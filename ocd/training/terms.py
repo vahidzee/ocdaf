@@ -35,31 +35,25 @@ class TrainingTerm(CriterionTerm):
         if training_module.get_phase() == "expectation":
             # Maximize the whole ELBO
             if training_module.model.elementwise_perm:
-                all_log_probs, log_noise_prob, log_prior_prob = training_module.model(
-                    batch, return_noise_prob=True, return_prior=True
-                )
-                # ([batch_size, num_covariates], [batch_size], [batch_size]])
-                loss = all_log_probs.sum(dim=1) + log_noise_prob + log_prior_prob
+                all_log_probs, log_noise_prob = training_module.model(batch, return_noise_prob=True)
+                # ([batch_size], [batch_size], [batch_size]])
+                loss = all_log_probs + log_noise_prob
                 return -loss.mean(dim=0)
             else:
-                all_log_probs, log_noise_prob, log_prior_prob = training_module.model(
-                    batch, return_noise_prob=True, return_prior=True
-                )
-                # ([batch_size, num_permutations, num_covariates], [num_permutations], [num_permutations])
-                all_log_probs = all_log_probs.sum(dim=2)  # [batch_size, num_permutations]
+                all_log_probs, log_noise_prob = training_module.model(batch, return_noise_prob=True)
+                # ([batch_size, num_permutations], [num_permutations], [num_permutations])
                 all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
-                loss = all_log_probs + log_noise_prob + log_prior_prob
+                loss = all_log_probs + log_noise_prob
                 return -loss.mean(dim=0)
 
         elif training_module.get_phase() == "maximization":
             if training_module.model.elementwise_perm:
                 all_log_probs = training_module.model(batch, return_noise_prob=False, return_prior=False)
-                # ([batch_size, num_covariates])
-                return -all_log_probs.sum(dim=1).mean(dim=0)
+                # ([batch_size, ])
+                return -all_log_probs.mean(dim=0)
             else:
                 all_log_probs = training_module.model(batch, return_noise_prob=False, return_prior=False)
-                # ([batch_size, num_permutations, num_covariates])
-                all_log_probs = all_log_probs.sum(dim=2)  # [batch_size, num_permutations]
+                # ([batch_size, num_permutations])
                 all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
                 return -all_log_probs.mean(dim=0)
         else:

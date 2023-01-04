@@ -11,11 +11,10 @@ from lightning.pytorch.utilities.types import EPOCH_OUTPUT
 from ocd.evaluation import backward_score, count_backward
 
 
-@dy.dynamize
 class OrderedTrainingModule(TrainingModule):
     def __init__(
         self,
-        # (1) CAREFL parameters
+        # (1) Model parameters:
         # essential flow args
         base_distribution: th.Union[nf.distributions.BaseDistribution, str],
         base_distribution_args: dict,
@@ -34,22 +33,22 @@ class OrderedTrainingModule(TrainingModule):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
-        # (2) Latent permutation model parameters
-        # TODO: add this
         # general args
-        # General model properties
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
+        # (2) Trainer parameters:
         # Phase switch controls
         starting_phase: th.Literal["expectation", "maximization"] = "maximization",
+        phase_change_upper_bound: int = 100,
         expectation_epoch_limit: int = 10,
         maximization_epoch_limit: int = 10,
         # switching context parameters
         overfit_check_patience=10,
         overfit_check_threshold=0.01,
-        # criterion
+        # (3) criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
+        # (4) Optimizer parameters:
         optimizer: th.Union[str, th.List[str]] = "torch.optim.Adam",
         optimizer_is_active: th.Optional[th.Union[dy.FunctionDescriptor, th.List[dy.FunctionDescriptor]]] = None,
         optimizer_parameters: th.Optional[th.Union[th.List[str], str]] = None,
@@ -69,8 +68,9 @@ class OrderedTrainingModule(TrainingModule):
         _criterion_args = dict(terms=["ocd.training.terms.TrainingTerm"])
         _criterion_args.update(criterion_args or {})
         super().__init__(
-            model_cls="ocd.models.order_discovery.SinkhornOrderDiscovery",
+            model_cls="ocd.models.ocd.OCD",
             model_args=dict(
+                # essential flow args
                 base_distribution=base_distribution,
                 base_distribution_args=base_distribution_args,
                 # architecture
@@ -88,8 +88,6 @@ class OrderedTrainingModule(TrainingModule):
                 num_transforms=num_transforms,
                 # ordering
                 ordering=ordering,
-                # (2) Latent permutation model parameters
-                # TODO: add this
                 # general args
                 device=device,
                 dtype=dtype,
@@ -120,6 +118,7 @@ class OrderedTrainingModule(TrainingModule):
         self.num_epochs_on_maximization = 0
         self.expectation_epoch_limit = expectation_epoch_limit
         self.maximization_epoch_limit = maximization_epoch_limit
+        self.phase_change_rem = phase_change_upper_bound
 
         # overfitting checks
         self.overfit_check_patience = overfit_check_patience
@@ -129,20 +128,28 @@ class OrderedTrainingModule(TrainingModule):
         self.last_monitored_validation_losses = []
 
     def add_monitoring_value(self, val):
+        if (
+            len(self.last_monitored_validation_losses) > 1
+            and self.last_monitored_validation_losses[-1] > self.last_monitored_validation_losses[-2]
+        ):
+            # pop the last element
+            self.last_monitored_validation_losses.pop()
         self.last_monitored_validation_losses.append(val)
         if len(self.last_monitored_validation_losses) > self.overfit_check_patience:
             self.last_monitored_validation_losses.pop(0)
 
-    @dy.method
     def end_maximization(self):
         # End it if the current last monitored validation loss is greater than the average of the last
         # overfit_check_patience losses
         t = len(self.last_monitored_validation_losses)
-        if self.last_monitored_validation_losses[-1] > sum(self.last_monitored_validation_losses) / t:
+        if (
+            t > 0
+            and self.last_monitored_validation_losses[-1]
+            > sum(self.last_monitored_validation_losses) / t + self.overfit_check_threshold
+        ):
             return True
         return False
 
-    @dy.method
     def end_expectation(self):
         self.num_epochs_on_expectation += 1
         if self.num_epochs_on_expectation >= self.expectation_epoch_limit:
@@ -171,12 +178,18 @@ class OrderedTrainingModule(TrainingModule):
             if self.end_expectation():
                 self.reset_switch_phase()
                 self.current_phase = "maximization"
+                self.phase_change_rem -= 1
         elif self.current_phase == "maximization":
             if self.end_maximization():
                 # if it is starting to overfit, then reset all the overfitting settings
                 # and switch phase
                 self.reset_switch_phase()
                 self.current_phase = "expectation"
+                self.phase_change_rem -= 1
+
+        # early stop the training if self.phase_change_rem is 0
+        if self.phase_change_rem == 0:
+            self.trainer.should_stop = True
 
     def step(
         self,
@@ -205,9 +218,8 @@ class OrderedTrainingModule(TrainingModule):
                 original_batch=batch,
                 **kwargs,
             )
-            # return a dictionary containing the loss of validation
-            return ret[0] if return_factors else ret
 
+            return ret[0] if return_factors else ret
         return super().step(
             batch=batch,
             batch_idx=batch_idx,
@@ -229,8 +241,11 @@ class OrderedTrainingModule(TrainingModule):
         for output in outputs if isinstance(outputs, list) else [outputs]:
             if isinstance(output, dict):
                 if "loss" in output:
-                    all_losses.append(output["loss"])
-        self.add_monitoring_value(sum(all_losses) / len(all_losses))
+                    all_losses.append(output["loss"].item())
+        mean_loss = sum(all_losses) / len(all_losses)
+        self.add_monitoring_value(mean_loss)
+
+        self.log("metrics/epoch/val_loss", mean_loss, on_step=False, on_epoch=True)
         return super().validation_epoch_end(outputs)
 
     def on_train_epoch_end(self) -> None:
@@ -244,6 +259,7 @@ class OrderedTrainingModule(TrainingModule):
         with torch.no_grad():
             # compare to the true graph structure
             # get datamodule
-            self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
-            self.log("metrics/n_iter", self.model.n_iter, on_step=False, on_epoch=True)
+            pass
+            # self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
+            # self.log("metrics/n_iter", self.model.n_iter, on_step=False, on_epoch=True)
         return super().on_train_epoch_start()

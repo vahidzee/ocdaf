@@ -37,7 +37,10 @@ class OCDDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         # return the idx-th sample, as a jnp.array
-        return self.samples.iloc[idx].values
+        ret = self.samples.iloc[idx].values
+        # turn ret into float32
+        ret = ret.astype(np.float32)
+        return ret
 
     def get_intervention_column(self, col_id: int) -> str:
         return self.samples.columns[col_id] if isinstance(self.samples, pd.DataFrame) else str(col_id)
@@ -48,8 +51,7 @@ class OCDDataset(torch.utils.data.Dataset):
 
     def __repr__(self) -> str:
         if self.is_interventional:
-            intervention_name = self.get_intervention_column(
-                self.intervention_column)
+            intervention_name = self.get_intervention_column(self.intervention_column)
             intervention = f", do({intervention_name}={self.intervention_values})"
         else:
             intervention = ""
