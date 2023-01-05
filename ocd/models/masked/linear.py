@@ -39,6 +39,7 @@ class MaskedLinear(torch.nn.Linear):
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
         auto_connection: bool = True,
+        reversed_ordering: bool = False,
         mask_dtype: torch.dtype = torch.uint8,
         elementwise_perm: bool = False,
     ) -> None:
@@ -99,6 +100,7 @@ class MaskedLinear(torch.nn.Linear):
         # but if in_features is a single int, then we have as many labels as features
         ordering_size = out_features if isinstance(self.out_blocks, int) else len(self.out_blocks)
         self.auto_connection = auto_connection
+        self.reversed_ordering = reversed_ordering
         self.register_buffer("ordering", torch.empty(ordering_size, device=device, dtype=torch.int))
         self.register_buffer(
             "mask",
@@ -165,7 +167,9 @@ class MaskedLinear(torch.nn.Linear):
 
     @functools.cached_property
     def connection_operator(self):
-        return torch.less_equal if self.auto_connection else torch.less
+        if not self.reversed_ordering:
+            return torch.less_equal if self.auto_connection else torch.less
+        return torch.greater_equal if self.auto_connection else torch.greater
 
     def reshape_mask(self, mask: torch.Tensor):
         """

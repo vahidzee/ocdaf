@@ -26,6 +26,7 @@ class CAREFL(torch.nn.Module):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
+        reversed_ordering: bool = True,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -47,6 +48,7 @@ class CAREFL(torch.nn.Module):
                     batch_norm=batch_norm,
                     batch_norm_args=batch_norm_args,
                     additive=additive,
+                    reversed_ordering=reversed_ordering,
                     device=device,
                     dtype=dtype,
                 )

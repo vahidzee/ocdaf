@@ -43,7 +43,7 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise = None
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
-            gumbel_noise = gumbel_noise * self.gumbel_noise_std
+            gumbel_noise = gumbel_noise * self.gumbel_noise_std(*args, **kwargs)
         if soft:
             perm_mat = self.soft_permutation(gumbel_noise=gumbel_noise, *args, **kwargs)
             results = perm_mat if return_matrix else perm_mat.argmax(-1)
@@ -52,7 +52,7 @@ class LearnablePermutation(torch.nn.Module):
 
         return (results, gumbel_noise) if return_noise else results
 
-    @property  # todo: does not work with the current version of dycode
+    # todo: does not work with the current version of dycode (make it a property later)
     @dy.method
     def parameterized_gamma(self):
         return self.gamma
@@ -87,7 +87,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 0.1
 
-    @property  # todo: does not work with the current version of dycode
+    # todo: does not work with the current version of dycode (make it a property later)
     @dy.method
     def gumbel_noise_std(self):
         """
@@ -119,7 +119,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix.
         """
-        gamma = gamma if gamma is not None else self.parameterized_gamma
+        gamma = gamma if gamma is not None else self.parameterized_gamma()
         temp = temp if temp is not None else self.sinkhorn_temp(*args, **kwargs)
         num_iters = num_iters if num_iters is not None else self.sinkhorn_num_iters(*args, **kwargs)
         # transform gamma with log-sigmoid and temperature
@@ -143,7 +143,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
-        gamma = gamma if gamma is not None else self.parameterized_gamma
+        gamma = gamma if gamma is not None else self.parameterized_gamma()
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm

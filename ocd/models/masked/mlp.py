@@ -25,6 +25,7 @@ class MaskedMLP(torch.nn.ModuleList):
         masks_kind: th.Literal["repeat", "random"] = "repeat",
         # general parameters
         auto_connection: bool = False,
+        reversed_ordering: bool = False,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
@@ -62,6 +63,7 @@ class MaskedMLP(torch.nn.ModuleList):
                     bias=bias,
                     activation=activation if i < len(layers) - 1 else None,
                     auto_connection=True if i < len(layers) - 1 else auto_connection,
+                    reversed_ordering=reversed_ordering,
                     activation_args=activation_args if i < len(layers) - 1 else None,
                     batch_norm=batch_norm if i < len(layers) - 1 else False,
                     batch_norm_args=batch_norm_args if i < len(layers) - 1 else None,

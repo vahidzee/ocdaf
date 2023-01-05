@@ -24,6 +24,7 @@ class MaskedBlock(MaskedLinear):
         dropout: th.Optional[th.Union[float, int]] = 0.0,
         # ordering args
         auto_connection: bool = True,
+        reversed_ordering: bool = False,
         # general parameters
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -35,6 +36,7 @@ class MaskedBlock(MaskedLinear):
             out_features=out_features,
             bias=bias,
             auto_connection=auto_connection,
+            reversed_ordering=reversed_ordering,
             device=device,
             dtype=dtype,
             mask_dtype=mask_dtype,
