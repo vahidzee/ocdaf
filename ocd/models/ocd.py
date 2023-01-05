@@ -32,8 +32,6 @@ class OCD(torch.nn.Module):
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
-        # logging args
-        log_permutations: bool = False,
     ) -> None:
         super().__init__()
         self.carefl = CAREFL(
@@ -68,34 +66,6 @@ class OCD(torch.nn.Module):
         # setup some model parameters
         self.elementwise_perm = elementwise_perm
 
-        # If logging is set to true, note that
-        # this might slow down training significantly
-        self.log_permutations = log_permutations
-        self.logged_permutations = None
-        # A simple check jic
-        if self.permutation_model is None and self.log_permutations:
-            raise Exception("Can only log permutations if learnable permutation is set to True.")
-
-    def _check_logging_enabled(self):
-        if not self.log_permutations:
-            raise Exception("Logging is not enabled. Set log_permutations to True to enable logging.")
-
-    def clear_logged_permutations(self):
-        self._check_logging_enabled()
-        self.logged_permutations = None
-
-    def get_logged_permutations(self):
-        self._check_logging_enabled()
-        return self.logged_permutations
-
-    def log_new_permutations(self, latent_permutation: torch.Tensor):
-        self._check_logging_enabled()
-        if self.logged_permutations is None:
-            self.logged_permutations = latent_permutation
-        else:
-            # append the new permutations to the existing ones
-            self.logged_permutations = torch.cat([self.logged_permutations, latent_permutation], dim=0)
-
     def forward(
         self,
         inputs: torch.Tensor,
@@ -120,10 +90,6 @@ class OCD(torch.nn.Module):
             latent_permutation, gumbel_noise = self.permutation_model(
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
-
-        # log the permutations that were generated if logging is enabled
-        if self.log_permutations:
-            self.log_new_permutations(latent_permutation)
 
         # log prob inputs, noise_prob, prior
         log_prob = self.carefl.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
