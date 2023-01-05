@@ -78,6 +78,7 @@ class OCD(torch.nn.Module):
         return_log_prob: bool = True,
         return_noise_prob: bool = False,
         return_prior: bool = False,
+        return_latent_permutation: bool = False,
         # args for dynamic methods
         **kwargs
     ):
@@ -91,13 +92,19 @@ class OCD(torch.nn.Module):
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
 
+        # log the permutations that were generated if logging is enabled
+        if self.log_permutations:
+            self.log_new_permutations(latent_permutation)
+
         # log prob inputs, noise_prob, prior
         log_prob = self.carefl.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 
         # return log_prob, noise_prob, prior (if requested)
-        results = [log_prob] if return_log_prob else []
+        results = dict(log_prob=log_prob) if return_log_prob else dict()
         if return_noise_prob:
-            results.append(gumbel_log_prob(gumbel_noise) if gumbel_noise is not None else 0)
+            results["noise_prob"] = gumbel_log_prob(gumbel_noise) if gumbel_noise is not None else 0
         if return_prior:
             raise NotImplementedError("Haven't implemented prior yet.")
-        return results[0] if len(results) == 1 else tuple(results)
+        if return_latent_permutation:
+            results["latent_permutation"] = latent_permutation
+        return results
