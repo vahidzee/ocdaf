@@ -43,7 +43,7 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise = None
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
-
+            gumbel_noise = gumbel_noise * self.gumbel_noise_std
         if soft:
             perm_mat = self.soft_permutation(gumbel_noise=gumbel_noise, *args, **kwargs)
             results = perm_mat if return_matrix else perm_mat.argmax(-1)
@@ -87,6 +87,17 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 1.0
 
+    @property
+    @dy.method
+    def gumbel_noise_std(self):
+        """
+        A dynamic method that returns the standard deviation of the Gumbel noise.
+
+        Returns:
+            The standard deviation of the Gumbel noise.
+        """
+        return 1.0
+
     def soft_permutation(
         self,
         gamma: th.Optional[torch.Tensor] = None,
@@ -96,6 +107,18 @@ class LearnablePermutation(torch.nn.Module):
         num_iters: th.Optional[int] = None,
         **kwargs,  # for sinkhorn num_iters and temp dynamic methods
     ) -> torch.Tensor:
+        """
+        Args:
+            gamma: the gamma parameter (if None, the parameterized gamma is used)
+            gumbel_noise: the gumbel noise (if None, no noise is added)
+            temp: the temperature (if None, the dynamic method sinkhorn_temp is used)
+            num_iters: the number of iterations (if None, the dynamic method sinkhorn_num_iters is used)
+            *args: arguments to dynamic methods (might be empty, depends on the caller)
+            **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
+
+        Returns:
+            The resulting permutation matrix.
+        """
         gamma = gamma if gamma is not None else self.parameterized_gamma
         temp = temp if temp is not None else self.sinkhorn_temp(*args, **kwargs)
         num_iters = num_iters if num_iters is not None else self.sinkhorn_num_iters(*args, **kwargs)

@@ -7,10 +7,10 @@ import torch
 def sample_gumbel_noise(*args, eps=1e-20, **kwargs):
     """Samples arbitrary-shaped standard gumbel variables.
     Args:
-    shape: list of integers
-    eps: float, for numerical stability
+        shape: list of integers
+        eps: float, for numerical stability
     Returns:
-    A sample of standard Gumbel random variables
+        A sample of standard Gumbel random variables
     """
 
     u = torch.rand(*args, **kwargs).float()

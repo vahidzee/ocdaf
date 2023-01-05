@@ -27,6 +27,7 @@ class OCD(torch.nn.Module):
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
         learn_permutation: bool = True,
+        permutation_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -56,6 +57,7 @@ class OCD(torch.nn.Module):
                 num_features=in_features if isinstance(in_features, int) else len(in_features),
                 device=device,
                 dtype=dtype,
+                **(permutation_args or dict()),
             )
         else:
             self.permutation_model = None
