@@ -34,6 +34,7 @@ class OrderedTrainingModule(TrainingModule):
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
         learn_permutation: bool = True,
+        log_permutations: bool = False,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -91,6 +92,7 @@ class OrderedTrainingModule(TrainingModule):
                 # ordering
                 ordering=ordering,
                 learn_permutation=learn_permutation,
+                log_permutations=log_permutations,
                 # general args
                 device=device,
                 dtype=dtype,
@@ -230,6 +232,7 @@ class OrderedTrainingModule(TrainingModule):
             )
 
             return ret[0] if return_factors else ret
+
         return super().step(
             batch=batch,
             batch_idx=batch_idx,
