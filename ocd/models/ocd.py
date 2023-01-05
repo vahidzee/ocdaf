@@ -108,6 +108,8 @@ class OCD(torch.nn.Module):
         return_log_prob: bool = True,
         return_noise_prob: bool = False,
         return_prior: bool = False,
+        # args for dynamic methods
+        **kwargs
     ):
         elementwise_perm = elementwise_perm if elementwise_perm is not None else self.carefl.flows[0].elementwise_perm
         if elementwise_perm:
@@ -116,7 +118,7 @@ class OCD(torch.nn.Module):
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
             latent_permutation, gumbel_noise = self.permutation_model(
-                inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True
+                inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
 
         # log the permutations that were generated if logging is enabled
