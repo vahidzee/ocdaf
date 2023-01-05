@@ -145,9 +145,6 @@ class OrderedTrainingModule(TrainingModule):
         if len(self.last_monitored_validation_losses) > self.overfit_window_size:
             self.last_monitored_validation_losses.pop(0)
 
-    def forward(self, inputs):
-        return self.model(inputs, training_module=self)
-
     def end_maximization(self):
         # End it if the current last monitored validation loss is greater than the average of the last
         # overfit_check_patience losses
@@ -219,6 +216,7 @@ class OrderedTrainingModule(TrainingModule):
         log_results: bool = True,
         **kwargs,  # additional arguments to pass to the criterion and attacker
     ):
+
         if name == "val":
             ret = super().step(
                 batch=batch,

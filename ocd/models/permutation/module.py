@@ -89,14 +89,19 @@ class LearnablePermutation(torch.nn.Module):
 
     # todo: does not work with the current version of dycode (make it a property later)
     @dy.method
-    def gumbel_noise_std(self):
+    def gumbel_noise_std(self, *args, training_module=None, **kwargs):
         """
         A dynamic method that returns the standard deviation of the Gumbel noise.
 
         Returns:
             The standard deviation of the Gumbel noise.
         """
-        return 0.1
+        if training_module is None:
+            return 0.1
+        elif training_module.get_phase() == 'maximization':
+            return 1
+        else:
+            return 0.1
 
     def soft_permutation(
         self,
