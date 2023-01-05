@@ -70,7 +70,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 10
+        return 50
 
     @dy.method
     def sinkhorn_temp(self, *args, training_module=None, **kwargs) -> float:
@@ -85,7 +85,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The temperature for the Sinkhorn algorithm.
         """
-        return 1.0
+        return 0.1
 
     @property  # todo: does not work with the current version of dycode
     @dy.method
@@ -96,7 +96,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The standard deviation of the Gumbel noise.
         """
-        return 1.0
+        return 2
 
     def soft_permutation(
         self,
@@ -123,8 +123,9 @@ class LearnablePermutation(torch.nn.Module):
         temp = temp if temp is not None else self.sinkhorn_temp(*args, **kwargs)
         num_iters = num_iters if num_iters is not None else self.sinkhorn_num_iters(*args, **kwargs)
         # transform gamma with log-sigmoid and temperature
-        gamma = torch.nn.functional.logsigmoid(gamma + (gumbel_noise if gumbel_noise is not None else 0.0) / temp)
-        return sinkhorn(gamma, num_iters=num_iters)
+        gamma = torch.nn.functional.logsigmoid(gamma)
+        noise = gumbel_noise if gumbel_noise is not None else 0.0
+        return sinkhorn((gamma + noise) / temp, num_iters=num_iters)
 
     def hard_permutation(
         self,
