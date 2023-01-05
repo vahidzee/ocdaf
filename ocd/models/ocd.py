@@ -92,10 +92,6 @@ class OCD(torch.nn.Module):
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
 
-        # log the permutations that were generated if logging is enabled
-        if self.log_permutations:
-            self.log_new_permutations(latent_permutation)
-
         # log prob inputs, noise_prob, prior
         log_prob = self.carefl.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 
