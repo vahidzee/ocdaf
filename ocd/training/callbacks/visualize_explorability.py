@@ -18,6 +18,8 @@ from lightning.pytorch.callbacks import Callback
 import numpy as np
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+from ocd.models.permutation.utils import sinkhorn
+import torch
 
 
 class ExplorabilityCallback(Callback):
@@ -42,23 +44,15 @@ class ExplorabilityCallback(Callback):
         self.seed = seed
 
         if not self.fit_every_time:
-            # create a random tensor of size n_sample x permutation_size x permutation_size
-            polytope = np.random.randn(n_sample, permutation_size, permutation_size)
             # sample n_sample x permutation_size x permutation_size gumbel noises
             gumbel_noise = np.random.gumbel(size=(n_sample, permutation_size, permutation_size))
-
-            # add n_sample number of permutation matrices to the polytope
-            for i in range(n_sample - n_sample // 2):
-                new_perm = np.eye(permutation_size)[np.random.permutation(permutation_size)]
-                # unsqueeze new_param to make it 3D
-                new_perm = np.expand_dims(new_perm, axis=0)
-                # concatenate the new permutation matrix to the polytope
-                polytope = np.concatenate((polytope, new_perm), axis=0)
-
-            # Do alternative row and column normalization
-            for _ in range(100):
-                polytope = polytope / np.sum(polytope, axis=-1, keepdims=True)
-                polytope = polytope / np.sum(polytope, axis=-2, keepdims=True)
+            # turn the gumbel noise into a torch tensor
+            gumbel_noise = torch.from_numpy(gumbel_noise).float()
+            polytope = (
+                sinkhorn(torch.cat([gumbel_noise, gumbel_noise / 0.1, gumbel_noise / 0.05], dim=0), 100)
+                .detach()
+                .numpy()
+            )
 
             # train a PCA on all the elements of the polytope
             self.pca.fit(polytope.reshape(-1, permutation_size * permutation_size))
@@ -131,9 +125,18 @@ class ExplorabilityCallback(Callback):
             ax.set_ylabel(f"phase {pl_module.get_phase()}")
             ax.set_xlabel(f"epoch: {pl_module.current_epoch}")
             if not self.fit_every_time:
-                ax.scatter(self.polytope[:, 0], self.polytope[:, 1], s=1, c="green")
-            ax.scatter(transformed_permutations[:-1, 0], transformed_permutations[:-1, 1], s=1)
-            ax.scatter(transformed_permutations[-1:, 0], transformed_permutations[-1:, 1], s=20, c="red")
+                ax.scatter(self.polytope[:, 0], self.polytope[:, 1], s=1, c="green", label="Polytope boundaries")
+            ax.scatter(
+                transformed_permutations[:-1, 0], transformed_permutations[:-1, 1], s=1, label="Sampled permutations"
+            )
+            ax.scatter(
+                transformed_permutations[-1:, 0],
+                transformed_permutations[-1:, 1],
+                s=20,
+                c="red",
+                label="Gamma without noise",
+            )
+            ax.legend()
 
             fig.canvas.draw()
             # convert the figure to a numpy array
