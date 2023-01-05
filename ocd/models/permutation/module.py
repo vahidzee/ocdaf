@@ -52,7 +52,7 @@ class LearnablePermutation(torch.nn.Module):
 
         return (results, gumbel_noise) if return_noise else results
 
-    @property
+    @property  # todo: does not work with the current version of dycode
     @dy.method
     def parameterized_gamma(self):
         return self.gamma
@@ -87,7 +87,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 1.0
 
-    @property
+    @property  # todo: does not work with the current version of dycode
     @dy.method
     def gumbel_noise_std(self):
         """

@@ -216,15 +216,32 @@ class MaskedLinear(torch.nn.Linear):
             output shape is ([num_perms,] batch, out_features) if perm_mat is not None,
         """
         elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
+        # compute the mask and mask the weights
         mask = self.mask if perm_mat is None else self.permute_mask(perm_mat)
         mask = self.reshape_mask(mask)
         weights = (mask * self.weight).transpose(-2, -1)
 
-        if elementwise_perm and perm_mat is not None and perm_mat.ndim == 3 and perm_mat.shape[0] > 1:
-            # reshape inputs to 3D tensor (num_perms, batch, in_features)
-            inputs = inputs.reshape(inputs.shape[0], 1, inputs.shape[1])
-            results = torch.bmm(inputs, weights)
+        # preprocess shapes
+        weights = weights.unsqueeze(0) if weights.ndim == 2 else weights  # add batch dimension if needed
+        x = inputs.reshape(-1, inputs.shape[-1])  # flatten inputs (unflatten later)
+        weights_batch_size, inputs_batch_size = weights.shape[0], x.shape[0]
+
+        if elementwise_perm:
+            # if we have elementwise permutations, we expect the perm_mat to have (and hence the weights)
+            # to have a weights_batch_size which divides the inputs_batch_size. We repeat the masked weights
+            # for each permutation, to cover all the inputs in batch. e.g. if we have 2 permutations and 4 inputs,
+            # we use repeat_interleave to repeat the masked weights 2 times, permute the first 2 inputs with the
+            # first permutation, and the second 2 inputs with the second permutation.
+            weights = weights.repeat_interleave(inputs_batch_size // weights_batch_size, dim=0)
         else:
-            results = inputs @ weights  # use matmul in every other case
-        results = results.squeeze() if elementwise_perm else results
+            # if we have a batch of permutations, and a batch of inputs, and we don't want to apply elementwise
+            # permutations, we repeat the inputs for each permutation, and the weights for each input.
+            # e.g. if we have 2[xy] permutations and 4 inputs [abcd], we repeat the inputs 2 times, and the weights 4 times.
+            # now we have 8 inputs [abcdabcd] and 8 weights [xxxxyyyy], and we can apply the permutations to the inputs.
+            x = x.repeat(weights_batch_size, 1)  # repeat inputs for each permutation
+            weights = weights.repeat_interleave(inputs_batch_size, dim=0)
+
+        results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)  # everything is batched now
+        results = results.reshape(inputs_batch_size, weights_batch_size, -1) if not elementwise_perm else results
+        results = results.unflatten(0, inputs.shape[:-1])
         return results + (self.bias if self.bias is not None else 0)

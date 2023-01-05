@@ -139,7 +139,7 @@ class MaskedMLP(torch.nn.ModuleList):
             # restore previously active mask
             self.reorder(current_mask)
 
-        return results.squeeze()  # remove batch dimensions
+        return results  # remove batch dimensions
 
     def reorder(
         self,
@@ -269,22 +269,16 @@ class MaskedMLP(torch.nn.ModuleList):
             The output of the model.
         """
         elementwise_perm = self.elementwise_perm if elementwise_perm is None else elementwise_perm
+
         if mask_index is not None:
             current_mask = self.__mask_indicator  # remember current mask to restore it after forward pass
             self.reorder(mask_index=mask_index)
-        results = inputs.reshape(-1, inputs.shape[-1])  # flatten all dimensions except the last one
-        for layer in self:
-            results = layer(results, perm_mat=perm_mat, elementwise_perm=elementwise_perm)
+        for i, layer in enumerate(self):
+            inputs = layer(inputs, perm_mat=perm_mat, elementwise_perm=elementwise_perm if not i else True)
         if mask_index is not None:
             # restore the original mask
             self.reorder(mask_index=current_mask)
-
-        # if perm_mat is [NumPerms, N, N], results is now [NumPerms, B*, out_features]
-        # but if perm_mat is [N, N], results is [B, out_features], let's make it consistent
-        # so that results is always [B*, *, out_features]
-        if (perm_mat is not None and perm_mat.ndim == 3) and not elementwise_perm:
-            results = results.transpose(0, 1)
-        return results.unflatten(0, inputs.shape[:-1])
+        return inputs
 
     @property
     def orderings(self):

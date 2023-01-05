@@ -38,6 +38,7 @@ class MaskedAffineFlow(MaskedMLP):
             activation_args=activation_args,
             batch_norm=batch_norm,
             batch_norm_args=batch_norm_args,
+            auto_connection=False,
             device=device,
             dtype=dtype,
         )
@@ -71,23 +72,9 @@ class MaskedAffineFlow(MaskedMLP):
         Returns:
             A tuple containing the outputs of the inverse function and the logabsdet of the inverse function.
         """
-        # the exact permutation matrices applied to the inputs that resulted in z (inputs to the inverse function)
-        # should be applied to each z in the batch, so if elementwise_perm is False, we need to repeat the perm_mat
-        # to match the associated permutations for each z in the batch
-        elementwise_perm: bool = self.elementwise_perm if elementwise_perm is None else elementwise_perm
-        is_perm_batch: bool = perm_mat is not None and perm_mat.ndim == 3
-        if not elementwise_perm and is_perm_batch:
-
-            perm_mat = perm_mat.repeat_interleave(inputs.numel() // perm_mat.shape[0] // inputs.shape[-1], dim=0)
-
-        # flatten the batch (and potentially perm dims) to a single dimension (we'll unflatten later)
-        # because of the way the autoregressive network is structured, to associate the correct
-        # permutation matrix with each z in the batch, we will apply the permutations to each z
-        # in an elementwise fashion (i.e. elementwise_perm=True)
         z: torch.Tensor = inputs.reshape(-1, inputs.shape[-1])
         # initialize the outputs to 0 (doesn't matter what we initialize it to)
         outputs: torch.Tensor = torch.zeros_like(z)
-
         # passing the outputs through the autoregressive network elementwise for d times (where d is the dimensionality
         # of the input features) will result in the inverse of the affine transformation
         for _ in range(inputs.shape[-1]):

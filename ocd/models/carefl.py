@@ -57,28 +57,16 @@ class CAREFL(torch.nn.Module):
             self.reorder(torch.IntTensor(ordering))
 
     def forward(self, inputs, perm_mat=None, elementwise_perm: th.Optional[bool] = None, **kwargs):
-        z = inputs.reshape(-1, inputs.shape[-1])
-        batch_size = z.shape[0]
-        log_dets = 0
-        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
-        batch_perm = perm_mat is not None and perm_mat.ndim == 3
-        permutation = perm_mat
+        log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
         for i, flow in enumerate(self.flows):
             z = z.reshape(-1, inputs.shape[-1])
             z, log_det = flow(
-                inputs=z,
-                perm_mat=permutation,
-                elementwise_perm=elementwise_perm if not i else True,
-                **kwargs,
+                inputs=z, perm_mat=perm_mat, elementwise_perm=elementwise_perm if not i else True, **kwargs
             )
-            if perm_mat is not None and batch_perm and not elementwise_perm:
-                # todo: check if this should be repeat interleave or repeat
-                permutation = perm_mat.repeat(batch_size, 1, 1)
-                log_det = log_det.reshape(-1)
-            log_dets += log_det
-        if perm_mat is not None and batch_perm and not elementwise_perm:
-            log_dets = log_dets.reshape(batch_size, perm_mat.shape[0])
-            z = z.reshape(batch_size, perm_mat.shape[0], inputs.shape[-1])
+            log_dets += log_det.reshape(-1)
+        if perm_mat is not None and not elementwise_perm:
+            log_dets = log_dets.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1)
+            z = z.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1, inputs.shape[-1])
         return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
 
     def inverse(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
