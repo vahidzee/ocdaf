@@ -26,6 +26,7 @@ class OCD(torch.nn.Module):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
+        reversed_ordering: bool = True,
         learn_permutation: bool = True,
         permutation_args: th.Optional[dict] = None,
         # general args
@@ -50,6 +51,7 @@ class OCD(torch.nn.Module):
             additive=additive,
             num_transforms=num_transforms,
             ordering=ordering,
+            reversed_ordering=reversed_ordering,
             device=device,
             dtype=dtype,
         )
