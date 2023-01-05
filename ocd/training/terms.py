@@ -37,13 +37,13 @@ class TrainingTerm(CriterionTerm):
             if training_module.model.elementwise_perm:
                 all_log_probs, log_noise_prob = training_module.model(batch, return_noise_prob=True)
                 # ([batch_size], [batch_size], [batch_size]])
-                loss = all_log_probs + log_noise_prob
+                loss = all_log_probs  # + log_noise_prob
                 return -loss.mean(dim=0)
             else:
                 all_log_probs, log_noise_prob = training_module.model(batch, return_noise_prob=True)
                 # ([batch_size, num_permutations], [num_permutations], [num_permutations])
                 all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
-                loss = all_log_probs + log_noise_prob
+                loss = all_log_probs  # + log_noise_prob
                 return -loss.mean(dim=0)
 
         elif training_module.get_phase() == "maximization":

@@ -43,7 +43,10 @@ class ExplorabilityCallback(Callback):
 
         if not self.fit_every_time:
             # create a random tensor of size n_sample x permutation_size x permutation_size
-            polytope = np.random.randn(n_sample // 2, permutation_size, permutation_size)
+            polytope = np.random.randn(n_sample, permutation_size, permutation_size)
+            # sample n_sample x permutation_size x permutation_size gumbel noises
+            gumbel_noise = np.random.gumbel(size=(n_sample, permutation_size, permutation_size))
+
             # add n_sample number of permutation matrices to the polytope
             for i in range(n_sample - n_sample // 2):
                 new_perm = np.eye(permutation_size)[np.random.permutation(permutation_size)]
@@ -57,10 +60,9 @@ class ExplorabilityCallback(Callback):
                 polytope = polytope / np.sum(polytope, axis=-1, keepdims=True)
                 polytope = polytope / np.sum(polytope, axis=-2, keepdims=True)
 
-            self.polytope = polytope
-
             # train a PCA on all the elements of the polytope
             self.pca.fit(polytope.reshape(-1, permutation_size * permutation_size))
+            self.polytope = self.pca.transform(polytope.reshape(-1, permutation_size * permutation_size))
 
     def print_unique_permutations(self, logged_permutations):
         real_logged_permutations = logged_permutations.argmax(axis=-1)
@@ -99,6 +101,12 @@ class ExplorabilityCallback(Callback):
 
         logged_permutations = pl_module.model.get_logged_permutations().numpy()
 
+        permutation_without_noise = pl_module.model.permutation_model.soft_permutation()
+        permutation_without_noise = permutation_without_noise.detach().numpy()
+
+        # concatenate the logged permutations with the permutation without noise
+        logged_permutations = np.concatenate((logged_permutations, permutation_without_noise), axis=0)
+
         pl_module.model.clear_logged_permutations()
 
         if not self.check_should_log(pl_module):
@@ -122,7 +130,11 @@ class ExplorabilityCallback(Callback):
             ax.set_title("Birkhoff Polytope of Permutations")
             ax.set_ylabel(f"phase {pl_module.get_phase()}")
             ax.set_xlabel(f"epoch: {pl_module.current_epoch}")
-            ax.scatter(transformed_permutations[:, 0], transformed_permutations[:, 1], s=1)
+            if not self.fit_every_time:
+                ax.scatter(self.polytope[:, 0], self.polytope[:, 1], s=1, c="green")
+            ax.scatter(transformed_permutations[:-1, 0], transformed_permutations[:-1, 1], s=1)
+            ax.scatter(transformed_permutations[-1:, 0], transformed_permutations[-1:, 1], s=20, c="red")
+
             fig.canvas.draw()
             # convert the figure to a numpy array
             data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")

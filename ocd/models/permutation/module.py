@@ -96,7 +96,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The standard deviation of the Gumbel noise.
         """
-        return 2
+        return 0.1
 
     def soft_permutation(
         self,
