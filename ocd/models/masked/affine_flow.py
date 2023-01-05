@@ -42,32 +42,64 @@ class MaskedAffineFlow(MaskedMLP):
             dtype=dtype,
         )
 
-    def forward(self, inputs, **kwargs):
-        autoregressive_params = super().forward(inputs, **kwargs)
-        s, t = self._unconstrained_scale_and_shift(autoregressive_params)
+    def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
+        s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(s) + t
         logabsdet = torch.sum(torch.abs(s), dim=-1)
         return outputs, logabsdet
 
     def inverse(
-        self, inputs, perm_mat: th.Optional[bool] = None, elementwise_perm: th.Optional[bool] = None, **kwargs
-    ):
+        self,
+        inputs: torch.Tensor,
+        perm_mat: th.Optional[bool] = None,
+        elementwise_perm: th.Optional[bool] = None,
+        **kwargs
+    ) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute the inverse of the affine transformation.
+
+        Args:
+            inputs (torch.Tensor): the inputs to the inverse function. (output of the forward function)
+            perm_mat (torch.Tensor): the permutation matrices applied to the inputs that resulted in z.
+                if perm_mat is None, then no permutation matrices were applied to the inputs.
+            elementwise_perm (bool): whether or not to apply the permutation matrices elementwise
+                to each z in the batch. if elementwise_perm is None, then self.elementwise_perm is used.
+                This argument is only used to override self.elementwise_perm if needed, for testing purposes.
+            **kwargs: additional keyword arguments to pass to the autoregressive network. (e.g. mask_idx)
+        Returns:
+            A tuple containing the outputs of the inverse function and the logabsdet of the inverse function.
+        """
+        # the exact permutation matrices applied to the inputs that resulted in z (inputs to the inverse function)
+        # should be applied to each z in the batch, so if elementwise_perm is False, we need to repeat the perm_mat
+        # to match the associated permutations for each z in the batch
         elementwise_perm: bool = self.elementwise_perm if elementwise_perm is None else elementwise_perm
         is_perm_batch: bool = perm_mat is not None and perm_mat.ndim == 3
         if not elementwise_perm and is_perm_batch:
+
             perm_mat = perm_mat.repeat_interleave(inputs.numel() // perm_mat.shape[0] // inputs.shape[-1], dim=0)
-        inputs = inputs.reshape(-1, inputs.shape[-1])
-        outputs = torch.zeros_like(inputs)
+
+        # flatten the batch (and potentially perm dims) to a single dimension (we'll unflatten later)
+        # because of the way the autoregressive network is structured, to associate the correct
+        # permutation matrix with each z in the batch, we will apply the permutations to each z
+        # in an elementwise fashion (i.e. elementwise_perm=True)
+        z: torch.Tensor = inputs.reshape(-1, inputs.shape[-1])
+        # initialize the outputs to 0 (doesn't matter what we initialize it to)
+        outputs: torch.Tensor = torch.zeros_like(z)
+
+        # passing the outputs through the autoregressive network elementwise for d times (where d is the dimensionality
+        # of the input features) will result in the inverse of the affine transformation
         for _ in range(inputs.shape[-1]):
             autoregressive_params = super().forward(outputs, perm_mat=perm_mat, elementwise_perm=True, **kwargs)
-            s, t = self._unconstrained_scale_and_shift(autoregressive_params)
-            outputs = (inputs - t) / torch.exp(s)
-            logabsdet = -torch.sum(torch.abs(s), dim=-1)
+            s, t = self._split_scale_and_shift(autoregressive_params)
+            outputs = (z - t) / torch.exp(s)  # this is the inverse of the affine transformation
+            logabsdet = -torch.sum(torch.abs(s), dim=-1)  # this is the inverse of the logabsdet
 
+        # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])
 
-    def _unconstrained_scale_and_shift(self, ar_params):
+    def _split_scale_and_shift(self, ar_params):
         """
         Split the autoregressive parameters into scale (s) and shift (t).
         If additive is True, then s = 0 and t = autoregressive_params.

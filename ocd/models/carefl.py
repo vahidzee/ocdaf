@@ -81,51 +81,30 @@ class CAREFL(torch.nn.Module):
             z = z.reshape(batch_size, perm_mat.shape[0], inputs.shape[-1])
         return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
 
-    def inverse(self, inputs, perm_mat=None, elementwise_perm: th.Optional[bool] = None, **kwargs):
-        z = inputs.reshape(-1, inputs.shape[-1])
-        batch_size = z.shape[0]
-        log_dets = 0
-        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
-        batch_perm = perm_mat is not None and perm_mat.ndim == 3
-        permutation = perm_mat
-        for i, flow in enumerate(reversed(self.flows)):
-            z = z.reshape(-1, inputs.shape[-1])
-            z, log_det = flow.inverse(
-                inputs=z,
-                perm_mat=permutation,
-                elementwise_perm=elementwise_perm if not i else True,
-                **kwargs,
-            )
-            if perm_mat is not None and batch_perm and not elementwise_perm:
-                # todo: check if this should be repeat interleave or repeat
-                permutation = perm_mat.repeat(batch_size, 1, 1)
-                log_det = log_det.reshape(-1)
-            log_dets += log_det
-        if perm_mat is not None and batch_perm and not elementwise_perm:
-            log_dets = log_dets.reshape(batch_size, perm_mat.shape[0])
-            z = z.reshape(batch_size, perm_mat.shape[0], inputs.shape[-1])
-        return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
-
-    def sample(self, num_samples=1, **kwargs):
-        """Samples from flow-based approximate distribution
+    def inverse(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Computes the inverse of the flow.
 
         Args:
-          num_samples: Number of samples to draw
+            inputs: Batch of inputs to invert (results of a forward pass)
+            **kwargs: Additional arguments (e.g. perm_mat used in forward pass or elementwise_perm)
 
         Returns:
-          Samples, log probability
+            Inverted inputs and log determinant of the inverse
         """
-        z, log_q = self.base_distribution(num_samples)
-        for flow in self.flows:
-            z, log_det = flow(z, **kwargs)
-            log_q -= log_det
-        return z, log_q
+        z, log_dets = inputs, 0  # initialize z and log_dets
+        # iterate over flows in reverse order and apply inverse
+        for i, flow in enumerate(reversed(self.flows)):
+            z, log_det = flow.inverse(inputs=z, **kwargs)
+            log_dets += log_det  # negative sign is handled in flow.inverse
 
-    def log_prob(self, x, z=None, log_det=None, **kwargs):
+        return z, log_det
+
+    def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:
         """Get log probability for batch
 
         Args:
-          x: Batch
+          x: Batch of inputs
           z: Batch of latent variables (optional, otherwise computed)
         Returns:
           log probability
@@ -137,11 +116,7 @@ class CAREFL(torch.nn.Module):
 
         return log_base_prob - log_det
 
-    def reorder(
-        self,
-        ordering: th.Optional[torch.IntTensor] = None,
-        **kwargs,
-    ) -> None:
+    def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:
             ordering = torch.IntTensor(ordering)
         for flow in self.flows:
