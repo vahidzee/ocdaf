@@ -17,24 +17,38 @@ class LearnablePermutation(torch.nn.Module):
     def forward(
         self,
         *args,
-        inputs: th.Optional[torch.Tensor] = None,
+        device: th.Optional[torch.device] = None,
         num_samples: int = 1,
         soft: bool = True,
         return_noise: bool = False,
         return_matrix: bool = True,
         **kwargs,
-    ):
-        device = inputs.device if inputs is not None else self.gamma.device
+    ) -> th.Union[th.Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """
+        Args:
+            device: the device to use (if None, the device of the gamma parameter is used)
+            num_samples: the number of samples to draw (default: 1), 0 means no sampling and
+                using the current gamma parameter as is (without adding gumbel noise)
+            soft: whether to use the soft permutation (default: True)
+            return_noise: whether to return the gumbel noise (default: False)
+            return_matrix: whether to return the resulting permutations as NxN matrices or as
+                a list of ordered indices (default: True)
+            *args: arguments to dynamic methods (might be empty, depends on the caller)
+            **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
+
+        Returns:
+            The resulting permutation matrix or list of ordered indices.
+        """
+        device = device if device is not None else self.gamma.device
+        gumbel_noise = None
+        if num_samples:
+            gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
+
         if soft:
-            gumbel_noise = (
-                sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
-                if num_samples
-                else None
-            )
             perm_mat = self.soft_permutation(gumbel_noise=gumbel_noise, *args, **kwargs)
             results = perm_mat if return_matrix else perm_mat.argmax(-1)
         else:
-            results = self.hard_permutation(return_matrix=return_matrix)
+            results = self.hard_permutation(return_matrix=return_matrix, gumbel_noise=gumbel_noise)
 
         return (results, gumbel_noise) if return_noise else results
 
@@ -89,8 +103,24 @@ class LearnablePermutation(torch.nn.Module):
         gamma = torch.nn.functional.logsigmoid(gamma + (gumbel_noise if gumbel_noise is not None else 0.0) / temp)
         return sinkhorn(gamma, num_iters=num_iters)
 
-    def hard_permutation(self, gamma: th.Optional[torch.Tensor] = None, return_matrix: bool = False) -> torch.Tensor:
+    def hard_permutation(
+        self,
+        gamma: th.Optional[torch.Tensor] = None,
+        gumbel_noise: th.Optional[torch.Tensor] = None,
+        return_matrix: bool = True,
+    ) -> torch.Tensor:
+        """
+        Args:
+            gamma: the gamma parameter (if None, the parameterized gamma is used)
+            gumbel_noise: the gumbel noise (if None, no noise is added)
+            return_matrix: whether to return the resulting permutations as NxN matrices or as
+                a list of ordered indices (default: True)
+
+        Returns:
+            The resulting permutation matrix or list of ordered indices.
+        """
         gamma = gamma if gamma is not None else self.parameterized_gamma
+        gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm
 
