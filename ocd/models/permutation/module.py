@@ -152,6 +152,6 @@ class LearnablePermutation(torch.nn.Module):
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm
-
+    
     def extra_repr(self) -> str:
         return f"num_features={self.num_features}"

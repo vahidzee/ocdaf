@@ -46,6 +46,11 @@ class MaskedAffineFlow(MaskedMLP):
             dtype=dtype,
         )
 
+    def compute_dependencies(
+        self, inputs: th.Optional[torch.Tensor] = None, *, forward: bool = True, **kwargs
+    ) -> torch.Tensor:
+        return super().compute_dependencies(inputs, **kwargs, forward_function="forward" if forward else "inverse")
+
     def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
         autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
@@ -59,7 +64,7 @@ class MaskedAffineFlow(MaskedMLP):
         inputs: torch.Tensor,
         perm_mat: th.Optional[bool] = None,
         elementwise_perm: th.Optional[bool] = None,
-        **kwargs
+        **kwargs,
     ) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the inverse of the affine transformation.
