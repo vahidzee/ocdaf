@@ -98,10 +98,10 @@ class LearnablePermutation(torch.nn.Module):
         """
         if training_module is None:
             return 0.1
-        elif training_module.get_phase() == 'maximization':
-            return 1
+        elif training_module.get_phase() == "maximization":
+            return 4
         else:
-            return 0.1
+            return 0.5
 
     def soft_permutation(
         self,
