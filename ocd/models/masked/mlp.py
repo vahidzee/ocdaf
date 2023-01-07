@@ -92,6 +92,8 @@ class MaskedMLP(torch.nn.ModuleList):
         elementwise_perm: th.Optional[bool] = None,
         mask_index: th.Optional[int] = None,
         vectorize: bool = False,
+        *,
+        forward_function: str = "forward",
     ) -> torch.Tensor:
         """
         Compute the data flow dependencies of the model by backpropogating through the model.
@@ -104,7 +106,9 @@ class MaskedMLP(torch.nn.ModuleList):
             perm_mat: the permutation matrix to use for the computation. (default: None)
             force_reshape_inputs: if True, reshape inputs to the shape (batch_size, -1).
             vectorize: if True, jacobian is computed using vectorized implementation.
-
+            forward_function: the function to use for forward pass. (default: "forward").
+                children of MaskedMLP can use this to override the forward pass and use a different function. (e.g.
+                inverse of the flow)
         Returns:
             a tensor of shape (out_features, in_features) containing the jacobian of outputs with respect to inputs.
         """
@@ -129,7 +133,7 @@ class MaskedMLP(torch.nn.ModuleList):
             self.reorder(
                 mask_index=mask_index
             )  # we don't change the mask in forward pass, so backward pass is not affected
-        func = functools.partial(self.__call__, perm_mat=perm_mat, elementwise_perm=elementwise_perm)
+        func = functools.partial(getattr(self, forward_function), perm_mat=perm_mat, elementwise_perm=elementwise_perm)
 
         # compute jacobian of outputs with respect to inputs
         results = torch.autograd.functional.jacobian(func, inputs, vectorize=vectorize)

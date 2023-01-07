@@ -3,6 +3,7 @@ import torch
 from .masked import MaskedAffineFlow
 import dycode as dy
 import typing as th
+import functools
 
 
 class CAREFL(torch.nn.Module):
@@ -70,6 +71,66 @@ class CAREFL(torch.nn.Module):
             log_dets = log_dets.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1)
             z = z.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1, inputs.shape[-1])
         return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
+
+    def compute_dependencies(
+        self,
+        inputs: torch.Tensor,
+        perm_mat: th.Optional[torch.Tensor] = None,
+        elementwise_perm: th.Optional[bool] = None,
+        forward: bool = True,
+        vectorize: bool = True,
+        **kwargs
+    ) -> torch.Tensor:
+        elementwise_perm: bool = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
+        # force evaluation mode
+        model_training = self.training  # save training mode to restore later
+        self.eval()
+        func = functools.partial(
+            getattr(self, "__call__" if forward else "inverse"),
+            perm_mat=perm_mat,
+            elementwise_perm=elementwise_perm,
+            **kwargs
+        )
+        # make perm_mat 3d if it is not already
+        perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
+
+        # compute the jacobian
+        jacobian = torch.autograd.functional.jacobian(func, inputs, vectorize=vectorize)
+        jacobian = jacobian[0]
+        # jacobian for everything else except for matching batch idxs and perm idxs
+        # is zero, so we can just sum over the batch dimension and perm dimension to get
+        # the jacobian for the
+        perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
+        # its important to note that jacobian is [Output, Input] so to study the effect of permutation
+        # we need to figure out what outputs we are interested in
+        if not elementwise_perm and perm_mat is not None:
+            # depending on the inputs, jacobian is either of shape [batch_size, num_perms, num_dims, batch_size, num_dims]
+            # or [batch_size, num_perms, num_dims, batch_size, num_perms, num_dims] either way, we
+            # take the mean over the batch dimension so that we either get [num_perms, num_dims, num_dims]
+            # or [num_perms, num_dims, num_perms, num_dims] (to study the effect of the permutations)
+
+            jacobian = jacobian.mean(0).sum(2)
+
+            if jacobian.ndim == 4:
+                jacobian = jacobian.transpose(1, 2).reshape(-1, jacobian.shape[-1], jacobian.shape[-1])
+                jacobian = jacobian[torch.arange(perm_mat.shape[0]).square()]
+
+        elif perm_mat is not None:
+            # jacobian is of shape [batch_size, num_dims, batch_size, num_dims], we first split it into
+            # [k, num_perms, num_dims, num_dims] and then take the mean over k to get [num_perms, num_dims, num_dims]
+            jacobian = jacobian.reshape(-1, perm_mat.shape[0], jacobian.shape[-1], jacobian.shape[-1]).mean(0)
+
+        else:
+            # if no perm_mat is given, jacobian is of shape [batch_size, num_dims, batch_size, num_dims]
+            # we take the mean over the batch dimension to get [num_dims, num_dims]
+            jacobian = jacobian.mean(0).sum(1)
+
+        # restore training mode
+        if model_training:
+            # resotre training mode
+            self.train()
+
+        return jacobian
 
     def inverse(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
