@@ -4,7 +4,7 @@ import random
 import numpy as np
 
 
-SCM_FUNCTION_TYPES = th.Literal["linear_additive", None]
+SCM_FUNCTION_TYPES = th.Literal["linear_additive", "linear_affine_with_exp_modulatd", None]
 
 
 class AffineAdditiveSCMGenerator(SCMGenerator):
@@ -40,6 +40,44 @@ class AffineAdditiveSCMGenerator(SCMGenerator):
                 addition = sep.join(f'{w["weight"]:.2f}*x({i})' for i, w in zip(inputs[1:], params[1:]))
                 if addition:
                     ret += sep + addition
+                return ret
+
+        elif function_type == "linear_affine_with_exp_modulatd":
+
+            def get_weight_node(dag, v, seed, **kwargs):
+                np.random.seed(seed)
+                return dict(weight=np.random.uniform(kwargs["weight_low"], kwargs["weight_high"]))
+
+            def get_weight_edge(dag, v, par, seed, **kwargs):
+                np.random.seed(seed)
+                return dict(
+                    weight_exp=np.random.uniform(kwargs["weight_low"], kwargs["weight_high"]),
+                    weight_lin=np.random.uniform(kwargs["weight_low"], kwargs["weight_high"]),
+                )
+
+            def get_covariate_from_parents(inputs, params):
+                # inputs[0] is noise, inputs[1:] are parent covariates
+                # params[0] is the node parameters, params[1:] are the edge parameters
+                s = sum([x_i * param_i["weight_exp"] for x_i, param_i in zip(inputs[1:], params[1:])])
+                # pass s through the sigmoid function
+                s = 1 / (1 + np.exp(-s))
+                t = sum([x_i * param_i["weight_lin"] for x_i, param_i in zip(inputs[1:], params[1:])])
+                t = 1 / (1 + np.exp(-t))
+                return inputs[0] * np.exp(s) + t
+
+            def get_covariate_from_parents_signature(inputs, params):
+                s = [f"x({i}) * {param_i['weight_exp']:.2f}" for i, param_i in zip(range(len(inputs[1:])), params[1:])]
+                s = " + ".join(s)
+                s = f"exp(sigmoid({s}))"
+                t = [f"x({i}) * {param_i['weight_lin']:.2f}" for i, param_i in zip(range(len(inputs[1:])), params[1:])]
+                t = " + ".join(t)
+                t = f"sigmoid({t})"
+                z = f'{noise_type}({inputs[0]["noise_mean"]:.2f}, {inputs[0]["noise_std"]:.2f})'
+                ret = z
+                if s != "exp(sigmoid())":
+                    ret += f" * {s}"
+                if t != "sigmoid()":
+                    ret += f" + {t}"
                 return ret
 
         else:
