@@ -31,38 +31,61 @@ class TrainingTerm(CriterionTerm):
         training_module: lightning.LightningModule = None,
         **kwargs,
     ):
+        try:
+            if training_module.get_phase() == "expectation":
+                # Maximize the whole ELBO
+                if training_module.model.elementwise_perm:
+                    res = training_module.model(
+                        batch,
+                        soft=True,
+                        training_module=training_module,
+                        return_noise_prob=True,
+                        return_latent_permutation=training_module.log_input_outputs,
+                    )
+                    all_log_probs = res["log_prob"]
+                    # ([batch_size], [batch_size], [batch_size]])
+                    loss = all_log_probs  # + log_noise_prob
+                    return -loss.mean(dim=0)
+                else:
+                    res = training_module.model(
+                        batch,
+                        soft=True,
+                        training_module=training_module,
+                        return_latent_permutation=training_module.log_input_outputs,
+                    )
+                    # ([batch_size, num_permutations], [num_permutations], [num_permutations])
+                    all_log_probs = res["log_prob"]
+                    loss = all_log_probs  # + log_noise_prob
+                    return -loss.mean(dim=0)
 
-        if training_module.get_phase() == "expectation":
-            # Maximize the whole ELBO
-            if training_module.model.elementwise_perm:
-                all_log_probs, log_noise_prob = training_module.model(
-                    batch, training_module=training_module, return_noise_prob=True
-                )
-                # ([batch_size], [batch_size], [batch_size]])
-                loss = all_log_probs  # + log_noise_prob
-                return -loss.mean(dim=0)
-            else:
-                all_log_probs, log_noise_prob = training_module.model(
-                    batch, training_module=training_module, return_noise_prob=True
-                )
-                # ([batch_size, num_permutations], [num_permutations], [num_permutations])
-                all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
-                loss = all_log_probs  # + log_noise_prob
-                return -loss.mean(dim=0)
-
-        elif training_module.get_phase() == "maximization":
-            if training_module.model.elementwise_perm:
-                all_log_probs = training_module.model(
-                    batch, training_module=training_module, return_noise_prob=False, return_prior=False
-                )
-                # ([batch_size, ])
+            elif training_module.get_phase() == "maximization":
+                if training_module.model.elementwise_perm:
+                    res = training_module.model(
+                        batch,
+                        training_module=training_module,
+                        soft=training_module.use_soft_on_maximization,
+                        return_noise_prob=False,
+                        return_prior=False,
+                        return_latent_permutation=training_module.log_input_outputs,
+                    )
+                    all_log_probs = res["log_prob"]
+                    # ([batch_size, ])
+                    return -all_log_probs.mean(dim=0)
+                else:
+                    res = training_module.model(
+                        batch,
+                        training_module=training_module,
+                        soft=training_module.use_soft_on_maximization,
+                        return_noise_prob=False,
+                        return_prior=False,
+                        return_latent_permutation=training_module.log_input_outputs,
+                    )
+                    all_log_probs = res["log_prob"]
+                    # ([batch_size, num_permutations])
+                    all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
                 return -all_log_probs.mean(dim=0)
             else:
-                all_log_probs = training_module.model(
-                    batch, training_module=training_module, return_noise_prob=False, return_prior=False
-                )
-                # ([batch_size, num_permutations])
-                all_log_probs = all_log_probs.mean(dim=0)  # [num_permutations]
-                return -all_log_probs.mean(dim=0)
-        else:
-            raise NameError(f"Phase {training_module.get_phase()} non-existent.")
+                raise NameError(f"Phase {training_module.get_phase()} non-existent.")
+        finally:
+            if training_module.log_input_outputs:
+                training_module.log_new_input_outputs(res)

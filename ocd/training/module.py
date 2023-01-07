@@ -34,20 +34,26 @@ class OrderedTrainingModule(TrainingModule):
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
         learn_permutation: bool = True,
-        log_permutations: bool = False,
+        log_input_outputs: bool = False,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
         # (2) Trainer parameters:
         # Phase switch controls
         starting_phase: th.Literal["expectation", "maximization"] = "maximization",
+        # Whether to use soft on maximization
+        use_soft_on_maximization: bool = True,
+        # Total number of phases
         phase_change_upper_bound: int = 100,
-        expectation_epoch_limit: int = 10,
-        maximization_epoch_limit: int = 10,
+        # The number of epochs in each phase
+        expectation_epoch_upper_bound: int = 10000,
+        expectation_epoch_lower_bound: int = 10,
+        maximization_epoch_upper_bound: int = 10000,
+        maximization_epoch_lower_bound: int = 10,
         # switching context parameters
         overfit_window_size=10,
-        overfit_check_threshold=0.001,
-        overfitting_patience=10,
+        overfit_check_threshold=0.05,
+        overfitting_patience=3,
         # (3) criterion
         criterion_args: th.Optional[dict] = None,
         # optimization configs [is_active(training_module, optimizer_idx) -> bool]
@@ -92,7 +98,6 @@ class OrderedTrainingModule(TrainingModule):
                 # ordering
                 ordering=ordering,
                 learn_permutation=learn_permutation,
-                log_permutations=log_permutations,
                 # general args
                 device=device,
                 dtype=dtype,
@@ -119,10 +124,16 @@ class OrderedTrainingModule(TrainingModule):
 
         # Phase switching:
         self.current_phase = starting_phase
+        self.use_soft_on_maximization = use_soft_on_maximization
+
         self.num_epochs_on_expectation = 0
         self.num_epochs_on_maximization = 0
-        self.expectation_epoch_limit = expectation_epoch_limit
-        self.maximization_epoch_limit = maximization_epoch_limit
+
+        self.expectation_epoch_upper_bound = expectation_epoch_upper_bound
+        self.expectation_epoch_lower_bound = expectation_epoch_lower_bound
+        self.maximization_epoch_upper_bound = maximization_epoch_upper_bound
+        self.maximization_epoch_lower_bound = maximization_epoch_lower_bound
+
         self.phase_change_rem = phase_change_upper_bound
 
         # overfitting checks
@@ -133,6 +144,31 @@ class OrderedTrainingModule(TrainingModule):
 
         # Keep a list of monitored validation losses
         self.last_monitored_validation_losses = []
+
+        # logging
+        self.log_input_outputs = log_input_outputs
+        self.logged_input_outputs = None
+
+    def _check_logging_enabled(self):
+        if not self.log_input_outputs:
+            raise Exception("Logging is not enabled. Set log_permutations to True to enable logging.")
+
+    def clear_logged_input_outputs(self):
+        self._check_logging_enabled()
+        self.logged_input_outputs = None
+
+    def get_logged_input_outputs(self):
+        self._check_logging_enabled()
+        return self.logged_input_outputs
+
+    def log_new_input_outputs(self, res=th.Dict[str, torch.Tensor]):
+        self._check_logging_enabled()
+        if self.logged_input_outputs is None:
+            self.logged_input_outputs = res
+        else:
+            # append the new permutations to the existing ones
+            for key in self.logged_input_outputs.keys():
+                self.logged_input_outputs[key] = torch.cat([self.logged_input_outputs[key], res[key]], dim=0)
 
     def add_monitoring_value(self, val):
         if (
@@ -146,8 +182,21 @@ class OrderedTrainingModule(TrainingModule):
             self.last_monitored_validation_losses.pop(0)
 
     def end_maximization(self):
+        # add the number of times this function is called
+        self.num_epochs_on_maximization += 1
+
+        # if it is called less than the lower bound return false
+        if self.num_epochs_on_maximization < self.maximization_epoch_lower_bound:
+            return False
+
+        # if it is called more than the upper bound set the counter to zero and return true
+        if self.num_epochs_on_maximization >= self.maximization_epoch_upper_bound:
+            self.overfitting_patience_rem = self.overfitting_patience
+            self.num_epochs_on_maximization = 0
+            return True
+
         # End it if the current last monitored validation loss is greater than the average of the last
-        # overfit_check_patience losses
+        # overfit_check_patience losses, of course, there is a patience factor at place as well
         t = len(self.last_monitored_validation_losses)
         if (
             t > 0
@@ -158,13 +207,15 @@ class OrderedTrainingModule(TrainingModule):
             self.overfitting_patience_rem -= 1
             if self.overfitting_patience_rem == 0:
                 self.overfitting_patience_rem = self.overfitting_patience
-            return True
+                self.num_epochs_on_maximization = 0
+                return True
+
         self.overfitting_patience_rem = self.overfitting_patience
         return False
 
     def end_expectation(self):
         self.num_epochs_on_expectation += 1
-        if self.num_epochs_on_expectation >= self.expectation_epoch_limit:
+        if self.num_epochs_on_expectation >= self.expectation_epoch_upper_bound:
             self.num_epochs_on_expectation = 0
             return True
         return False
@@ -174,6 +225,9 @@ class OrderedTrainingModule(TrainingModule):
         self.num_epochs_on_expectation = 0
         self.num_epochs_on_maximization = 0
         self.last_monitored_validation_losses = []
+        self.phase_change_rem -= 1
+        if self.phase_change_rem == 0:
+            self.trainer.should_stop = True
 
     def get_phase(self) -> th.Literal["expectation", "maximization"]:
         return self.current_phase
@@ -186,22 +240,17 @@ class OrderedTrainingModule(TrainingModule):
         this ensures that for every configuration of the latent permutation model, the best possible
         autoregressive model is learned
         """
+
         if self.current_phase == "expectation":
             if self.end_expectation():
                 self.reset_switch_phase()
                 self.current_phase = "maximization"
-                self.phase_change_rem -= 1
         elif self.current_phase == "maximization":
             if self.end_maximization():
                 # if it is starting to overfit, then reset all the overfitting settings
                 # and switch phase
                 self.reset_switch_phase()
                 self.current_phase = "expectation"
-                self.phase_change_rem -= 1
-
-        # early stop the training if self.phase_change_rem is 0
-        if self.phase_change_rem == 0:
-            self.trainer.should_stop = True
 
     def step(
         self,
