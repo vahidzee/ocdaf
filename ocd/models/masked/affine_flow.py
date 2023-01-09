@@ -56,7 +56,7 @@ class MaskedAffineFlow(MaskedMLP):
         s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(s) + t
-        logabsdet = torch.sum(torch.abs(s), dim=-1)
+        logabsdet = torch.sum(s, dim=-1)
         return outputs, logabsdet
 
     def inverse(
@@ -89,7 +89,7 @@ class MaskedAffineFlow(MaskedMLP):
             autoregressive_params = super().forward(outputs, perm_mat=perm_mat, elementwise_perm=True, **kwargs)
             s, t = self._split_scale_and_shift(autoregressive_params)
             outputs = (z - t) / torch.exp(s)  # this is the inverse of the affine transformation
-            logabsdet = -torch.sum(torch.abs(s), dim=-1)  # this is the inverse of the logabsdet
+            logabsdet = -torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
 
         # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])

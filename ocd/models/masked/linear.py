@@ -59,6 +59,7 @@ class MaskedLinear(torch.nn.Linear):
             masked_dtype: data type for mask matrix.
             auto_connection: whether to allow equal label connections.
             masked_dtype: data type for mask matrix.
+            
         Returns:
             None
         """
