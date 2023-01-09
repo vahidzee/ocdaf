@@ -52,10 +52,21 @@ class MaskedAffineFlow(MaskedMLP):
         return super().compute_dependencies(inputs, **kwargs, forward_function="forward" if forward else "inverse")
 
     def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        """
+        $T^{-1}$ is the inverse of $T$. $T$ is a function from latent $z$ to data $x$ of the form:
+        $$T(z_i) = x_i = e^{s_i} z_i + t_i$$
+        where $s_i$ is a function of $z_{i<}$ and $t_i$ is a function of $z_{i<}$.
+
+        Therefore the $T^{-1}$ would be:
+        $$T^{-1}(x_i) = z_i = \frac{x_i - t_i}{e^{s_i}}$$
+
+        Args:
+            inputs (torch.Tensor): x ~ p_x(x)
+        """
         autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
-        outputs = inputs * torch.exp(s) + t
+        outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
         logabsdet = torch.sum(s, dim=-1)
         return outputs, logabsdet
 
@@ -88,8 +99,8 @@ class MaskedAffineFlow(MaskedMLP):
         for _ in range(inputs.shape[-1]):
             autoregressive_params = super().forward(outputs, perm_mat=perm_mat, elementwise_perm=True, **kwargs)
             s, t = self._split_scale_and_shift(autoregressive_params)
-            outputs = (z - t) / torch.exp(s)  # this is the inverse of the affine transformation
-            logabsdet = -torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
+            outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
+            logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
 
         # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])

@@ -165,7 +165,7 @@ class CAREFL(torch.nn.Module):
         log_base_prob = self.base_distribution.log_prob(flat_z)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
 
-        return log_base_prob - log_det
+        return log_base_prob + log_det
 
     def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:
