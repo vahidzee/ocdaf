@@ -252,77 +252,16 @@ class OrderedTrainingModule(TrainingModule):
                 self.reset_switch_phase()
                 self.current_phase = "expectation"
 
-    def step(
-        self,
-        batch: th.Optional[th.Any] = None,
-        batch_idx: th.Optional[int] = None,
-        optimizer_idx: th.Optional[int] = None,
-        name: str = "train",
-        transformed_batch: th.Optional[th.Any] = None,
-        transform_batch: bool = True,
-        return_results: bool = False,
-        return_factors: bool = False,
-        log_results: bool = True,
-        **kwargs,  # additional arguments to pass to the criterion and attacker
-    ):
+   
 
-        if name == "val":
-            ret = super().step(
-                batch=batch,
-                batch_idx=batch_idx,
-                optimizer_idx=optimizer_idx,
-                name=name,
-                transformed_batch=transformed_batch,
-                transform_batch=transform_batch,
-                return_results=True,
-                return_factors=return_factors,
-                log_results=log_results,
-                original_batch=batch,
-                **kwargs,
-            )
-
-            return ret[0] if return_factors else ret
-
-        return super().step(
-            batch=batch,
-            batch_idx=batch_idx,
-            optimizer_idx=optimizer_idx,
-            name=name,
-            transformed_batch=transformed_batch,
-            transform_batch=transform_batch,
-            return_results=return_results,
-            return_factors=return_factors,
-            log_results=log_results,
-            original_batch=batch,
-            **kwargs,
-        )
-
-    def validation_epoch_end(self, outputs: th.Union[EPOCH_OUTPUT, th.List[EPOCH_OUTPUT]]) -> None:
-        # When validation epoch has ended, take all the outputs from validation steps
-        # extract the losses and stack them up in the monitored value function
-        all_losses = []
-        for output in outputs if isinstance(outputs, list) else [outputs]:
-            if isinstance(output, dict):
-                if "loss" in output:
-                    all_losses.append(output["loss"].item())
-        mean_loss = sum(all_losses) / len(all_losses)
-        self.add_monitoring_value(mean_loss)
-
-        self.log("metrics/epoch/val_loss", mean_loss, on_step=False, on_epoch=True)
-        return super().validation_epoch_end(outputs)
+    def on_validation_epoch_end(self) -> None:
+        # When validation epoch has ended, check if we need to switch phase
+        results = super().on_validation_epoch_end()
+        self.add_monitoring_value(self.trainer.fit_loop.epoch_loop._get_monitor_value("loss/val"))
+        return results
 
     def on_train_epoch_end(self) -> None:
         # When training epoch has ended, check if we need to switch phase
+        results =  super().on_train_epoch_end()
         self.re_evaluate_phase()
-        return super().on_train_epoch_end()
-
-    def on_train_epoch_start(self) -> None:
-        # check the predicted graph structure
-        # get the predicted graph structure
-        with torch.no_grad():
-            # compare to the true graph structure
-            # get datamodule
-            pass
-            # self.log("metrics/tau", self.model.tau, on_step=False, on_epoch=True)
-            # self.log("metrics/n_iter", self.model.n_iter, on_step=False, on_epoch=True)
-        return super().on_train_epoch_start()
+        return results
