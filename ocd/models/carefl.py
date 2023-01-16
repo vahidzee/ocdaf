@@ -59,10 +59,29 @@ class CAREFL(torch.nn.Module):
         if ordering is not None:
             self.reorder(torch.IntTensor(ordering))
 
-    def forward(self, inputs, perm_mat=None, elementwise_perm: th.Optional[bool] = None, **kwargs):
+    def forward(
+        self,
+        inputs,
+        perm_mat=None,
+        elementwise_perm: th.Optional[bool] = None,
+        return_intermediate_results: bool = False,
+        **kwargs
+    ):
+        """
+        Args:
+            inputs: samples from the data distribution (x's)
+            perm_mat: permutation matrix to use for the flow (if None, then no permutation is used) (N, D, D)
+            elementwise_perm: whether to use elementwise permutation (if None, then self.elementwise_perm is used)
+            return_intermediate_results: whether to return the intermediate results (z's) of the flow transformations
+        Returns:
+            z: transformed samples from the base distribution (z's)
+        """
         log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
+        results = []
         for i, flow in enumerate(self.flows):
             z = z.reshape(-1, inputs.shape[-1])
+            if return_intermediate_results:
+                results.append(z)
             z, log_det = flow(
                 inputs=z, perm_mat=perm_mat, elementwise_perm=elementwise_perm if not i else True, **kwargs
             )
@@ -70,7 +89,11 @@ class CAREFL(torch.nn.Module):
         if perm_mat is not None and not elementwise_perm:
             log_dets = log_dets.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1)
             z = z.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1, inputs.shape[-1])
-        return z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
+        z, log_dets = z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
+        if return_intermediate_results:
+            results.append(z)
+            return results
+        return z, log_dets
 
     def compute_dependencies(
         self,
@@ -150,6 +173,17 @@ class CAREFL(torch.nn.Module):
             log_dets += log_det  # negative sign is handled in flow.inverse
 
         return z, log_det
+
+    def sample(self, num_samples: int, **kwargs) -> torch.Tensor:
+        """Sample from the flow
+
+        Args:
+          num_samples: Number of samples to generate
+        Returns:
+          Samples
+        """
+        z = self.base_distribution(num_samples)[0]
+        return self.inverse(z, **kwargs)[0]
 
     def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:
         """Get log probability for batch
