@@ -67,7 +67,7 @@ class MaskedAffineFlow(MaskedMLP):
         s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
-        logabsdet = torch.sum(s, dim=-1)
+        logabsdet = -torch.sum(s, dim=-1)
         return outputs, logabsdet
 
     def inverse(
@@ -78,10 +78,11 @@ class MaskedAffineFlow(MaskedMLP):
         **kwargs,
     ) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
-        Compute the inverse of the affine transformation.
+        Compute the inverse of the affine transformation. $T$ is a function from latent $z$ to data $x$ of the form:
+        $$T(z_i) = x_i = e^{s_i} z_i + t_i$$
 
         Args:
-            inputs (torch.Tensor): the inputs to the inverse function. (output of the forward function)
+            inputs (torch.Tensor): the inputs to the inverse function (z's) (output of the forward function)
             perm_mat (torch.Tensor): the permutation matrices applied to the inputs that resulted in z.
                 if perm_mat is None, then no permutation matrices were applied to the inputs.
             elementwise_perm (bool): whether or not to apply the permutation matrices elementwise
