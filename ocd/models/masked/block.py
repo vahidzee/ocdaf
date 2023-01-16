@@ -1,7 +1,7 @@
 import typing as th
 import torch
 from .linear import MaskedLinear
-import dycode
+import dypy
 
 
 class MaskedBlock(MaskedLinear):
@@ -50,7 +50,7 @@ class MaskedBlock(MaskedLinear):
             if batch_norm
             else None
         )
-        self.activation = dycode.eval(activation)(**(activation_args or dict())) if activation else None
+        self.activation = dypy.eval(activation)(**(activation_args or dict())) if activation else None
         # todo: add more explicit control over residual
         # assert not residual or (
         #     self.in_blocks == self.out_blocks

@@ -2,6 +2,7 @@ torch
 numpy
 lightning
 lightning_toolbox
+dypy
 #
 pandas
 tqdm

@@ -1,6 +1,6 @@
 import torch
 import typing as th
-import dycode as dy
+import dypy as dy
 from ocd.models.permutation.utils import hungarian, sinkhorn, sample_gumbel_noise, listperm2matperm
 
 
@@ -52,7 +52,7 @@ class LearnablePermutation(torch.nn.Module):
 
         return (results, gumbel_noise) if return_noise else results
 
-    # todo: does not work with the current version of dycode (make it a property later)
+    # todo: does not work with the current version of dypy (make it a property later)
     @dy.method
     def parameterized_gamma(self):
         return self.gamma
@@ -87,7 +87,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 0.1
 
-    # todo: does not work with the current version of dycode (make it a property later)
+    # todo: does not work with the current version of dypy (make it a property later)
     @dy.method
     def gumbel_noise_std(self, *args, training_module=None, **kwargs):
         """
@@ -152,6 +152,6 @@ class LearnablePermutation(torch.nn.Module):
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm
-    
+
     def extra_repr(self) -> str:
         return f"num_features={self.num_features}"

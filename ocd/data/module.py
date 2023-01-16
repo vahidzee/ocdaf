@@ -2,7 +2,7 @@ import lightning
 import typing as th
 import torch
 from torch.utils.data import random_split, DataLoader, ConcatDataset
-import dycode
+import dypy
 
 from ocd.data.scm import SCMGenerator
 from .dataset import OCDDataset
@@ -81,8 +81,11 @@ class OCDDataModule(lightning.LightningDataModule):
         # setup the class
         self.scm_generator_class = scm_generator_class
         if self.scm_generator_class is not None:
-            self.scm_generator_class = dycode.eval(self.scm_generator_class) if isinstance(
-                self.scm_generator_class, str) else self.scm_generator_class
+            self.scm_generator_class = (
+                dypy.eval(self.scm_generator_class)
+                if isinstance(self.scm_generator_class, str)
+                else self.scm_generator_class
+            )
         # setup the class constructor arguments
         self.scm_generator_args = scm_generator_args if scm_generator_args is not None else {}
         self.generator = None
@@ -92,8 +95,11 @@ class OCDDataModule(lightning.LightningDataModule):
         self.interventional_episode_count = interventional_episode_count
         self.intervention_function = intervention_function
         if self.intervention_function is not None:
-            self.intervention_function = dycode.eval(self.intervention_function) if isinstance(
-                self.intervention_function, str) else self.intervention_function
+            self.intervention_function = (
+                dypy.eval(self.intervention_function)
+                if isinstance(self.intervention_function, str)
+                else self.intervention_function
+            )
 
         # training and validation
         self.train_data, self.val_data = None, None
@@ -101,8 +107,7 @@ class OCDDataModule(lightning.LightningDataModule):
         self.val_dl_args = val_dl_args or dl_args or {}
         self.val_size = val_size
         assert (
-            val_size is None or isinstance(val_size, int) or (
-                isinstance(val_size, float) and val_size < 1)
+            val_size is None or isinstance(val_size, int) or (isinstance(val_size, float) and val_size < 1)
         ), "invalid validation size is provided (either int, float (between zero and one) or None)"
 
         # batch_size
@@ -130,8 +135,7 @@ class OCDDataModule(lightning.LightningDataModule):
         """
         # create a generator if it is the first time
         if self.generator is None:
-            self.generator = self.scm_generator_class(
-                seed=self.seed, **self.scm_generator_args)
+            self.generator = self.scm_generator_class(seed=self.seed, **self.scm_generator_args)
 
         # create an scm from the generator
         scm = self.generator.generate_scm()
@@ -141,7 +145,8 @@ class OCDDataModule(lightning.LightningDataModule):
 
         # simulate the observational dataset
         datasets = [
-            OCDDataset(samples=scm.simulate(self.observation_size, seed=self.seed), dag=scm.dag, name='observational')]
+            OCDDataset(samples=scm.simulate(self.observation_size, seed=self.seed), dag=scm.dag, name="observational")
+        ]
 
         # go for interventional datasets
         if self.interventional_episode_count:
@@ -151,15 +156,20 @@ class OCDDataModule(lightning.LightningDataModule):
             np.random.seed(self.seed)
             nodes = np.random.permutation(nodes)
 
-            assert len(nodes) >= self.interventional_episode_count, "interventional episode size is larger than the number of nodes (try increasing the episode sizes instead)"
+            assert (
+                len(nodes) >= self.interventional_episode_count
+            ), "interventional episode size is larger than the number of nodes (try increasing the episode sizes instead)"
             for i in range(self.interventional_episode_count):
                 new_dataset = OCDDataset(
                     samples=scm.simulate(
-                        self.interventional_episode_size, seed=self.seed+i+1,
-                        intervention_node=nodes[i], intervention_function=self.intervention_function),
+                        self.interventional_episode_size,
+                        seed=self.seed + i + 1,
+                        intervention_node=nodes[i],
+                        intervention_function=self.intervention_function,
+                    ),
                     dag=scm.dag,
                     intervention_column=nodes[i],
-                    name=f'interventional_{i}'
+                    name=f"interventional_{i}",
                 )
                 datasets.append(new_dataset)
 
@@ -194,8 +204,7 @@ class OCDDataModule(lightning.LightningDataModule):
                         if isinstance(self.val_size, int)
                         else int(len(dataset) * (1 - self.val_size))
                     )
-                    train_data, val_data = random_split(
-                        dataset, [train_len, len(dataset) - train_len], generator=prng)
+                    train_data, val_data = random_split(dataset, [train_len, len(dataset) - train_len], generator=prng)
                     self.train_data.append(train_data)
                     self.val_data.append(val_data)
 
@@ -232,14 +241,10 @@ class OCDDataModule(lightning.LightningDataModule):
         dl_args = getattr(self, f"{name}_dl_args", {})
         dl_args.update(params)  # override with extra params
 
-        batch_size = batch_size if batch_size is not None else getattr(
-            self, f"{name}_batch_size")
-        shuffle = shuffle if shuffle is not None else getattr(
-            self, f"{name}_shuffle")
-        num_workers = num_workers if num_workers is not None else getattr(
-            self, f"{name}_num_workers")
-        pin_memory = pin_memory if pin_memory is not None else getattr(
-            self, f"{name}_pin_memory")
+        batch_size = batch_size if batch_size is not None else getattr(self, f"{name}_batch_size")
+        shuffle = shuffle if shuffle is not None else getattr(self, f"{name}_shuffle")
+        num_workers = num_workers if num_workers is not None else getattr(self, f"{name}_num_workers")
+        pin_memory = pin_memory if pin_memory is not None else getattr(self, f"{name}_pin_memory")
         # create dataloaders
         data_loaders = [
             DataLoader(

@@ -1,7 +1,7 @@
 import normflows as nf
 import torch
 from .masked import MaskedAffineFlow
-import dycode as dy
+import dypy as dy
 import typing as th
 import functools
 

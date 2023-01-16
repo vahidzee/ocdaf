@@ -2,7 +2,7 @@ from lightning_toolbox import CriterionTerm
 import torch
 import lightning
 import typing as th
-import dycode as dy
+import dypy as dy
 
 
 class TrainingTerm(CriterionTerm):

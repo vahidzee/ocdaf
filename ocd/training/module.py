@@ -1,14 +1,7 @@
 import typing as th
 import torch
 from lightning_toolbox import TrainingModule
-import functools
-import dycode as dy
-import matplotlib.pyplot as plt
-import numpy as np
-import normflows as nf
-import dycode as dy
-from lightning.pytorch.utilities.types import EPOCH_OUTPUT
-from ocd.evaluation import backward_score, count_backward
+import dypy as dy
 
 
 class OrderedTrainingModule(TrainingModule):
@@ -16,7 +9,7 @@ class OrderedTrainingModule(TrainingModule):
         self,
         # (1) Model parameters:
         # essential flow args
-        base_distribution: th.Union[nf.distributions.BaseDistribution, str],
+        base_distribution: th.Union["normflows.distributions.BaseDistribution", str],
         base_distribution_args: dict,
         # architecture
         in_features: th.Union[th.List[int], int],
@@ -252,8 +245,6 @@ class OrderedTrainingModule(TrainingModule):
                 self.reset_switch_phase()
                 self.current_phase = "expectation"
 
-   
-
     def on_validation_epoch_end(self) -> None:
         # When validation epoch has ended, check if we need to switch phase
         results = super().on_validation_epoch_end()
@@ -262,6 +253,6 @@ class OrderedTrainingModule(TrainingModule):
 
     def on_train_epoch_end(self) -> None:
         # When training epoch has ended, check if we need to switch phase
-        results =  super().on_train_epoch_end()
+        results = super().on_train_epoch_end()
         self.re_evaluate_phase()
         return results

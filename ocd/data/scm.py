@@ -3,7 +3,7 @@ from .dataset import OCDDataset
 import networkx as nx
 import numpy as np
 import typing as th
-import dycode
+import dypy
 import pandas as pd
 
 
