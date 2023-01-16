@@ -59,7 +59,7 @@ class MaskedLinear(torch.nn.Linear):
             masked_dtype: data type for mask matrix.
             auto_connection: whether to allow equal label connections.
             masked_dtype: data type for mask matrix.
-            
+
         Returns:
             None
         """
@@ -180,8 +180,8 @@ class MaskedLinear(torch.nn.Linear):
             return mask
         else:
             # we have to populate the mask with the correct number of features per dimension
-            mask = torch.repeat_interleave(mask, torch.tensor(self.in_blocks), dim=-1)
-            mask = torch.repeat_interleave(mask, torch.tensor(self.out_blocks), dim=-2)
+            mask = torch.repeat_interleave(mask, torch.tensor(self.in_blocks).to(mask.device), dim=-1)
+            mask = torch.repeat_interleave(mask, torch.tensor(self.out_blocks).to(mask.device), dim=-2)
             return mask
 
     def permute_mask(self, perm_mat: torch.Tensor) -> torch.Tensor:
@@ -199,7 +199,10 @@ class MaskedLinear(torch.nn.Linear):
         return perm_mat @ self.mask.float() @ perm_mat.transpose(-2, -1)
 
     def forward(
-        self, inputs: torch.Tensor, perm_mat: torch.Tensor, elementwise_perm: th.Optional[bool] = None
+        self,
+        inputs: torch.Tensor,
+        perm_mat: th.Optional[torch.Tensor] = None,
+        elementwise_perm: th.Optional[bool] = None,
     ) -> torch.Tensor:
         """
         Computes masked linear operation.
@@ -247,6 +250,10 @@ class MaskedLinear(torch.nn.Linear):
             weights = weights.repeat_interleave(inputs_batch_size, dim=0)
 
         results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)  # everything is batched now
-        results = results.reshape(inputs_batch_size, weights_batch_size, -1) if not elementwise_perm else results
+        results = (
+            results.reshape(inputs_batch_size, weights_batch_size, -1)
+            if not elementwise_perm and perm_mat is not None
+            else results
+        )
         results = results.unflatten(0, inputs.shape[:-1])
         return results + (self.bias if self.bias is not None else 0)
