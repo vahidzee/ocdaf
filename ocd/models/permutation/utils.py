@@ -103,8 +103,8 @@ def is_permutation(mat, threshold: th.Optional[float] = 1e-4):
         Either a boolean tensor of shape [batch_size] (if threshold is not None)
         or a float tensor of shape [batch_size] (if threshold is None)
     """
-    distance = torch.minimum((mat - 1).abs(), mat.abs().max(-1))
-    results = distance.max([-1, -2]).values
+    distance = torch.minimum((mat - 1).abs(), mat.abs())
+    results = distance.max(-1).values.max(-1).values
     return results if threshold is None else results < threshold
 
 
@@ -124,9 +124,36 @@ def is_between_zero_one(mat, threshold: th.Optional[float] = 1e-4):
     """
     # zero out all the numbers except the ones that are not between 0 and 1
     mat = torch.where((mat >= 0) & (mat <= 1.0), torch.zeros_like(mat), mat)
-    distance = torch.minimum((mat - 1).abs(), mat.abs().max(-1))
-    results = distance.max([-1, -2]).values
+    distance = torch.minimum((mat - 1).abs(), mat.abs())
+    results = distance.max(-1).values.max(-1).values
     return results if threshold is None else results < threshold
+
+
+def evaluate_permutations(mat, threshold: th.Optional[float] = 1e-4, reduce: bool = True):
+    """
+    Evaluates a matrix of permutations (or a batch of matrices of permutations)
+
+    Args:
+        mat: 2D tensor (a matrix of shape [N, N]) or 3D tensor (a batch of matrices of shape = [batch_size, N, N])
+        threshold: float, the threshold for the check to pass (if None, only the distances are returned)
+        reduce: whether to reduce the results into an average (boolean tensors are reduced to a proportion of True values)
+
+    Returns:
+        A dictionary with the following keys:
+            doubly_stochastic_distance: the maximum difference between the sum of rows and columns and 1
+            permutation_distance: the maximum distance between values and 0 or 1
+
+    """
+    results = dict(
+        doubly_stochastic_distance=is_doubly_stochastic(mat, threshold=None),
+        permutation_distance=is_permutation(mat, threshold=None),
+        between_zero_one_distance=is_between_zero_one(mat, threshold=None),
+    )
+    if threshold is not None:
+        results.update({f'is_{k.replace("_distance", "")}': v < threshold for k, v in results.items()})
+    if reduce:
+        results = {k: v.float().mean() for k, v in results.items()}
+    return results
 
 
 def listperm2matperm(listperm: torch.Tensor, device=None, dtype=None):
