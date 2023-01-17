@@ -1,7 +1,13 @@
 import torch
 import typing as th
-import dycode as dy
-from ocd.models.permutation.utils import hungarian, sinkhorn, sample_gumbel_noise, listperm2matperm
+import dypy as dy
+from ocd.models.permutation.utils import (
+    hungarian,
+    sinkhorn,
+    sample_gumbel_noise,
+    listperm2matperm,
+    is_doubly_stochastic,
+)
 
 
 @dy.dynamize
@@ -16,12 +22,20 @@ class LearnablePermutation(torch.nn.Module):
 
     def forward(
         self,
-        *args,
-        device: th.Optional[torch.device] = None,
         num_samples: int = 1,
+        # gamma
+        gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
+        # retrieval parameters
         soft: bool = True,
         return_noise: bool = False,
         return_matrix: bool = True,
+        # sampling parameters
+        gumbel_noise_std: th.Optional[torch.Tensor] = None,
+        # sinkhorn parameters
+        sinkhorn_num_iters: th.Optional[int] = None,
+        sinkhorn_temp: th.Optional[float] = None,
+        # general parameters
+        device: th.Optional[torch.device] = None,
         **kwargs,
     ) -> th.Union[th.Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """
@@ -33,37 +47,43 @@ class LearnablePermutation(torch.nn.Module):
             return_noise: whether to return the gumbel noise (default: False)
             return_matrix: whether to return the resulting permutations as NxN matrices or as
                 a list of ordered indices (default: True)
-            *args: arguments to dynamic methods (might be empty, depends on the caller)
             **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
 
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
         device = device if device is not None else self.gamma.device
+        gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
         gumbel_noise = None
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
-            gumbel_noise = gumbel_noise * self.gumbel_noise_std(*args, **kwargs)
+            gumbel_noise_std = gumbel_noise_std if gumbel_noise_std is not None else self.gumbel_noise_std(**kwargs)
+            gumbel_noise = gumbel_noise * gumbel_noise_std
         if soft:
-            perm_mat = self.soft_permutation(gumbel_noise=gumbel_noise, *args, **kwargs)
+            perm_mat = self.soft_permutation(
+                gamma=gamma,
+                gumbel_noise=gumbel_noise,
+                sinkhorn_temp=sinkhorn_temp,
+                sinkhorn_num_iters=sinkhorn_num_iters,
+                **kwargs,
+            )
             results = perm_mat if return_matrix else perm_mat.argmax(-1)
         else:
-            results = self.hard_permutation(return_matrix=return_matrix, gumbel_noise=gumbel_noise)
+            results = self.hard_permutation(gamma=gamma, return_matrix=return_matrix, gumbel_noise=gumbel_noise)
 
         return (results, gumbel_noise) if return_noise else results
 
-    # todo: does not work with the current version of dycode (make it a property later)
+    # todo: does not work with the current version of dypy (make it a property later)
     @dy.method
     def parameterized_gamma(self):
         return self.gamma
 
     @dy.method
-    def sinkhorn_num_iters(self, *args, training_module=None, **kwargs) -> int:
+    def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
         """
         A dynamic method that returns the number of iterations for the Sinkhorn algorithm.
 
         Args:
-            *args: arguments to the dynamic method (might be empty, depends on the caller)
             training_module: the training module that calls the dynamic method
             **kwargs: keyword arguments to the dynamic method (might be empty, depends on the caller)
 
@@ -73,12 +93,12 @@ class LearnablePermutation(torch.nn.Module):
         return 50
 
     @dy.method
-    def sinkhorn_temp(self, *args, training_module=None, **kwargs) -> float:
+    def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
         """
         A dynamic method that returns the temperature for the Sinkhorn algorithm.
 
         Args:
-            *args: arguments to the dynamic method (might be empty, depends on the caller)
+
             training_module: the training module that calls the dynamic method
             **kwargs: keyword arguments to the dynamic method (might be empty, depends on the caller)
 
@@ -87,9 +107,9 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 0.1
 
-    # todo: does not work with the current version of dycode (make it a property later)
+    # todo: does not work with the current version of dypy (make it a property later)
     @dy.method
-    def gumbel_noise_std(self, *args, training_module=None, **kwargs):
+    def gumbel_noise_std(self, training_module=None, **kwargs):
         """
         A dynamic method that returns the standard deviation of the Gumbel noise.
 
@@ -107,30 +127,30 @@ class LearnablePermutation(torch.nn.Module):
         self,
         gamma: th.Optional[torch.Tensor] = None,
         gumbel_noise: th.Optional[torch.Tensor] = None,
-        *args,  # for sinkhorn num_iters and temp dynamic methods
-        temp: th.Optional[float] = None,
-        num_iters: th.Optional[int] = None,
+        sinkhorn_temp: th.Optional[float] = None,
+        sinkhorn_num_iters: th.Optional[int] = None,
         **kwargs,  # for sinkhorn num_iters and temp dynamic methods
     ) -> torch.Tensor:
         """
         Args:
             gamma: the gamma parameter (if None, the parameterized gamma is used)
             gumbel_noise: the gumbel noise (if None, no noise is added)
-            temp: the temperature (if None, the dynamic method sinkhorn_temp is used)
-            num_iters: the number of iterations (if None, the dynamic method sinkhorn_num_iters is used)
-            *args: arguments to dynamic methods (might be empty, depends on the caller)
+            sinkhorn_temp: the temperature (if None, the dynamic method sinkhorn_temp is used)
+            sinkhorn_num_iters: the number of iterations (if None, the dynamic method sinkhorn_num_iters is used)
             **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
 
         Returns:
             The resulting permutation matrix.
         """
         gamma = gamma if gamma is not None else self.parameterized_gamma()
-        temp = temp if temp is not None else self.sinkhorn_temp(*args, **kwargs)
-        num_iters = num_iters if num_iters is not None else self.sinkhorn_num_iters(*args, **kwargs)
+        sinkhorn_temp = sinkhorn_temp if sinkhorn_temp is not None else self.sinkhorn_temp(**kwargs)
+        sinkhorn_num_iters = (
+            sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(**kwargs)
+        )
         # transform gamma with log-sigmoid and temperature
         gamma = torch.nn.functional.logsigmoid(gamma)
         noise = gumbel_noise if gumbel_noise is not None else 0.0
-        return sinkhorn((gamma + noise) / temp, num_iters=num_iters)
+        return sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
     def hard_permutation(
         self,
@@ -152,6 +172,32 @@ class LearnablePermutation(torch.nn.Module):
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm
-    
+
+    def check_double_stochasticity(
+        self,
+        num_samples: int = 1000,
+        threshold: float = 1e-3,
+        return_percentage: bool = True,
+        **kwargs,
+    ) -> th.Union[torch.Tensor, th.Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Checks whether the model forward results in doubly stochastic matrices.
+
+        Args:
+            num_samples: the number of samples to check
+            threshold: the threshold for the check
+            return_percentage: whether to return the percentage of doubly stochastic matrices
+                or the boolean tensor and the samples
+            **kwargs: keyword arguments to the model forward
+
+        Returns:
+            The percentage of doubly stochastic matrices or the boolean tensor and the samples.
+        """
+        samples = self(num_samples=num_samples, soft=True, return_matrix=True, **kwargs)
+        sample_is_doubly_stochastic = is_doubly_stochastic(samples, threshold=threshold)
+        if return_percentage:
+            return sample_is_doubly_stochastic.float().mean()
+        return sample_is_doubly_stochastic, samples
+
     def extra_repr(self) -> str:
         return f"num_features={self.num_features}"

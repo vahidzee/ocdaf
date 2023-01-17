@@ -1,6 +1,6 @@
 # Ordered Causal Discovery (OCD)
 
-This library is based on [lightning-toolbox](https://github.com/vahidzee/lightning-toolbox) and [dycode](https://github.com/vahidzee/dycode) which we developed to enable dynamic training procedures, and model designs in our experiments.
+This library is based on [lightning-toolbox](https://github.com/vahidzee/lightning-toolbox) and [dypy](https://github.com/vahidzee/dypy) which we developed to enable dynamic training procedures, and model designs in our experiments.
 
 ## Setup
 In a python (>=3.9) environment, run the following commands:
