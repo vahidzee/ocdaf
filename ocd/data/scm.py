@@ -45,18 +45,25 @@ class SCM:
         for sample_i in range(n_samples):
             for v in self.topological_order:
                 # sample exogenous noise
-                noise = self.get_exogenous_noise(seed + sample_i, **self.functional_parameters[v][0])
+                noise = self.get_exogenous_noise(
+                    seed + sample_i, **self.functional_parameters[v][0])
                 inputs = [noise]
                 params = [self.functional_parameters[v][1]]
                 for i in range(2, len(self.functional_parameters[v]), 2):
                     params.append(self.functional_parameters[v][i])
-                    inputs.append(vals[self.functional_parameters[v][i + 1]][-1])
+                    inputs.append(
+                        vals[self.functional_parameters[v][i + 1]][-1])
                 if v == intervention_node:
                     vals[v].append(intervention_function(inputs, params))
                 else:
-                    vals[v].append(self.get_covariate_from_parents(inputs, params))
+                    vals[v].append(
+                        self.get_covariate_from_parents(inputs, params))
         samples = pd.DataFrame(vals)
         return samples.reindex(sorted(samples.columns), axis=1)
+
+    @property
+    def n(self):
+        return self.dag.number_of_nodes()
 
     def nodes(self):
         return self.dag.nodes
@@ -85,7 +92,8 @@ class SCM:
 
         nx.draw(dag, pos=pos, with_labels=not with_labels)
         if with_labels:
-            nx.draw_networkx_labels(dag, pos=pos, labels=node_labels, font_size=8)
+            nx.draw_networkx_labels(
+                dag, pos=pos, labels=node_labels, font_size=8)
         else:
             # print all the values in node_labels
             for k, v in node_labels.items():
@@ -202,16 +210,19 @@ class SCMGenerator:
             # swap the first and last node
             if self.graph_generator_type in ["collider", "v_structure"]:
                 all_nodes = list(new_dag.nodes.keys())
-                new_dag = nx.relabel_nodes(new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]})
+                new_dag = nx.relabel_nodes(
+                    new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]})
         elif self.graph_generator_type == "full":
             # generate a complete graph
             new_dag = nx.complete_graph(self.graph_generator_args["n"])
         elif self.graph_generator_type == "tree":
             # generate a jungle graph
-            new_dag = nx.random_tree(self.graph_generator_args["n"], seed=new_seed)
+            new_dag = nx.random_tree(
+                self.graph_generator_args["n"], seed=new_seed)
 
         else:
-            raise ValueError("dag_generator_args must be specified when base_dag is not provided")
+            raise ValueError(
+                "dag_generator_args must be specified when base_dag is not provided")
         # make new_dag directed acyclic graph
 
         # create a directed graph from new_dag
@@ -222,8 +233,10 @@ class SCMGenerator:
         for edge in new_dag.edges:
             # check if the edge is directed from a node with a higher index to a node with a lower index
             # get the location of edge[0] and edge[1] in the permutation
-            u = edge[0] if isinstance(edge[0], int) else list(new_dag.nodes).index(edge[0])
-            v = edge[1] if isinstance(edge[1], int) else list(new_dag.nodes).index(edge[1])
+            u = edge[0] if isinstance(edge[0], int) else list(
+                new_dag.nodes).index(edge[0])
+            v = edge[1] if isinstance(edge[1], int) else list(
+                new_dag.nodes).index(edge[1])
             if u >= v:
                 # remove every such edge
                 delete_edges.append((edge[0], edge[1]))
@@ -232,7 +245,8 @@ class SCMGenerator:
 
         # permute the nodes of new_dag
         np.random.seed(seed=new_seed)
-        new_dag = nx.relabel_nodes(new_dag, dict(zip(new_dag.nodes, np.random.permutation(new_dag.nodes))))
+        new_dag = nx.relabel_nodes(new_dag, dict(
+            zip(new_dag.nodes, np.random.permutation(new_dag.nodes))))
         return new_dag
 
     def generate_scm(self) -> SCM:
@@ -249,11 +263,13 @@ class SCMGenerator:
         for node in dag.nodes:
             seed = self.get_iterative_seed()
             functional_parameters[node] = [
-                self.generate_noise_functional_parameters(dag, node, seed=seed, **self.functional_form_generator_args)
+                self.generate_noise_functional_parameters(
+                    dag, node, seed=seed, **self.functional_form_generator_args)
             ]
             seed = self.get_iterative_seed()
             functional_parameters[node].append(
-                self.generate_node_functional_parameters(dag, node, seed=seed, **self.functional_form_generator_args)
+                self.generate_node_functional_parameters(
+                    dag, node, seed=seed, **self.functional_form_generator_args)
             )
             for par in dag.predecessors(node):
                 seed = self.get_iterative_seed()

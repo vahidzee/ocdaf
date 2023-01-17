@@ -69,7 +69,8 @@ def get_core_points(
             # extend perm_mat in the first dimension
             perm_mat = np.expand_dims(perm_mat, axis=0)
             # concatenate perm_mat to the birkoff_vertices
-            core_points = perm_mat if core_points is None else np.concatenate([core_points, perm_mat], axis=0)
+            core_points = perm_mat if core_points is None else np.concatenate(
+                [core_points, perm_mat], axis=0)
 
     # add birkhoff_edges to the core_points
     if birkhoff_edges:
@@ -88,7 +89,8 @@ def get_core_points(
                 edge_points.append(edge_point)
         # concatenate all the edge points to the core_points
         t = np.stack(edge_points, axis=0)
-        core_points = t if core_points is None else np.concatenate([core_points, t], axis=0)
+        core_points = t if core_points is None else np.concatenate(
+            [core_points, t], axis=0)
 
     # Now iteratively sample num_points from the core_points
     sampled_core_points = None
@@ -100,7 +102,8 @@ def get_core_points(
             # expand the sampled_core_points in the first dimension
             sampled_core_points = np.expand_dims(sampled_core_points, axis=0)
         else:
-            set_a = sampled_core_points.reshape(sampled_core_points.shape[0], -1)
+            set_a = sampled_core_points.reshape(
+                sampled_core_points.shape[0], -1)
             set_b = core_points.reshape(core_points.shape[0], -1)
             # get an i x core_points.shape[0] matrix of distances
             # between the sampled_core_points and the core_points
@@ -140,7 +143,8 @@ def cluster_particles(all_points: np.array, core_points: np.array) -> np.array:
     clusters = np.zeros(all_points.shape[0])
     for i, mat in enumerate(all_points):
         # get the index of the closest vertex
-        closest_vertex = np.argmin(np.linalg.norm(core_points - mat, axis=(1, 2)))
+        closest_vertex = np.argmin(
+            np.linalg.norm(core_points - mat, axis=(1, 2)))
         clusters[i] = closest_vertex
     return clusters
 
@@ -154,11 +158,13 @@ def get_birkhoff_samples(permutation_size: int, n_sample: int = 100) -> np.array
         polytope: a tensor of shape (n_sample, permutation_size, permutation_size) as a numpy array
     """
     # sample n_sample x permutation_size x permutation_size gumbel noises
-    gumbel_noise = np.random.gumbel(size=(n_sample, permutation_size, permutation_size))
+    gumbel_noise = np.random.gumbel(
+        size=(n_sample, permutation_size, permutation_size))
     # turn the gumbel noise into a torch tensor
     gumbel_noise = torch.from_numpy(gumbel_noise).float()
     polytope = (
-        sinkhorn(torch.cat([gumbel_noise, gumbel_noise / 0.1, gumbel_noise / 0.05], dim=0), 100).detach().numpy()
+        sinkhorn(torch.cat([gumbel_noise, gumbel_noise / 0.1,
+                 gumbel_noise / 0.05], dim=0), 100).detach().cpu().numpy()
     )
     return polytope
 
@@ -221,8 +227,10 @@ def visualize_exploration(
         if backbone is not None:
             backbone_t = backbone
             if not backbone_is_transformed:
-                backbone_t = visualization_model.transform(backbone.reshape(backbone.shape[0], -1))
-            ax.scatter(backbone_t[:, 0], backbone_t[:, 1], s=1, c="black", label="Backbone", alpha=0.1)
+                backbone_t = visualization_model.transform(
+                    backbone.reshape(backbone.shape[0], -1))
+            ax.scatter(backbone_t[:, 0], backbone_t[:, 1],
+                       s=1, c="black", label="Backbone", alpha=0.1)
 
         # (2) plot the sampled permutations
         # Use clusters if it is not set to none
@@ -232,7 +240,8 @@ def visualize_exploration(
         if clusters is not None:
             for c in np.unique(clusters):
                 # get the centroid of the cluster
-                centroid = np.mean(sampled_permutations[clusters == c, :, :], axis=0)
+                centroid = np.mean(
+                    sampled_permutations[clusters == c, :, :], axis=0)
 
                 cluster_label = "cluster {} of samples".format(int(c + 1))
                 if add_permutation_to_name:
@@ -246,7 +255,8 @@ def visualize_exploration(
                     label=cluster_label,
                 )
                 if cost_values is not None:
-                    centroid_t = np.mean(sampled_permutations_t[clusters == c, :], axis=0)
+                    centroid_t = np.mean(
+                        sampled_permutations_t[clusters == c, :], axis=0)
                     # get the average cost of the cluster
                     cost = np.mean(cost_values[clusters == c])
                     text = f"{cost:.2f}/{len(cost_values[clusters == c])}"
@@ -282,7 +292,8 @@ def visualize_exploration(
         # Plot the model parameters using the permutation without noise
         if permutation_without_noise is not None:
             permutation_without_noise_t = visualization_model.transform(
-                permutation_without_noise.reshape(permutation_without_noise.shape[0], -1)
+                permutation_without_noise.reshape(
+                    permutation_without_noise.shape[0], -1)
             )
             ax.scatter(
                 permutation_without_noise_t[:, 0],
@@ -308,7 +319,7 @@ def visualize_exploration(
 class BirkhoffCallback(Callback):
     def __init__(
         self,
-        permutation_size: int,
+        permutation_size: th.Optional[int] = None,
         seed: th.Optional[int] = None,
         # logging frequencies
         log_on_phase_change: bool = True,
@@ -322,7 +333,7 @@ class BirkhoffCallback(Callback):
         core_points_has_birkhoff_vertices: bool = True,
         core_points_has_birkhoff_edges: bool = False,
         # Including correct orderings
-        scm: SCM = None,
+        scm: th.Optional[SCM] = None,
         # Include permutation names
         add_permutation_to_name: bool = False,
     ) -> None:
@@ -349,7 +360,16 @@ class BirkhoffCallback(Callback):
             add_permutation_to_name: If this is set to true, then the average of each cluster
                                      is written in the legend as an approximate permutation
         """
+
+        # Infer permutation size from scm if not given
+        if permutation_size is None:
+            if scm is None:
+                raise ValueError(
+                    "Either permutation_size or scm should be set")
+            permutation_size = scm.n
+
         self.permutation_size = permutation_size
+
         self.last_saved_phase = None
 
         self.log_on_phase_change = log_on_phase_change
@@ -375,7 +395,8 @@ class BirkhoffCallback(Callback):
         if not self.fit_every_time:
             self.polytope = get_birkhoff_samples(permutation_size)
             # train a PCA on all the elements of the polytope
-            self.pca.fit(self.polytope.reshape(-1, permutation_size * permutation_size))
+            self.pca.fit(self.polytope.reshape(-1,
+                         permutation_size * permutation_size))
             self.transformed_polytope = self.pca.transform(
                 self.polytope.reshape(-1, permutation_size * permutation_size)
             )
@@ -407,13 +428,15 @@ class BirkhoffCallback(Callback):
                 self.birkhoff_vertex_scores.append(1)
             else:
                 ordering = perm.argmax(-1).tolist()
-                self.birkhoff_vertex_scores.append(scm.count_backward(ordering))
+                self.birkhoff_vertex_scores.append(
+                    scm.count_backward(ordering))
         self.birkhoff_vertex_scores = np.array(self.birkhoff_vertex_scores)
 
     def _print_unique_permutations(self, logged_permutations):
         real_logged_permutations = logged_permutations.argmax(axis=-1)
         # get the unique rows and the number of times they appear
-        unique_rows, counts = np.unique(real_logged_permutations, axis=0, return_counts=True)
+        unique_rows, counts = np.unique(
+            real_logged_permutations, axis=0, return_counts=True)
         print("Permutations that were seen:")
         for row, count in zip(unique_rows, counts):
             print(row, " : ", count, " times")
@@ -462,24 +485,26 @@ class BirkhoffCallback(Callback):
             return ret
 
         # get the logged permutations
-        logged_permutations = all_logs["latent_permutation"].numpy()
+        logged_permutations = all_logs["latent_permutation"].detach(
+        ).cpu().numpy()
 
         # If we are to train the PCA every time, then we should fit it with the logged permutations here
         if self.fit_every_time:
-            self.pca.fit(logged_permutations.reshape(-1, self.permutation_size * self.permutation_size))
+            self.pca.fit(logged_permutations.reshape(-1,
+                         self.permutation_size * self.permutation_size))
 
         #######################
         # All the points to log:
         #######################
 
         permutation_without_noise = pl_module.model.permutation_model.soft_permutation()
-        permutation_without_noise = permutation_without_noise.detach().numpy()
+        permutation_without_noise = permutation_without_noise.detach().cpu().numpy()
 
         clusters = None
         cost_values = None
         if self.write_cost_values:
             clusters = cluster_particles(logged_permutations, self.core_points)
-            cost_values = -all_logs["log_prob"].detach().numpy()
+            cost_values = -all_logs["log_prob"].detach().cpu().numpy()
 
         img = visualize_exploration(
             visualization_model=self.pca,
@@ -500,6 +525,7 @@ class BirkhoffCallback(Callback):
         )
         # get the root tensorboard logger
         logger = pl_module.logger.experiment
-        logger.add_image(f"explorability/birkhoff", img, pl_module.current_epoch, dataformats="HWC")
-
+        # logger.add_image(f"explorability/birkhoff", img, pl_module.current_epoch, dataformats="HWC")
+        trainer.logger.log_image(key="explorability/birkhoff",
+                                 images=[img], caption=['Training bird-eye view'])
         return ret
