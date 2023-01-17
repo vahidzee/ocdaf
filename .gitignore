@@ -145,3 +145,12 @@ temp/*
 
 notebooks/test_hamid.ipynb
 notebooks/test_vahid.ipynb
+
+# Remote logs and env
+notebook_output-*.log
+python3.9-env
+
+# Weight and bias
+wandb
+notebooks/test-project/*
+test-project/*
