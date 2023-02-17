@@ -1,6 +1,7 @@
 torch
 numpy
 lightning
+"jsonargparse[signatures]"
 lightning_toolbox
 dypy
 #
