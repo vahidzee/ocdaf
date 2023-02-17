@@ -111,6 +111,11 @@ class SCM:
             if ordering[u] > ordering[v]:
                 count += 1
         return count
+    
+    @property
+    def ordering(self):
+        # return the topological ordering of self.dag
+        return list(nx.topological_sort(self.dag))
 
 
 GRAPH_GENERATOR_TYPE = [
