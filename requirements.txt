@@ -1,9 +1,7 @@
 torch
 numpy
 lightning
-"jsonargparse[signatures]"
 lightning_toolbox
-dypy
 #
 pandas
 tqdm
@@ -12,3 +10,4 @@ bnlearn
 seaborn
 # for graphs generation and sampling
 networkx
+jsonargparse[signatures]
