@@ -17,7 +17,7 @@ class OCDDataset(torch.utils.data.Dataset):
         """
         Args:
             samples: a pd.DataFrame with the samples
-            dag: a bnlearn DAG
+            dag: a networkx DiGraph or a np.array with the DAG
             intervention_node: the node which has been intervened on (todo: add support for multiple nodes)
             intervention_values: the values of the intervened node (split equally and sequentially among the samples)
             name: name of the dataset (optional, used for printing)

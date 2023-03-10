@@ -1,0 +1,18 @@
+dataset: ocd.data.datasets.SyntheticOCDDataset
+dataset_args:
+  seed: 100
+  scm_generator: ocd.data.generators.InvertibleModulatedGaussianSCMGenerator
+  scm_generator_args:
+    graph_generator: ocd.data.generators.GraphGenerator
+    graph_generator_args: 
+      graph_type: chain
+      n: 3
+      seed: ${dataset_args.seed}
+    seed: ${dataset_args.seed}
+    std: [0.1, 1.0]
+    mean: [-1.0, 1.0]
+    weight_f: [-1.0, 1.0]
+    weight_g: [-1.0, 1.0]
+  observation_size: 1000
+
+val_size: 0.1

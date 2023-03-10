@@ -1,11 +1,12 @@
 from lightning.pytorch.cli import LightningCLI
 from ocd.training import OrderedTrainingModule
-from ocd.data import OCDDataModule
+from lightning_toolbox.data import DataModule
 
 
 def main():
     cli = LightningCLI(OrderedTrainingModule,
-                       OCDDataModule)
-    
+                       DataModule)
+
+
 if __name__ == "__main__":
     main()

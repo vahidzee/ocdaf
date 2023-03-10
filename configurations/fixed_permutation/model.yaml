@@ -1,0 +1,51 @@
+base_distribution: normflows.distributions.DiagGaussian
+base_distribution_args: 
+  shape: 3
+  trainable: False
+in_features: 3
+layers: [3, 3]
+num_transforms: 3
+additive: False
+elementwise_perm: True
+use_soft_on_maximization: True
+# (1) Use fixed permutations
+ordering: [0, 2, 1]
+  
+learn_permutation: False
+optimizer: torch.optim.AdamW
+residual: false
+bias: true
+activation: torch.nn.LeakyReLU
+activation_args: null
+batch_norm: false
+batch_norm_args: null
+additive: false
+num_transforms: 1
+ordering: null
+learn_permutation: true
+log_input_outputs: false
+device: null
+dtype: null
+starting_phase: maximization
+use_soft_on_maximization: true
+phase_change_upper_bound: 100
+expectation_epoch_upper_bound: 10000
+expectation_epoch_lower_bound: 10
+maximization_epoch_upper_bound: 10000
+maximization_epoch_lower_bound: 10
+overfit_window_size: 10
+overfit_check_threshold: 0.05
+overfitting_patience: 3
+criterion_args: null
+optimizer: torch.optim.Adam
+optimizer_is_active: null
+optimizer_parameters: null
+optimizer_args: null
+lr: 0.0001
+scheduler: null
+scheduler_name: null
+scheduler_optimizer: null
+scheduler_args: null
+scheduler_interval: epoch
+scheduler_frequency: 1
+scheduler_monitor: null
