@@ -10,7 +10,6 @@ elementwise_perm: True
 use_soft_on_maximization: True
 # (1) Use fixed permutations
 ordering: [0, 2, 1]
-  
 learn_permutation: False
 optimizer: torch.optim.AdamW
 residual: false
@@ -19,15 +18,10 @@ activation: torch.nn.LeakyReLU
 activation_args: null
 batch_norm: false
 batch_norm_args: null
-additive: false
-num_transforms: 1
-ordering: null
-learn_permutation: true
 log_input_outputs: false
 device: null
 dtype: null
 starting_phase: maximization
-use_soft_on_maximization: true
 phase_change_upper_bound: 100
 expectation_epoch_upper_bound: 10000
 expectation_epoch_lower_bound: 10
@@ -36,7 +30,6 @@ maximization_epoch_lower_bound: 10
 overfit_window_size: 10
 overfit_check_threshold: 0.05
 overfitting_patience: 3
-optimizer: torch.optim.Adam
 optimizer_is_active: null
 optimizer_parameters: null
 optimizer_args: null
