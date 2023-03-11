@@ -9,7 +9,7 @@ class OCDDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         samples: th.Union[pd.DataFrame, np.array],
-        dag: th.Union[nx.DiGraph, np.array],
+        dag: nx.DiGraph,
         intervention_column: th.Optional[int] = None,
         intervention_values: th.Optional[th.List[th.Any]] = None,
         name: th.Optional[str] = None,

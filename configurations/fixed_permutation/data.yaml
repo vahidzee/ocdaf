@@ -4,7 +4,11 @@ dataset_args:
   scm_generator: ocd.data.generators.InvertibleModulatedGaussianSCMGenerator
   scm_generator_args:
     graph_generator: ocd.data.generators.GraphGenerator
-    graph_generator_args: 
+    graph_generator_args:
+      enforce_ordering:
+        - 0
+        - 2
+        - 1 
       graph_type: chain
       n: 3
       seed: 100

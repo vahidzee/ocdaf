@@ -1,4 +1,3 @@
-
 from .base_generator import BaseGenerator
 import typing as th
 
@@ -7,25 +6,31 @@ import networkx as nx
 
 
 class GraphGenerator(BaseGenerator):
-    def __init__(self,
-                 seed: th.Optional[int] = None,
-                 base_dag: th.Optional[np.array] = None,
-                 graph_type: th.Optional[th.Literal[
-                     "erdos_renyi",
-                     "barabasi_albert",
-                     "random_dag",
-                     "chain",
-                     "collider",
-                     "full",
-                     "tree",
-                     "fork",
-                     "v_structure"]] = None,
-                 **kwargs) -> None:
-
+    def __init__(
+        self,
+        seed: th.Optional[int] = None,
+        base_dag: th.Optional[np.array] = None,
+        graph_type: th.Optional[
+            th.Literal[
+                "erdos_renyi",
+                "barabasi_albert",
+                "random_dag",
+                "chain",
+                "collider",
+                "full",
+                "tree",
+                "fork",
+                "v_structure",
+            ]
+        ] = None,
+        enforce_ordering: th.Optional[th.List] = None,
+        **kwargs
+    ) -> None:
         super().__init__(seed=seed)
         self.base_dag = base_dag
         self.graph_generator_type = graph_type
         self.graph_generator_args = kwargs
+        self.enforce_ordering = enforce_ordering
 
     def generate_dag(self) -> nx.DiGraph:
         """
@@ -68,19 +73,16 @@ class GraphGenerator(BaseGenerator):
             # swap the first and last node
             if self.graph_generator_type in ["collider", "v_structure"]:
                 all_nodes = list(new_dag.nodes.keys())
-                new_dag = nx.relabel_nodes(
-                    new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]})
+                new_dag = nx.relabel_nodes(new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]})
         elif self.graph_generator_type == "full":
             # generate a complete graph
             new_dag = nx.complete_graph(self.graph_generator_args["n"])
         elif self.graph_generator_type == "tree":
             # generate a jungle graph
-            new_dag = nx.random_tree(
-                self.graph_generator_args["n"], seed=new_seed)
+            new_dag = nx.random_tree(self.graph_generator_args["n"], seed=new_seed)
 
         else:
-            raise ValueError(
-                "dag_generator_args must be specified when base_dag is not provided")
+            raise ValueError("dag_generator_args must be specified when base_dag is not provided")
         # make new_dag directed acyclic graph
 
         # create a directed graph from new_dag
@@ -91,18 +93,19 @@ class GraphGenerator(BaseGenerator):
         for edge in new_dag.edges:
             # check if the edge is directed from a node with a higher index to a node with a lower index
             # get the location of edge[0] and edge[1] in the permutation
-            u = edge[0] if isinstance(edge[0], int) else list(
-                new_dag.nodes).index(edge[0])
-            v = edge[1] if isinstance(edge[1], int) else list(
-                new_dag.nodes).index(edge[1])
+            u = edge[0] if isinstance(edge[0], int) else list(new_dag.nodes).index(edge[0])
+            v = edge[1] if isinstance(edge[1], int) else list(new_dag.nodes).index(edge[1])
             if u >= v:
                 # remove every such edge
                 delete_edges.append((edge[0], edge[1]))
 
         new_dag.remove_edges_from(delete_edges)
 
-        # permute the nodes of new_dag
+        # permute the nodes of new_dag if the ordering is not enforced, otherwise, do it according to the ordering
+        correct_ordering = nx.topological_sort(new_dag)
         np.random.seed(seed=new_seed)
-        new_dag = nx.relabel_nodes(new_dag, dict(
-            zip(new_dag.nodes, np.random.permutation(new_dag.nodes))))
+        if self.enforce_ordering is not None:
+            new_dag = nx.relabel_nodes(new_dag, dict(zip(correct_ordering, self.enforce_ordering)))
+        else:
+            new_dag = nx.relabel_nodes(new_dag, dict(zip(correct_ordering, np.random.permutation(correct_ordering))))
         return new_dag
