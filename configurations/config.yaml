@@ -1,21 +1,7 @@
 # lightning.pytorch==1.8.6
 seed_everything: true
 trainer:
-  callbacks: null
-    # - class_path: ocd.training.callbacks.
-    # init_args:
-    #   dims: 3
-    #   seed: 10101
-    #   log_every_n_epochs: 15
-    #   log_on_phase_change: False
-    #   scm: 
-    #     class_path: 
-    #     init_args:
-
-    #   write_cost_values: True
-    #   core_points_has_birkhoff_vertices: True
-    #   add_permutation_to_name: True
-  max_epochs: 100000
+  max_epochs: 10
   accelerator: gpu
   devices: 1
   num_nodes: 0
@@ -23,56 +9,14 @@ trainer:
   track_grad_norm: inf
   logger: true
   enable_checkpointing: true
-  default_root_dir: null
-  gradient_clip_val: null
-  gradient_clip_algorithm: null
-  num_processes: null
-  gpus: null
-  auto_select_gpus: false
-  tpu_cores: null
-  ipus: null
-  enable_progress_bar: true
-  overfit_batches: 0.0
   check_val_every_n_epoch: 1
-  fast_dev_run: false
-  accumulate_grad_batches: null
-  max_epochs: null
-  min_epochs: null
-  max_steps: -1
-  min_steps: null
-  max_time: null
-  limit_train_batches: null
-  limit_val_batches: null
-  limit_test_batches: null
-  limit_predict_batches: null
-  val_check_interval: null
-  strategy: null
-  sync_batchnorm: false
-  precision: 32
-  enable_model_summary: true
-  num_sanity_val_steps: 2
-  resume_from_checkpoint: null
-  profiler: null
-  benchmark: null
-  deterministic: null
-  reload_dataloaders_every_n_epochs: 0
-  auto_lr_find: false
-  replace_sampler_ddp: true
-  detect_anomaly: false
-  auto_scale_batch_size: false
-  plugins: null
-  amp_backend: native
-  amp_level: null
-  move_metrics_to_cpu: false
-  multiple_trainloader_mode: max_size_cycle
-  inference_mode: true
 model:
   base_distribution: normflows.distributions.DiagGaussian
   base_distribution_args: 
     shape: 3
     trainable: False
   in_features: 3
-  layers: [96, 96, 96]
+  layers: [3, 3]
   num_transforms: 3
   additive: False
   elementwise_perm: True
@@ -82,49 +26,6 @@ model:
     
   learn_permutation: False
   optimizer: torch.optim.AdamW
-    # (2) Use learned permutations
-    # (2.1) set learn_permutation to True
-    # (2.2) comment out the ordering
-    # (2.3) uncomment the alternating optimization
-
-    # learn_permutation=True,
-    # log_input_outputs=True,
-
-    # # phase_change_upper_bound=1,
-
-    # maximization_epoch_lower_bound=10,
-    # maximization_epoch_upper_bound=200,
-    # expectation_epoch_lower_bound=10,
-    # expectation_epoch_upper_bound=200,
-    
-    # starting_phase='maximization',
-    
-    # criterion_args= dict(
-    #         terms=[
-    #             dict(
-    #                 name="norm(gooz)",
-    #                 term_function='lambda training_module, batch: training_module.model.carefl.forward(batch[0]).norm(float("inf"))',
-    #                 factor=0,
-    #             )
-    #         ],
-    #         # regularizations=[
-    #         #         dict(
-    #         #             name="nothing",
-    #         #             term_function="lambda batch: torch.zeros(1, device=batch[0].device)",
-    #         #             factor="def factor(training_module, results_dict):\n\ttraining_module.loss = results_dict['loss']\n\treturn 0",
-    #         #         ),
-    #         # ],
-    #     ),
-    # optimizer=['torch.optim.Adam', 'torch.optim.Adam'],
-    # optimizer_args=[{'lr': 1e-3}, {'lr': 1e-3}],
-    # optimizer_parameters=[
-    #     'model.permutation_model',
-    #     'model.carefl', 
-    # ],
-    # optimizer_is_active=[
-    #     'lambda training_module: training_module.get_phase() == "expectation"',
-    #     'lambda training_module: training_module.get_phase() == "maximization"',
-    # ]
   residual: false
   bias: true
   activation: torch.nn.LeakyReLU
