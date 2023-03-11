@@ -24,11 +24,12 @@ class SyntheticOCDDataset(OCDDataset):
             seed: The seed which is used to simulate the data
             name: The name of the dataset
         """
-        scm_generator = scm_generator if isinstance(
-            scm_generator, SCMGenerator) else dypy.eval(scm_generator)(**scm_generator_args)
+        scm_generator = (
+            scm_generator
+            if isinstance(scm_generator, SCMGenerator)
+            else dypy.eval(scm_generator)(**scm_generator_args)
+        )
         self.seed = seed
         scm = scm_generator.generate_scm()
         df = scm.simulate(observation_size, seed=self.seed)
-        super().__init__(samples=df,
-                         dag=scm.dag,
-                         name=name)
+        super().__init__(samples=df, dag=scm.dag, name=name, explanation=scm.get_description())

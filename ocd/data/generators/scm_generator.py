@@ -18,7 +18,7 @@ import numpy as np
 import typing as th
 import dypy
 import pandas as pd
-from ocd.scm import SCM
+from ocd.data.scm import SCM
 from abc import ABC, abstractmethod
 from .base_generator import BaseGenerator
 from .graph_generator import GraphGenerator
@@ -28,11 +28,9 @@ import dypy
 class SCMGenerator(ABC, BaseGenerator):
     def __init__(
         self,
-
         # Graph generator parameters or construction
         graph_generator: th.Union[GraphGenerator, str],
         graph_generator_args: th.Optional[th.Dict[str, th.Any]] = None,
-
         # seed
         seed=None,
     ):
@@ -45,11 +43,11 @@ class SCMGenerator(ABC, BaseGenerator):
         we use a scheme where we put parameters on top of each edge and node and noise variable. This is done in a purely
         generic fashion whereby we have three functions that are abstract and should be implemented:
 
-        (1) generate_edge_functional_parameters: 
+        (1) generate_edge_functional_parameters:
             For each edge return a dictionary of parameters that can be used later on for the data generating process.
 
-        (2) generate_node_functional_parameters: 
-            For each node return a dictionary of parameters that can be used later on for the data generating process.  
+        (2) generate_node_functional_parameters:
+            For each node return a dictionary of parameters that can be used later on for the data generating process.
 
         (3) generate_noise_functional_parameters:
             For each noise variable return a dictionary of parameters that can be used later on for the data generating process.
@@ -70,16 +68,15 @@ class SCMGenerator(ABC, BaseGenerator):
         that related the parents to the covariate. This is also an abstract function that should be implemented.
         """
         BaseGenerator.__init__(self, seed=seed)
-        self.graph_generator = graph_generator if isinstance(
-            graph_generator, GraphGenerator) else dypy.eval(graph_generator)(**graph_generator_args)
+        self.graph_generator = (
+            graph_generator
+            if isinstance(graph_generator, GraphGenerator)
+            else dypy.eval(graph_generator)(**graph_generator_args)
+        )
         self.sample_count = 0
 
     @abstractmethod
-    def generate_edge_functional_parameters(self,
-                                            dag: nx.DiGraph,
-                                            child: int,
-                                            par: int,
-                                            seed: int):
+    def generate_edge_functional_parameters(self, dag: nx.DiGraph, child: int, par: int, seed: int):
         """
         For each edge return a dictionary of parameters that can be used later on for the data generating process.
         For example, if one wants to save a 'weight' parameter for each edge and has the following information available
@@ -94,14 +91,10 @@ class SCMGenerator(ABC, BaseGenerator):
             weight: 0.6 (an example sampled from Unif[0.5, 1.5])
         }
         """
-        raise NotImplementedError(
-            "generate_edge_functional_parameters must be implemented")
+        raise NotImplementedError("generate_edge_functional_parameters must be implemented")
 
     @abstractmethod
-    def generate_noise_functional_parameters(self,
-                                             dag: nx.DiGraph,
-                                             node: int,
-                                             seed: int) -> th.Dict[str, th.Any]:
+    def generate_noise_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
         """
         For the noise in every node we might have parameters. This function returns a dictionary of such parameters.
         For example, if we aim to save the standard deviation and mean of the noise values coming from a Gaussian distribution,
@@ -129,8 +122,7 @@ class SCMGenerator(ABC, BaseGenerator):
         Returns:
             A dictionary of parameters that can be used later on for the data generating process.
         """
-        raise NotImplementedError(
-            "generate_noise_functional_parameters must be implemented")
+        raise NotImplementedError("generate_noise_functional_parameters must be implemented")
 
     @abstractmethod
     def generate_node_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
@@ -156,8 +148,7 @@ class SCMGenerator(ABC, BaseGenerator):
         Returns:
             A dictionary of parameters that can be used later on for the data generating process.
         """
-        raise NotImplementedError(
-            "generate_node_functional_parameters must be implemented")
+        raise NotImplementedError("generate_node_functional_parameters must be implemented")
 
     @abstractmethod
     def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int) -> float:
@@ -170,11 +161,13 @@ class SCMGenerator(ABC, BaseGenerator):
         raise NotImplementedError("get_exogenous_noise must be implemented")
 
     @abstractmethod
-    def get_covariate_from_parents(self,
-                                   noise: float,
-                                   parents: th.List[float],
-                                   parent_parameters: th.List[th.Dict[str, th.Any]],
-                                   node_parameters: th.List[th.Dict[str, th.Any]]) -> float:
+    def get_covariate_from_parents(
+        self,
+        noise: float,
+        parents: th.List[float],
+        parent_parameters: th.List[th.Dict[str, th.Any]],
+        node_parameters: th.List[th.Dict[str, th.Any]],
+    ) -> float:
         """
         Return the covariate value based on the noise on that node, the parents and the parameters of the parents
 
@@ -193,16 +186,17 @@ class SCMGenerator(ABC, BaseGenerator):
             The value of the covariate calculated based on the parents and the parameters of the parents
             and the node parameters and noise
         """
-        raise NotImplementedError(
-            "get_covariate_from_parents must be implemented")
+        raise NotImplementedError("get_covariate_from_parents must be implemented")
 
     @abstractmethod
-    def get_covariate_from_parents_signature(self,
-                                             node: int,
-                                             parents: th.List[int],
-                                             node_parameters: th.Dict[str, th.Any],
-                                             noise_parameters: th.Dict[str, th.Any],
-                                             parent_parameters: th.List[th.Dict[str, th.Any]]) -> str:
+    def get_covariate_from_parents_signature(
+        self,
+        node: int,
+        parents: th.List[int],
+        node_parameters: th.Dict[str, th.Any],
+        noise_parameters: th.Dict[str, th.Any],
+        parent_parameters: th.List[th.Dict[str, th.Any]],
+    ) -> str:
         """
         This function gets the list of parent parameters, node parameters, and noise parameters.
         It also gets the list of the actual parents and returns a string which is the signature of the function
@@ -223,8 +217,7 @@ class SCMGenerator(ABC, BaseGenerator):
         Returns:
             A string representing a visualization of the function that is relating the parents to the node
         """
-        raise NotImplementedError(
-            "get_covariate_from_parents_signature must be implemented")
+        raise NotImplementedError("get_covariate_from_parents_signature must be implemented")
 
     def generate_scm(self) -> SCM:
         """
@@ -245,19 +238,13 @@ class SCMGenerator(ABC, BaseGenerator):
         for node in dag.nodes:
             seed = self.get_iterative_seed()
             seed = self.get_iterative_seed()
-            noise_parameters[node] = self.generate_noise_functional_parameters(
-                dag, node, seed=seed)
-            node_parameters[node] = self.generate_node_functional_parameters(
-                dag, node, seed=seed)
+            noise_parameters[node] = self.generate_noise_functional_parameters(dag, node, seed=seed)
+            node_parameters[node] = self.generate_node_functional_parameters(dag, node, seed=seed)
             parent_parameters[node] = []
             parents[node] = []
             for par in dag.predecessors(node):
                 seed = self.get_iterative_seed()
-                parent_parameters[node].append(
-                    self.generate_edge_functional_parameters(
-                        dag, node, par, seed=seed
-                    )
-                )
+                parent_parameters[node].append(self.generate_edge_functional_parameters(dag, node, par, seed=seed))
                 parents[node].append(par)
 
         return SCM(
@@ -266,7 +253,6 @@ class SCMGenerator(ABC, BaseGenerator):
             node_parameters,
             parent_parameters,
             parents,
-
             get_exogenous_noise=self.get_exogenous_noise,
             get_covariate_from_parents=self.get_covariate_from_parents,
             get_covariate_from_parents_signature=self.get_covariate_from_parents_signature,

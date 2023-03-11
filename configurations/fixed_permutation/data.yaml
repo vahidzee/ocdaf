@@ -1,4 +1,4 @@
-dataset: ocd.data.datasets.SyntheticOCDDataset
+dataset: ocd.data.datasets.synthetic.SyntheticOCDDataset
 dataset_args:
   seed: 100
   scm_generator: ocd.data.generators.InvertibleModulatedGaussianSCMGenerator
@@ -7,8 +7,8 @@ dataset_args:
     graph_generator_args: 
       graph_type: chain
       n: 3
-      seed: ${dataset_args.seed}
-    seed: ${dataset_args.seed}
+      seed: 100
+    seed: 100
     std: [0.1, 1.0]
     mean: [-1.0, 1.0]
     weight_f: [-1.0, 1.0]

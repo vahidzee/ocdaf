@@ -1,5 +1,5 @@
 from math import inf
-from .dataset import OCDDataset
+from .datasets import OCDDataset
 import networkx as nx
 import numpy as np
 import typing as th
@@ -37,9 +37,9 @@ class SCM:
 
             get_exogenous_noise: a function that takes a seed and returns a noise
             get_covariate_from_parents: a function that takes a list of inputs and a list of parameters and returns a covariate
-            get_covariate_from_parents_signature: a function that takes a list of inputs and a list of parameters and returns a 
+            get_covariate_from_parents_signature: a function that takes a list of inputs and a list of parameters and returns a
                                         string representation of the covariate
-            For more information on how to implement these functions, check out the function documentation in 
+            For more information on how to implement these functions, check out the function documentation in
             ocd/data/scm_generators.py
         """
         self.dag = dag
@@ -54,6 +54,8 @@ class SCM:
         self.get_covariate_from_parents = get_covariate_from_parents
         self.get_covariate_from_parents_signature = get_covariate_from_parents_signature
 
+        self.fill_out_labels()
+
     def simulate(
         self,
         n_samples: int,
@@ -63,8 +65,8 @@ class SCM:
     ) -> OCDDataset:
         """
         This function returns a dataframe containing a number of simulations ran on the data.
-        The simulations will by default generate observational data. However, the capability of 
-        implementing interventions is also included. If intervention_node is not None, then a number of 
+        The simulations will by default generate observational data. However, the capability of
+        implementing interventions is also included. If intervention_node is not None, then a number of
         interventions will be applied to the nodes specified in intervention_nodes. The intervention
         on node 'i' will be defined by the function intervention_functions[i].
 
@@ -72,9 +74,9 @@ class SCM:
         ===
         intervention_function[i] signature:
             Args:
-                noise (float): The value of the noise in that node, 
+                noise (float): The value of the noise in that node,
                 parents (th.List[float]): A list of the values assigned to all the parents of a node,
-                parent_parameters (th.List[th.Dict[str, th.Any]]): 
+                parent_parameters (th.List[th.Dict[str, th.Any]]):
                     A list of dictionaries containing the parameters for each parent of a node
                 node_parameters (th.Dict[str, th.Any]): A dictionary containing the parameters for a node
 
@@ -95,8 +97,7 @@ class SCM:
         if intervention_nodes is None:
             intervention_nodes = []
             intervention_functions = []
-        intervention_node_to_function = dict(
-            list(zip(intervention_nodes, intervention_functions)))
+        intervention_node_to_function = dict(list(zip(intervention_nodes, intervention_functions)))
 
         # All the values per columns
         vals = {x: [] for x in self.dag.nodes}
@@ -107,16 +108,17 @@ class SCM:
         for sample_i in range(n_samples):
             for v in self.topological_order:
                 # sample exogenous noise
-                noise = self.get_exogenous_noise(
-                    self.noise_parameters[v], seed + sample_i)
+                noise = self.get_exogenous_noise(self.noise_parameters[v], seed + sample_i)
                 # if v exists in the intervention_node_to_function dictionary then assign func to intervention_function
-                func = intervention_node_to_function[
-                    v] if v in intervention_node_to_function else self.get_covariate_from_parents
+                func = (
+                    intervention_node_to_function[v]
+                    if v in intervention_node_to_function
+                    else self.get_covariate_from_parents
+                )
                 parent_values = []
                 for u in self.parents[v]:
                     parent_values.append(vals[u][-1])
-                new_val = func(
-                    noise, parent_values, self.parent_parameters[v], self.node_parameters[v])
+                new_val = func(noise, parent_values, self.parent_parameters[v], self.node_parameters[v])
                 vals[v].append(new_val)
 
         samples = pd.DataFrame(vals)
@@ -129,6 +131,23 @@ class SCM:
     def nodes(self):
         return self.dag.nodes
 
+    def fill_out_labels(self):
+        self.node_labels = {}
+        for v in self.topological_order:
+            if self.get_covariate_from_parents_signature is not None:
+                self.node_labels[v] = self.get_covariate_from_parents_signature(
+                    v, self.parents[v], self.node_parameters[v], self.noise_parameters[v], self.parent_parameters[v]
+                )
+            else:
+                self.node_labels[v] = f"x{(v)}"
+
+    def get_description(self) -> str:
+        ret = ""
+        # print all the values in node_labels
+        for _, v in self.node_labels.items():
+            ret += f"{v}\n---------------------\n"
+        return ret
+
     def draw(self, with_labels: bool = False):
         """
         Prints out the SCM structure using networkx and also writes down the formulas relating each node to its parents.
@@ -139,30 +158,14 @@ class SCM:
         # take a copy of self.dag
         dag = self.dag.copy()
 
-        node_labels = {}
-        for v in self.topological_order:
-
-            if self.get_covariate_from_parents_signature is not None:
-                node_labels[v] = self.get_covariate_from_parents_signature(
-                    v,
-                    self.parents[v],
-                    self.node_parameters[v],
-                    self.noise_parameters[v],
-                    self.parent_parameters[v])
-            else:
-                node_labels[v] = f"x{(v)}"
-
         # get node positions from networkx
         pos = nx.drawing.layout.spring_layout(dag)
 
         nx.draw(dag, pos=pos, with_labels=not with_labels)
         if with_labels:
-            nx.draw_networkx_labels(
-                dag, pos=pos, labels=node_labels, font_size=8)
+            nx.draw_networkx_labels(dag, pos=pos, labels=self.node_labels, font_size=8)
         else:
-            # print all the values in node_labels
-            for k, v in node_labels.items():
-                print(f"{v}\n---------------------\n")
+            print(self.get_description())
 
     def count_backward(self, ordering: th.List[int]) -> int:
         """

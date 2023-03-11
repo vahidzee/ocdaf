@@ -36,7 +36,6 @@ maximization_epoch_lower_bound: 10
 overfit_window_size: 10
 overfit_check_threshold: 0.05
 overfitting_patience: 3
-criterion_args: null
 optimizer: torch.optim.Adam
 optimizer_is_active: null
 optimizer_parameters: null

@@ -15,30 +15,34 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
 
     func(x_1, x_2, ..., x_k) = exp(sigmoid(w_1 * x_1 + w_2 * x_2 + ... + w_k * x_k + b))
 
-    All the w_i values for f are sampled from Uniform(weight_f[0], weight_f[1]) 
+    All the w_i values for f are sampled from Uniform(weight_f[0], weight_f[1])
     and all the w_i values for g are sampled from Uniform(weight_g[0], weight_g[1]).
 
     Mean and std of the noise are sampled from Uniform(mean[0], mean[1]) and Uniform(std[0], std[1]) respectively.
     """
 
-    def __init__(self, graph_generator: GraphGenerator, seed=None,
-                 std: th.Tuple[float, float] = (0.1, 1.0),
-                 mean: th.Tuple[float, float] = (-1, 1.0),
-                 weight_f: th.Tuple[float, float] = (-1.0, 1.0),
-                 weight_g: th.Tuple[float, float] = (-1.0, 1.0),
-                 ):
+    def __init__(
+        self,
+        graph_generator: th.Union[GraphGenerator, str],
+        graph_generator_args: th.Optional[th.Dict[str, th.Any]] = None,
+        seed=None,
+        std: th.Tuple[float, float] = (0.1, 1.0),
+        mean: th.Tuple[float, float] = (-1, 1.0),
+        weight_f: th.Tuple[float, float] = (-1.0, 1.0),
+        weight_g: th.Tuple[float, float] = (-1.0, 1.0),
+    ):
         """
-        Create a premade SCM generator for simulated data. 
+        Create a premade SCM generator for simulated data.
 
         Args:
             graph_generator (GraphGenerator): A standard graph generator for the structure of SCM.
-            seed (int, optional): A seed for reproducibility. Defaults to None. 
+            seed (int, optional): A seed for reproducibility. Defaults to None.
             std (th.Tuple[float, float], optional): The range of the noise standard deviation -- Defaults to (0.1, 1.0).
             mean (th.Tuple[float, float], optional): The range of the noise mean -- Defaults to (-1, 1.0).
             weight_f (th.Tuple[float, float], optional): The range of the parameters in f -- Defaults to (-1.0, 1.0).
             weight_g (th.Tuple[float, float], optional): The range of the parameters in g -- Defaults to (-1.0, 1.0).
         """
-        super().__init__(graph_generator, seed)
+        super().__init__(graph_generator, graph_generator_args, seed)
         self.std = std
         self.mean = mean
         self.weight_f = weight_f
@@ -67,25 +71,42 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
 
     def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int) -> float:
         np.random.seed(seed)
-        return np.random.normal(noise_parameters['mean'], noise_parameters['std'])
+        return np.random.normal(noise_parameters["mean"], noise_parameters["std"])
 
     def sigmoid(self, x: float) -> float:
         return 1 / (1 + np.exp(-x))
 
-    def get_covariate_from_parents(self, noise: float, parents: th.List[float], parent_parameters: th.List[th.Dict[str, th.Any]], node_parameters: th.List[th.Dict[str, th.Any]]) -> float:
-        f = np.exp(self.sigmoid(sum([p * pp['weight_f'] for p, pp in zip(
-            parents, parent_parameters)]) + node_parameters['weight_f']))
-        g = np.exp(self.sigmoid(sum([p * pp['weight_g'] for p, pp in zip(
-            parents, parent_parameters)]) + node_parameters['weight_g']))
+    def get_covariate_from_parents(
+        self,
+        noise: float,
+        parents: th.List[float],
+        parent_parameters: th.List[th.Dict[str, th.Any]],
+        node_parameters: th.List[th.Dict[str, th.Any]],
+    ) -> float:
+        f = np.exp(
+            self.sigmoid(
+                sum([p * pp["weight_f"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_f"]
+            )
+        )
+        g = np.exp(
+            self.sigmoid(
+                sum([p * pp["weight_g"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_g"]
+            )
+        )
         return f + g * noise
 
-    def get_covariate_from_parents_signature(self, node: int, parents: th.List[int], node_parameters: th.Dict[str, th.Any], noise_parameters: th.Dict[str, th.Any], parent_parameters: th.List[th.Dict[str, th.Any]]) -> str:
-        sum_list = '+'.join([f'x({p})*{pp["weight_f"]:.2f}' for p,
-                            pp in zip(parents, parent_parameters)])
+    def get_covariate_from_parents_signature(
+        self,
+        node: int,
+        parents: th.List[int],
+        node_parameters: th.Dict[str, th.Any],
+        noise_parameters: th.Dict[str, th.Any],
+        parent_parameters: th.List[th.Dict[str, th.Any]],
+    ) -> str:
+        sum_list = "+".join([f'x({p})*{pp["weight_f"]:.2f}' for p, pp in zip(parents, parent_parameters)])
         f = f"exp(sigmoid({sum_list}+{node_parameters['weight_f']:.2f}))"
 
-        sum_list = '+'.join([f'x({p})*{pp["weight_g"]:.2f}' for p,
-                            pp in zip(parents, parent_parameters)])
+        sum_list = "+".join([f'x({p})*{pp["weight_g"]:.2f}' for p, pp in zip(parents, parent_parameters)])
         g = f"exp(sigmoid({sum_list}+{node_parameters['weight_g']:.2f}))"
 
         return f"x({node}) = {f} + {g} * N({noise_parameters['mean']:.2f},{noise_parameters['std']:.2f})"

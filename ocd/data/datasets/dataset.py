@@ -13,6 +13,7 @@ class OCDDataset(torch.utils.data.Dataset):
         intervention_column: th.Optional[int] = None,
         intervention_values: th.Optional[th.List[th.Any]] = None,
         name: th.Optional[str] = None,
+        explanation: th.Optional[str] = None,
     ):
         """
         Args:
@@ -23,6 +24,7 @@ class OCDDataset(torch.utils.data.Dataset):
             name: name of the dataset (optional, used for printing)
         """
         self.name = name
+        self.explanation = explanation
         # sort columns of samples alphabetically
         self.samples = samples
         # set the intervention column
