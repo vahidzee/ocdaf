@@ -11,11 +11,39 @@ First off, you need to install the [Remote - SSH](https://marketplace.visualstud
 
 Using the remote-ssh you can simply develop on the remote server with all the extensions installed on the remote. In turn, you will have to setup your virtual environment and then either run a runnable python code, or a jupyter notebook.
 
+Now, we will create a `templates` directory which contains some bash scripts to help with the slurm runs.
+
+## Setting up a Python file to run on a slurm cluster
+
+Create a `slrm` file in the `templates` directory with the following content
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=python-script
+#SBATCH -p rtx6000
+#SBATCH --gres=gpu:1
+#SBATCH --qos=normal
+#SBATCH -c 4
+#SBATCH --mem=12GB
+#SBATCH --output=run-%j.log
+
+echo "Running $1 on $(hostname)"
+# env
+source venv/bin/activate
+# run
+python $@
+```
+If you call the following command:
+```bash
+sbatch ~/templates/python_script.slrm <path-to-python-file> <all-python-file-arguments>
+```
+This will submit a job to the slurm network and will assign a node to the python file that you can use.
+
 ## Setting up Jupyter notebook on a slurm cluster
 
-Do do that, create a `templates` directory in your home directory. Then, create a `slrm` file in that directory with the following content
+Create a `slrm` file in the `templates` directory with the following content
 
-```
+```bash
 #!/bin/bash
 #SBATCH --job-name=jupyter
 #SBATCH -p rtx6000
