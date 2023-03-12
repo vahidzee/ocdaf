@@ -3,7 +3,13 @@ from lightning.pytorch import LightningModule, LightningDataModule
 
 
 def main():
-    cli = LightningCLI(LightningModule, LightningDataModule, subclass_mode_model=True, subclass_mode_data=True)
+    cli = LightningCLI(
+        LightningModule,
+        LightningDataModule,
+        subclass_mode_model=True,
+        subclass_mode_data=True,
+        auto_configure_optimizers=False,
+    )
 
 
 if __name__ == "__main__":
