@@ -4,7 +4,7 @@ import numpy as np
 from ocd.models.masked import MaskedMLP
 
 
-class MaskedAffineFlow(MaskedMLP):
+class MaskedAffineFlowTransform(MaskedMLP):
     def __init__(
         self,
         # architecture args
@@ -20,7 +20,7 @@ class MaskedAffineFlow(MaskedMLP):
         # transform args
         additive: bool = False,
         # ordering
-        reversed_ordering: bool = True,
+        reversed_ordering: bool = False,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -67,7 +67,10 @@ class MaskedAffineFlow(MaskedMLP):
         s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
+        # outputs = (inputs - t) * torch.nn.functional.softplus(s)
+
         logabsdet = -torch.sum(s, dim=-1)
+        # logabsdet = torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
         return outputs, logabsdet
 
     def inverse(

@@ -1,16 +1,12 @@
 import torch
-from .carefl import CAREFL
+from ocd.models.affine_flow import AffineFlow
 import typing as th
-from .permutation import LearnablePermutation, gumbel_log_prob
-import normflows as nf
+from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
 
 
-class OCD(torch.nn.Module):
+class OCDAF(torch.nn.Module):
     def __init__(
         self,
-        # essential flow args
-        base_distribution: th.Union[nf.distributions.BaseDistribution, str],
-        base_distribution_args: dict,
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
@@ -24,9 +20,12 @@ class OCD(torch.nn.Module):
         # additional flow args
         additive: bool = False,
         num_transforms: int = 1,
+        # base distribution
+        base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
+        base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
-        reversed_ordering: bool = True,
+        reversed_ordering: bool = False,
         learn_permutation: bool = True,
         permutation_args: th.Optional[dict] = None,
         # general args
@@ -34,7 +33,7 @@ class OCD(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
-        self.carefl = CAREFL(
+        self.flow = AffineFlow(
             base_distribution=base_distribution,
             base_distribution_args=base_distribution_args,
             in_features=in_features,
@@ -82,7 +81,7 @@ class OCD(torch.nn.Module):
         # args for dynamic methods
         **kwargs
     ):
-        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.carefl.flows[0].elementwise_perm
+        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.flow[0].elementwise_perm
         if elementwise_perm:
             num_samples = inputs.shape[0]
         # sample latent permutation
@@ -93,7 +92,7 @@ class OCD(torch.nn.Module):
             )
 
         # log prob inputs, noise_prob, prior
-        log_prob = self.carefl.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
+        log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 
         # return log_prob, noise_prob, prior (if requested)
         results = dict(log_prob=log_prob) if return_log_prob else dict()

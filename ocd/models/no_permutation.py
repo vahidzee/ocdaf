@@ -43,7 +43,7 @@ class MaskedBlock(MaskedLinear):
     def __init__(
         self,
         residual: bool = False,
-        activation: th.Optional[str] = None,
+        activation: th.Optional[str] = "torch.nn.LeakyReLU",
         activation_args: th.Optional[dict] = None,
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
@@ -199,6 +199,9 @@ class OCDAF(torch.nn.Module):
         return z, log_dets
 
     def log_prob(self, z, logabsdet) -> torch.Tensor:
+        # if z.requires_grad:
+            # logabsdet.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
+            # z.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
         log_base_prob = self.base_distribution.log_prob(z).sum(-1)
         return log_base_prob + logabsdet
 

@@ -1,17 +1,13 @@
-import normflows as nf
 import torch
-from .masked import MaskedAffineFlow
+from .masked import MaskedAffineFlowTransform
 import dypy as dy
 import typing as th
 import functools
 
 
-class CAREFL(torch.nn.Module):
+class AffineFlow(torch.nn.ModuleList):
     def __init__(
         self,
-        # essential flow args
-        base_distribution: th.Union[nf.distributions.BaseDistribution, str],
-        base_distribution_args: dict,
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
@@ -25,9 +21,12 @@ class CAREFL(torch.nn.Module):
         # additional flow args
         additive: bool = False,
         num_transforms: int = 1,
+        # base distribution
+        base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
+        base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
-        reversed_ordering: bool = True,
+        reversed_ordering: bool = False,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -36,9 +35,9 @@ class CAREFL(torch.nn.Module):
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
         self.elementwise_perm = elementwise_perm
         # instantiate flows
-        self.flows = torch.nn.ModuleList(
-            [
-                MaskedAffineFlow(
+        for _ in range(num_transforms):
+            self.append(
+                MaskedAffineFlowTransform(
                     in_features=in_features,
                     layers=layers,
                     elementwise_perm=elementwise_perm,
@@ -53,9 +52,7 @@ class CAREFL(torch.nn.Module):
                     device=device,
                     dtype=dtype,
                 )
-                for _ in range(num_transforms)
-            ]
-        )
+            )
         if ordering is not None:
             self.reorder(torch.IntTensor(ordering))
 
@@ -78,7 +75,7 @@ class CAREFL(torch.nn.Module):
         """
         log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
         results = []
-        for i, flow in enumerate(self.flows):
+        for i, flow in enumerate(self):
             z = z.reshape(-1, inputs.shape[-1])
             if return_intermediate_results:
                 results.append(z)
@@ -119,7 +116,9 @@ class CAREFL(torch.nn.Module):
 
         # compute the jacobian
         jacobian = torch.autograd.functional.jacobian(func, inputs, vectorize=vectorize)
+
         jacobian = jacobian[0]
+        print(jacobian.shape, "initial")
         # jacobian for everything else except for matching batch idxs and perm idxs
         # is zero, so we can just sum over the batch dimension and perm dimension to get
         # the jacobian for the
@@ -141,12 +140,19 @@ class CAREFL(torch.nn.Module):
         elif perm_mat is not None:
             # jacobian is of shape [batch_size, num_dims, batch_size, num_dims], we first split it into
             # [k, num_perms, num_dims, num_dims] and then take the mean over k to get [num_perms, num_dims, num_dims]
-            jacobian = jacobian.reshape(-1, perm_mat.shape[0], jacobian.shape[-1], jacobian.shape[-1]).mean(0)
+            batch_size = jacobian.shape[0]
+            indices = torch.arange(batch_size).to(jacobian.device)
+            jacobian = jacobian.transpose(1, 2).reshape(-1, jacobian.shape[-1], jacobian.shape[-1])
+            jacobian = jacobian[indices * batch_size + indices]
+            print(jacobian.shape)
 
+            jacobian = jacobian.reshape(perm_mat.shape[0], -1, jacobian.shape[-1], jacobian.shape[-1])
+            print(jacobian.shape, "before mean")
+            jacobian = jacobian.mean(1)
         else:
             # if no perm_mat is given, jacobian is of shape [batch_size, num_dims, batch_size, num_dims]
             # we take the mean over the batch dimension to get [num_dims, num_dims]
-            jacobian = jacobian.mean(0).sum(1)
+            jacobian = jacobian.mean(0).sum(1)  # TODO: check this shit
 
         # restore training mode
         if model_training:
@@ -168,7 +174,7 @@ class CAREFL(torch.nn.Module):
         """
         z, log_dets = inputs, 0  # initialize z and log_dets
         # iterate over flows in reverse order and apply inverse
-        for i, flow in enumerate(reversed(self.flows)):
+        for i, flow in enumerate(reversed(self)):
             z, log_det = flow.inverse(inputs=z, **kwargs)
             log_dets += log_det  # negative sign is handled in flow.inverse
 
@@ -188,6 +194,8 @@ class CAREFL(torch.nn.Module):
     def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:
         """Get log probability for batch
 
+        $$\log p_x(x) = \log p_z(T^{-1}(x)) + \log |det(J(T^{-1}(x)))|$$
+
         Args:
           x: Batch of inputs
           z: Batch of latent variables (optional, otherwise computed)
@@ -196,21 +204,20 @@ class CAREFL(torch.nn.Module):
         """
         z, log_det = self.forward(x, **kwargs) if z is None else (z, log_det)
         flat_z = z.reshape(-1, z.shape[-1])
-        log_base_prob = self.base_distribution.log_prob(flat_z)
+        log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
-
         return log_base_prob + log_det
 
     def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:
             ordering = torch.IntTensor(ordering)
-        for flow in self.flows:
+        for flow in self:
             flow.reorder(ordering, **kwargs)
 
     @property
     def ordering(self) -> torch.IntTensor:
-        return self.flows[0].ordering
+        return self[0].ordering
 
     @property
     def orderings(self) -> torch.IntTensor:
-        return [flow.orderings for flow in self.flows]
+        return [flow.orderings for flow in self]
