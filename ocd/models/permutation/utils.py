@@ -51,16 +51,13 @@ def sinkhorn(log_alpha, num_iters=20):
         A 3D tensor of close-to-doubly-stochastic matrices (2D tensors are
             converted to 3D tensors with batch_size equals to 1)
     """
-    # print(log_alpha)
     n = log_alpha.size()[1]
     log_alpha = log_alpha.reshape(-1, n, n)
-
     for _ in range(num_iters):
         log_alpha = log_alpha - (torch.logsumexp(log_alpha, dim=2, keepdim=True)).reshape(-1, n, 1)
         log_alpha = log_alpha - (torch.logsumexp(log_alpha, dim=1, keepdim=True)).reshape(-1, 1, n)
-        # print(_, log_alpha)
+
     results = torch.exp(log_alpha)
-    # print("results", results.deeper(2))
     return results
 
 
@@ -142,7 +139,10 @@ def evaluate_permutations(mat, threshold: th.Optional[float] = 1e-4, reduce: boo
         A dictionary with the following keys:
             doubly_stochastic_distance: the maximum difference between the sum of rows and columns and 1
             permutation_distance: the maximum distance between values and 0 or 1
-
+            between_zero_one_distance: the maximum distance between values and 0 or 1
+            is_doubly_stochastic: whether the matrix is doubly stochastic (if threshold is not None)
+            is_permutation: whether the matrix is a permutation matrix (if threshold is not None)
+            is_between_zero_one: whether the matrix is between 0 and 1 (if threshold is not None)
     """
     results = dict(
         doubly_stochastic_distance=is_doubly_stochastic(mat, threshold=None),

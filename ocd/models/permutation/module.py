@@ -6,7 +6,7 @@ from ocd.models.permutation.utils import (
     sinkhorn,
     sample_gumbel_noise,
     listperm2matperm,
-    is_doubly_stochastic,
+    evaluate_permutations,
 )
 
 
@@ -173,13 +173,14 @@ class LearnablePermutation(torch.nn.Module):
         listperm = hungarian(gamma)
         return listperm2matperm(listperm) if return_matrix else listperm
 
-    def check_double_stochasticity(
+    def evaluate_permutations(
         self,
-        num_samples: int = 1000,
+        samples: th.Optional[torch.Tensor] = None,
+        num_samples: th.Optional[int] = 1000,
         threshold: float = 1e-3,
-        return_percentage: bool = True,
+        reduce: bool = True,
         **kwargs,
-    ) -> th.Union[torch.Tensor, th.Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> th.Dict[str, torch.Tensor]:
         """
         Checks whether the model forward results in doubly stochastic matrices.
 
@@ -188,16 +189,17 @@ class LearnablePermutation(torch.nn.Module):
             threshold: the threshold for the check
             return_percentage: whether to return the percentage of doubly stochastic matrices
                 or the boolean tensor and the samples
+            reduce: whether to reduce the results (take the mean)
             **kwargs: keyword arguments to the model forward
 
         Returns:
-            The percentage of doubly stochastic matrices or the boolean tensor and the samples.
+            A dictionary with evaluation results. See the documentation of the
+            :func:`evaluate_permutations` function for more details.
         """
-        samples = self(num_samples=num_samples, soft=True, return_matrix=True, **kwargs)
-        sample_is_doubly_stochastic = is_doubly_stochastic(samples, threshold=threshold)
-        if return_percentage:
-            return sample_is_doubly_stochastic.float().mean()
-        return sample_is_doubly_stochastic, samples
+        samples = (
+            samples if samples is not None else self(num_samples=num_samples, soft=True, return_matrix=True, **kwargs)
+        )
+        return evaluate_permutations(samples, threshold=threshold)
 
     def extra_repr(self) -> str:
         return f"num_features={self.num_features}"
