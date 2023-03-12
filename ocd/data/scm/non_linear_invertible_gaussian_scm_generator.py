@@ -1,4 +1,4 @@
-from .scm_generator import SCMGenerator
+from .base_scm_generator import SCMGenerator
 from .graph_generator import GraphGenerator
 import typing as th
 import networkx as nx

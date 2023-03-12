@@ -14,5 +14,6 @@ class BaseGenerator:
             int: a new seed based on the current seed and sample count and increases the sample count
         """
         self.sample_count += 1
-        print(">>>>", self.seed)
+        # TODO: remove this print
+        # print(">>>>", self.seed)
         return self.seed + self.sample_count

@@ -1,5 +1,3 @@
-from math import inf
-from .datasets import OCDDataset
 import networkx as nx
 import numpy as np
 import typing as th
@@ -62,7 +60,7 @@ class SCM:
         seed: th.Optional[int] = None,
         intervention_nodes: th.Optional[th.List[th.Any]] = None,
         intervention_functions: th.Optional[th.List[th.Callable]] = None,
-    ) -> OCDDataset:
+    ) -> pd.DataFrame:
         """
         This function returns a dataframe containing a number of simulations ran on the data.
         The simulations will by default generate observational data. However, the capability of

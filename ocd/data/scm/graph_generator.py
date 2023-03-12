@@ -1,6 +1,5 @@
 from .base_generator import BaseGenerator
 import typing as th
-
 import numpy as np
 import networkx as nx
 

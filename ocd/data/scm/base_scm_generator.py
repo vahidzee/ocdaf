@@ -11,14 +11,10 @@ the functions that generate the SCM parameters that govern the data generation p
 check out the description of the specific functions and override them in a child class that you feel fit.
 """
 
-from math import inf
-from ocd.data.datasets import OCDDataset
 import networkx as nx
-import numpy as np
 import typing as th
 import dypy
-import pandas as pd
-from ocd.data.scm import SCM
+from .base_scm import SCM
 from abc import ABC, abstractmethod
 from .base_generator import BaseGenerator
 from .graph_generator import GraphGenerator
