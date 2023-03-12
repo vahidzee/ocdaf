@@ -1,11 +1,9 @@
 from lightning.pytorch.cli import LightningCLI
-from ocd.training import OrderedTrainingModule
-from lightning_toolbox.data import DataModule
+from lightning.pytorch import LightningModule, LightningDataModule
 
 
 def main():
-    cli = LightningCLI(OrderedTrainingModule,
-                       DataModule)
+    cli = LightningCLI(LightningModule, LightningDataModule, subclass_mode_model=True, subclass_mode_data=True)
 
 
 if __name__ == "__main__":
