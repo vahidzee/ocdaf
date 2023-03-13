@@ -200,3 +200,57 @@ def hungarian(matrix_batch):
     for i in range(matrix_batch.shape[0]):
         sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
     return torch.from_numpy(sol)
+
+
+def all_permutations(n):
+    """Returns all permutations of range(n)"""
+    if n == 1:
+        return [[0]]
+    else:
+        perms = []
+        for perm in all_permutations(n - 1):
+            for i in range(n):
+                perms.append(perm[:i] + [n - 1] + perm[i:])
+        return perms
+
+
+def abbriviate_permutation(permutation_list: th.Iterable[int]) -> str:
+    """
+    Loop over the permutation_list (a list of unique integers) and find all consecutive sequences
+    of ascending/descending numbers and replace them with the first and last number in
+    the sequence. Numbers are expected to be between 0 and len(permutation_list) - 1.
+
+    For example: [0, 1, 2, 3, 4] -> ["0-4"] and [4, 3, 2, 1, 0] -> ["4-0"]
+        or [0, 1, 2, 3, 10, 9, 8, 4, 5, 7, 6] -> ["0-3", "10-8", "4-5", "7-6"]
+
+    This is useful for plotting the permutation_list of the permutation matrix in a more compact way.
+
+    Args:
+        permutation_list (th.Iterable[int]): A list of unique integers between 0 and len(permutation_list) - 1
+
+    Returns:
+       an abbreviated string representation of the permutation_list
+    """
+    if len(permutation_list) < 2:
+        return permutation_list
+    permutation_list, results = list(permutation_list), []
+    ascending: bool = permutation_list[0] < permutation_list[1]
+    start, start_idx = permutation_list[0], 0
+    for i in range(1, len(permutation_list)):
+        if ascending and permutation_list[i] == permutation_list[i - 1] + 1:
+            continue
+        elif not ascending and permutation_list[i] == permutation_list[i - 1] - 1:
+            continue
+        else:
+            if start_idx == i - 1:
+                results.append(f"{start}")
+            else:
+                results.append(f"{start}-{permutation_list[i-1]}")
+            start, start_idx = permutation_list[i], i
+            ascending = permutation_list[i] < permutation_list[i + 1] if i < len(permutation_list) - 1 else ascending
+
+    if start_idx < len(permutation_list) - 1:
+        results.append(f"{start}-{permutation_list[-1]}")
+    else:
+        results.append(f"{start}")
+    return f'[{",".join(results)}]'
