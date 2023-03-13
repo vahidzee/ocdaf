@@ -151,7 +151,7 @@ class MaskedAffineFlow(MaskedMLP):
         super().__init__(
             in_features=in_features,
             out_features=(in_features * 2 if not additive else in_features),
-            data_to_noise=True,
+            data_to_noise=False,
             **masked_mlp_args,
         )
 
@@ -200,8 +200,8 @@ class OCDAF(torch.nn.Module):
 
     def log_prob(self, z, logabsdet) -> torch.Tensor:
         # if z.requires_grad:
-            # logabsdet.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
-            # z.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
+        # logabsdet.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
+        # z.register_hook(lambda grad: torch.where(torch.isnan(grad) + torch.isinf(grad), torch.zeros_like(grad), grad))
         log_base_prob = self.base_distribution.log_prob(z).sum(-1)
         return log_base_prob + logabsdet
 

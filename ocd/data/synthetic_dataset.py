@@ -30,6 +30,6 @@ class SyntheticOCDDataset(OCDDataset):
             else dypy.eval(scm_generator)(**scm_generator_args)
         )
         self.seed = seed
-        scm = scm_generator.generate_scm()
-        df = scm.simulate(observation_size, seed=self.seed)
-        super().__init__(samples=df, dag=scm.dag, name=name, explanation=scm.get_description())
+        self.scm = scm_generator.generate_scm()
+        df = self.scm.simulate(observation_size, seed=self.seed)
+        super().__init__(samples=df, dag=self.scm.dag, name=name, explanation=self.scm.get_description())
