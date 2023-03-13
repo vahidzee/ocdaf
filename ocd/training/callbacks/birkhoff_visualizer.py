@@ -22,7 +22,7 @@ from ocd.models.permutation.utils import sinkhorn
 import torch
 from itertools import permutations
 import typing as th
-from ocd.data.scm import SCM
+from ocd.data.scm.base_scm import SCM
 
 
 MARKERS = ["^", "o", "x"]

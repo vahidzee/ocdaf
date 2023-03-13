@@ -26,6 +26,7 @@ class OrderedTrainingModule(TrainingModule):
         num_transforms: int = 1,
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
+        reversed_ordering: bool = False,
         learn_permutation: bool = True,
         log_input_outputs: bool = False,
         # general args
@@ -67,7 +68,7 @@ class OrderedTrainingModule(TrainingModule):
         scheduler_monitor: th.Optional[th.Union[str, th.List[str]]] = None,
     ):
         # initialize model and optimizer/scheduler configs
-        _criterion_args = dict(terms=["ocd.training.terms.TrainingTerm"])
+        _criterion_args = dict(nll="ocd.training.terms.TrainingTerm")
         _criterion_args.update(criterion_args or {})
         super().__init__(
             model_cls="ocd.models.ocd.OCD",
@@ -90,6 +91,7 @@ class OrderedTrainingModule(TrainingModule):
                 num_transforms=num_transforms,
                 # ordering
                 ordering=ordering,
+                reversed_ordering=reversed_ordering,
                 learn_permutation=learn_permutation,
                 # general args
                 device=device,
