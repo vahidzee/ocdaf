@@ -13,13 +13,12 @@ class MaskedLinear(torch.nn.Linear):
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
         auto_connection: bool = True,  #
-        data_to_noise: bool = False,
         mask_dtype: torch.dtype = torch.uint8,
     ) -> None:
         # setup linear
         super().__init__(in_features=in_features, out_features=out_features, bias=bias, device=device, dtype=dtype)
         # setup mask and ordering
-        self.data_to_noise, self.auto_connection = data_to_noise, auto_connection
+        self.auto_connection = auto_connection
         self.register_buffer("ordering", torch.empty(out_features, device=device, dtype=torch.int))
         self.register_buffer("mask", torch.ones(out_features, in_features, device=device, dtype=mask_dtype))
 
@@ -30,10 +29,7 @@ class MaskedLinear(torch.nn.Linear):
 
     @functools.cached_property
     def connection_operator(self):
-        # used to create the mask
-        if not self.data_to_noise:
-            return torch.less_equal if self.auto_connection else torch.less  # noise to data
-        return torch.greater_equal if self.auto_connection else torch.greater  # data to noise
+        return torch.less_equal if self.auto_connection else torch.less  # noise to data
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return torch.nn.functional.linear(inputs, self.mask * self.weight, self.bias)
@@ -89,7 +85,6 @@ class MaskedMLP(torch.nn.ModuleList):
         batch_norm_args: th.Optional[dict] = None,
         # general parameters
         auto_connection: bool = False,
-        data_to_noise: bool = False,
         ordering: th.Optional[list] = None,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -110,13 +105,14 @@ class MaskedMLP(torch.nn.ModuleList):
                     in_features=in_features if not i else self[-1].out_features,
                     out_features=layer_features,
                     bias=bias,
-                    data_to_noise=data_to_noise,
                     activation=activation if i < len(layers) - 1 else None,
                     auto_connection=True if i < len(layers) - 1 else auto_connection,
                     activation_args=activation_args if i < len(layers) - 1 else None,
                     batch_norm=batch_norm if i < len(layers) - 1 else False,
                     batch_norm_args=batch_norm_args if i < len(layers) - 1 else None,
                     residual=residual if i < len(layers) - 1 else False,
+                    dtype=dtype,
+                    device=device,
                 )
             )
 
@@ -151,7 +147,6 @@ class MaskedAffineFlow(MaskedMLP):
         super().__init__(
             in_features=in_features,
             out_features=(in_features * 2 if not additive else in_features),
-            data_to_noise=False,
             **masked_mlp_args,
         )
 
