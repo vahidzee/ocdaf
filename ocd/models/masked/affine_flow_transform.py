@@ -120,3 +120,8 @@ class MaskedAffineFlowTransform(MaskedMLP):
         return (
             (torch.zeros_like(ar_params), ar_params) if self.additive else (ar_params[..., 0::2], ar_params[..., 1::2])
         )
+
+    def extra_repr(self):
+        additive = f", additive={self.additive}" if self.additive else ""
+        ordering = f", ordering={self.ordering}"
+        return super().extra_repr() + additive + ordering
