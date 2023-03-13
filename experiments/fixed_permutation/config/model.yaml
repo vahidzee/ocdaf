@@ -18,16 +18,16 @@ init_args:
     bias: true
     activation: torch.nn.LeakyReLU
   # the optimizer
-  optimizer: torch.optim.AdamW
+  optimizer: torch.optim.Adam
   lr: 0.001
-  scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau
-  scheduler_args:
-    mode: "min"
-    factor: 0.75
-    patience: 10
-  scheduler_name: "lr_scheduler"
-  scheduler_interval: "epoch"
-  scheduler_monitor: loss/val
+  # scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau
+  # scheduler_args:
+  #   mode: "min"
+  #   factor: 0.75
+  #   patience: 10
+  # scheduler_name: "lr_scheduler"
+  # scheduler_interval: "epoch"
+  # scheduler_monitor: loss/val
   # the loss
   objective_args:
     nll: "lambda training_module, batch: -training_module.model(batch)['log_prob'].mean()"
