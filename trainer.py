@@ -1,5 +1,6 @@
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch import LightningModule, LightningDataModule
+from lightning_toolbox import TrainingModule
 
 
 def main():
