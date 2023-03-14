@@ -26,10 +26,10 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         graph_generator: th.Union[GraphGenerator, str],
         graph_generator_args: th.Optional[th.Dict[str, th.Any]] = None,
         seed=None,
-        std: th.Tuple[float, float] = (0.1, 1.0),
-        mean: th.Tuple[float, float] = (-1, 1.0),
-        weight_f: th.Tuple[float, float] = (-1.0, 1.0),
-        weight_g: th.Tuple[float, float] = (-1.0, 1.0),
+        std: th.Union[float, th.Tuple[float, float]] = 1,
+        mean: th.Union[float, th.Tuple[float, float]] = 0,
+        weight_f: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
+        weight_g: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
     ):
         """
         Create a premade SCM generator for simulated data.
@@ -43,10 +43,19 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
             weight_g (th.Tuple[float, float], optional): The range of the parameters in g -- Defaults to (-1.0, 1.0).
         """
         super().__init__(graph_generator, graph_generator_args, seed)
-        self.std = std
-        self.mean = mean
+        # check if weight_f and weight_g are float values
+        if isinstance(weight_f, float):
+            weight_f = (weight_f, weight_f)
+        if isinstance(weight_g, float):
+            weight_g = (weight_g, weight_g)
+        if isinstance(std, float):
+            std = (std, std)
+        if isinstance(mean, float):
+            mean = (mean, mean)
         self.weight_f = weight_f
         self.weight_g = weight_g
+        self.std = std
+        self.mean = mean
 
     def generate_edge_functional_parameters(self, dag: nx.DiGraph, child: int, par: int, seed: int):
         np.random.seed(seed)

@@ -104,9 +104,11 @@ class SCM:
         seed = np.random.randint(0, 100000) if seed is None else seed
 
         for sample_i in range(n_samples):
-            for v in self.topological_order:
+            for ct, v in enumerate(self.topological_order):
                 # sample exogenous noise
-                noise = self.get_exogenous_noise(self.noise_parameters[v], seed + sample_i)
+                noise = self.get_exogenous_noise(
+                    self.noise_parameters[v], seed + sample_i * len(self.topological_order) + ct
+                )
                 # if v exists in the intervention_node_to_function dictionary then assign func to intervention_function
                 func = (
                     intervention_node_to_function[v]
@@ -115,6 +117,9 @@ class SCM:
                 )
                 parent_values = []
                 for u in self.parents[v]:
+                    assert len(vals[v]) + 1 == len(
+                        vals[u]
+                    ), f"A parent has not been assigned a value yet: {u} {v} {vals}"
                     parent_values.append(vals[u][-1])
                 new_val = func(noise, parent_values, self.parent_parameters[v], self.node_parameters[v])
                 vals[v].append(new_val)

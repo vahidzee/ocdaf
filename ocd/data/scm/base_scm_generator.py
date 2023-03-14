@@ -233,8 +233,8 @@ class SCMGenerator(ABC, BaseGenerator):
 
         for node in dag.nodes:
             seed = self.get_iterative_seed()
-            seed = self.get_iterative_seed()
             noise_parameters[node] = self.generate_noise_functional_parameters(dag, node, seed=seed)
+            seed = self.get_iterative_seed()
             node_parameters[node] = self.generate_node_functional_parameters(dag, node, seed=seed)
             parent_parameters[node] = []
             parents[node] = []
