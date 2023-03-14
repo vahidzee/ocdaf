@@ -26,7 +26,8 @@ class OCDDataset(torch.utils.data.Dataset):
         self.name = name
         self.explanation = explanation
         # sort columns of samples alphabetically
-        self.samples = samples
+        self.samples = samples.reindex(sorted(samples.columns), axis=1)
+        # print(samples)
         # set the intervention column
         self.intervention_column = intervention_column
         # intervention_values is the value that we intervened on
