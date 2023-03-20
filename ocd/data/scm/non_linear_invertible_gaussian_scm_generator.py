@@ -2,23 +2,35 @@ from .base_scm_generator import SCMGenerator
 from .graph_generator import GraphGenerator
 import typing as th
 import networkx as nx
-import numpy as np
+import numpy
+import dypy as dy
+import math
 
 
 class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
     """
     This is an SCM generator that generates SCMs with the following function formulas:
 
-    x_i = f(Pa_i) + g(Pa_i) * N(mean, std)
+    x_i = t(Pa_i) + s(Pa_i) * N(mean, std)
 
-    where f and g are non-linear invertible functions of the following form:
+    where t is a non-linear invertible function and
+    s is a positive function.
 
-    func(x_1, x_2, ..., x_k) = exp(sigmoid(w_1 * x_1 + w_2 * x_2 + ... + w_k * x_k + b))
+    weight_s and weight_t are sampled from Uniform(weight_s[0], weight_s[1]) and
+    Uniform(weight_t[0], weight_t[1]) respectively. 
+    The following functions are used for t and s:
 
-    All the w_i values for f are sampled from Uniform(weight_f[0], weight_f[1])
-    and all the w_i values for g are sampled from Uniform(weight_g[0], weight_g[1]).
+    s_inp(x_1, x_2, ..., x_k) = s_1 * x_1 + s_2 * x_2 + ... + s_k * x_k + s_0
+    t_inp(x_1, x_2, ..., x_k) = t_1 * x_1 + t_2 * x_2 + ... + t_k * x_k + t_0
 
-    Mean and std of the noise are sampled from Uniform(mean[0], mean[1]) and Uniform(std[0], std[1]) respectively.
+    where s_i and t_i are sampled from Uniform(weight_s[0], weight_s[1]) and
+    Uniform(weight_t[0], weight_t[1]) respectively.
+
+    Finally, using the s_function and t_function, we get the actual s and t functions:
+
+    s = s_function(s_inp), t = t_function(t_inp)
+
+    For printing out the formulas, we use the s_function_signature and t_function_signature
     """
 
     def __init__(
@@ -28,8 +40,12 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         seed=None,
         std: th.Union[float, th.Tuple[float, float]] = 1,
         mean: th.Union[float, th.Tuple[float, float]] = 0,
-        weight_f: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
-        weight_g: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
+        weight_s: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
+        weight_t: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
+        s_function: th.Optional[th.Union[th.Callable, str]] = None,
+        t_function: th.Optional[th.Union[th.Callable, str]] = None,
+        s_function_signature: th.Optional[str] = None,
+        t_function_signature: th.Optional[str] = None
     ):
         """
         Create a premade SCM generator for simulated data.
@@ -39,51 +55,76 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
             seed (int, optional): A seed for reproducibility. Defaults to None.
             std (th.Tuple[float, float], optional): The range of the noise standard deviation -- Defaults to (0.1, 1.0).
             mean (th.Tuple[float, float], optional): The range of the noise mean -- Defaults to (-1, 1.0).
-            weight_f (th.Tuple[float, float], optional): The range of the parameters in f -- Defaults to (-1.0, 1.0).
-            weight_g (th.Tuple[float, float], optional): The range of the parameters in g -- Defaults to (-1.0, 1.0).
+            weight_t (th.Tuple[float, float], optional): The range of the parameters in s -- Defaults to (-1.0, 1.0).
+            weight_s (th.Tuple[float, float], optional): The range of the parameters in t -- Defaults to (-1.0, 1.0).
         """
         super().__init__(graph_generator, graph_generator_args, seed)
-        # check if weight_f and weight_g are float values
-        if isinstance(weight_f, float):
-            weight_f = (weight_f, weight_f)
-        if isinstance(weight_g, float):
-            weight_g = (weight_g, weight_g)
+        # check if weight_t and weight_s are float values
+        if isinstance(weight_t, float):
+            weight_t = (weight_t, weight_t)
+        if isinstance(weight_s, float):
+            weight_s = (weight_s, weight_s)
         if isinstance(std, float):
             std = (std, std)
         if isinstance(mean, float):
             mean = (mean, mean)
-        self.weight_f = weight_f
-        self.weight_g = weight_g
+        self.weight_t = weight_t
+        self.weight_s = weight_s
         self.std = std
         self.mean = mean
 
+        # Add useful contexts
+        dy.register_context(numpy)
+        dy.register_context(math)
+
+        # Setup s function
+        if s_function is None:
+            self.s_function = lambda x: numpy.log(1 + numpy.exp(x))
+            self.s_function_signature = lambda x: f"softplus({x})"
+        else:
+            self.s_function = dy.eval_function(s_function) if isinstance(
+                s_function, str) else s_function
+            if s_function_signature is None:
+                raise ValueError(
+                    "s_function_signature must be provided if s_function is provided.")
+            self.s_function_signature = lambda x: f"{s_function_signature}({x})"
+
+        # Setup t function
+        if t_function is None:
+            self.t_function = lambda x: numpy.log(1 + numpy.exp(x))
+            self.t_function_signature = lambda x: f"softplus({x})"
+        else:
+            self.t_function = dy.eval_function(t_function) if isinstance(
+                t_function, str) else t_function
+            if t_function_signature is None:
+                raise ValueError(
+                    "t_function_signature must be provided if t_function is provided.")
+            self.t_function_signature = lambda x: f"{t_function_signature}({x})"
+
     def generate_edge_functional_parameters(self, dag: nx.DiGraph, child: int, par: int, seed: int):
-        np.random.seed(seed)
+        numpy.random.seed(seed)
         return dict(
-            weight_f=np.random.uniform(self.weight_f[0], self.weight_f[1]),
-            weight_g=np.random.uniform(self.weight_g[0], self.weight_g[1]),
+            weight_t=numpy.random.uniform(self.weight_t[0], self.weight_t[1]),
+            weight_s=numpy.random.uniform(self.weight_s[0], self.weight_s[1]),
         )
 
     def generate_node_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
-        np.random.seed(seed)
+        numpy.random.seed(seed)
         return dict(
-            weight_f=np.random.uniform(self.weight_f[0], self.weight_f[1]),
-            weight_g=np.random.uniform(self.weight_g[0], self.weight_g[1]),
+            weight_t=numpy.random.uniform(self.weight_t[0], self.weight_t[1]),
+            weight_s=numpy.random.uniform(self.weight_s[0], self.weight_s[1]),
         )
 
     def generate_noise_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
-        np.random.seed(seed)
+        numpy.random.seed(seed)
         return dict(
-            std=np.random.uniform(self.std[0], self.std[1]),
-            mean=np.random.uniform(self.mean[0], self.mean[1]),
+            std=numpy.random.uniform(self.std[0], self.std[1]),
+            mean=numpy.random.uniform(self.mean[0], self.mean[1]),
         )
 
     def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int) -> float:
-        np.random.seed(seed)
-        return np.random.normal(noise_parameters["mean"], noise_parameters["std"])
-
-    def sigmoid(self, x: float) -> float:
-        return 1 / (1 + np.exp(-x))
+        numpy.random.seed(seed)
+        return numpy.random.normal(noise_parameters["mean"], noise_parameters["std"])
 
     def get_covariate_from_parents(
         self,
@@ -92,17 +133,15 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         parent_parameters: th.List[th.Dict[str, th.Any]],
         node_parameters: th.List[th.Dict[str, th.Any]],
     ) -> float:
-        f = np.exp(
-            self.sigmoid(
-                sum([p * pp["weight_f"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_f"]
-            )
+        t = self.t_function(
+            sum([p * pp["weight_t"] for p, pp in zip(parents,
+                parent_parameters)]) + node_parameters["weight_t"]
         )
-        g = np.exp(
-            self.sigmoid(
-                sum([p * pp["weight_g"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_g"]
-            )
+        s = self.s_function(
+            sum([p * pp["weight_s"] for p, pp in zip(parents,
+                parent_parameters)]) + node_parameters["weight_s"]
         )
-        return f + g * noise
+        return t + s * noise
 
     def get_covariate_from_parents_signature(
         self,
@@ -112,10 +151,14 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         noise_parameters: th.Dict[str, th.Any],
         parent_parameters: th.List[th.Dict[str, th.Any]],
     ) -> str:
-        sum_list = "+".join([f'x({p})*{pp["weight_f"]:.2f}' for p, pp in zip(parents, parent_parameters)])
-        f = f"exp(sigmoid({sum_list}+{node_parameters['weight_f']:.2f}))"
+        sum_list = "+".join([f'x({p})*{pp["weight_t"]:.2f}' for p,
+                            pp in zip(parents, parent_parameters)])
+        t = self.t_function_signature(
+            f"{sum_list}+{node_parameters['weight_t']:.2f}")
 
-        sum_list = "+".join([f'x({p})*{pp["weight_g"]:.2f}' for p, pp in zip(parents, parent_parameters)])
-        g = f"exp(sigmoid({sum_list}+{node_parameters['weight_g']:.2f}))"
+        sum_list = "+".join([f'x({p})*{pp["weight_s"]:.2f}' for p,
+                            pp in zip(parents, parent_parameters)])
+        s = self.s_function_signature(
+            f"{sum_list}+{node_parameters['weight_s']:.2f}")
 
-        return f"x({node}) = {f} + {g} * N({noise_parameters['mean']:.2f},{noise_parameters['std']:.2f})"
+        return f"x({node}) = {t} + {s} * N({noise_parameters['mean']:.2f},{noise_parameters['std']:.2f})"

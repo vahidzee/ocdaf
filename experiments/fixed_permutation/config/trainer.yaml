@@ -1,9 +1,9 @@
 # device
-accelerator: cpu
+accelerator: gpu
 devices: 1
 num_nodes: 0
 # optimization
-gradient_clip_algorithm: norm
+gradient_clip_algorithm: value
 gradient_clip_val: 1.0
 # precision: 16
 # limits & training loop controls

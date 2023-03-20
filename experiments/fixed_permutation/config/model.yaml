@@ -17,6 +17,8 @@ init_args:
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU
+    activation_args:
+      negative_slope: 0.1
   # the optimizer
   optimizer: torch.optim.Adam
   lr: 0.001
