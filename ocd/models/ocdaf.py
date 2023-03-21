@@ -26,7 +26,7 @@ class OCDAF(torch.nn.Module):
         # ordering
         ordering: th.Optional[torch.IntTensor] = None,
         reversed_ordering: bool = False,
-        learn_permutation: bool = True,
+        use_permutation: bool = True,
         permutation_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
@@ -53,7 +53,7 @@ class OCDAF(torch.nn.Module):
             dtype=dtype,
         )
 
-        if learn_permutation:
+        if use_permutation:
             self.permutation_model = LearnablePermutation(
                 num_features=in_features if isinstance(in_features, int) else len(in_features),
                 device=device,
