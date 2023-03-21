@@ -1,0 +1,27 @@
+class_path: lightning_toolbox.TrainingModule
+init_args:
+  # the model
+  model_cls: ocd.models.no_permutation.OCDAF
+  model_args:
+    in_features: 3
+    layers: [3, 3, 3]
+    num_transforms: 3
+    additive: False
+    ordering: [1, 2, 0]
+    bias: true
+    activation: torch.nn.LeakyReLU
+  # the optimizer
+  optimizer: torch.optim.Adam
+  lr: 0.001
+  # scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau
+  # scheduler_args:
+  #   mode: "min"
+  #   factor: 0.7
+  #   patience: 25
+  # scheduler_name: "lr_scheduler"
+  # scheduler_interval: "epoch"
+  # scheduler_monitor: loss/val
+  # the loss
+  objective_args:
+    nll: >
+      lambda training_module, batch: -training_module.model.log_prob(*training_module.model(batch)).mean()

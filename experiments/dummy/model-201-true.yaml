@@ -8,7 +8,7 @@ init_args:
       loc: 0.0
       scale: 1.0
     in_features: 3
-    layers: [3, 3]
+    layers: [3, 3, 3]
     num_transforms: 3
     additive: False
     elementwise_perm: True

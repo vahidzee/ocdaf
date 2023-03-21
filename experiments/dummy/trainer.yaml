@@ -1,5 +1,5 @@
 # device
-accelerator: cpu
+accelerator: gpu
 devices: 1
 num_nodes: 0
 # optimization
@@ -7,7 +7,7 @@ gradient_clip_algorithm: value
 gradient_clip_val: 1.0
 # precision: 16
 # limits & training loop controls
-max_epochs: 150
+max_epochs: 600
 log_every_n_steps: 1
 check_val_every_n_epoch: 1
 # tracking & debugging
