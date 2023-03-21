@@ -1,5 +1,5 @@
 # device
-accelerator: gpu
+accelerator: cpu
 devices: 1
 num_nodes: 0
 # optimization
