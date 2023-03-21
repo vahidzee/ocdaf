@@ -2,6 +2,7 @@ import torch
 from ocd.models.affine_flow import AffineFlow
 import typing as th
 from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
+import dypy as dy
 
 
 class OCDAF(torch.nn.Module):
@@ -27,7 +28,8 @@ class OCDAF(torch.nn.Module):
         ordering: th.Optional[torch.IntTensor] = None,
         reversed_ordering: bool = False,
         use_permutation: bool = True,
-        permutation_args: th.Optional[dict] = None,
+        permutation_learner_cls: th.Optional[str] = None,
+        permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -48,11 +50,7 @@ class OCDAF(torch.nn.Module):
             batch_norm_args=batch_norm_args,
             additive=additive,
             num_transforms=num_transforms,
-            #
-            # Will remove this:
             ordering=ordering,
-            # ordering=torch.IntTensor(range(in_features)),
-            #
             reversed_ordering=reversed_ordering,
             device=device,
             dtype=dtype,
@@ -61,11 +59,11 @@ class OCDAF(torch.nn.Module):
         self.ordering = ordering
 
         if use_permutation:
-            self.permutation_model = LearnablePermutation(
+            self.permutation_model = dy.get_value(permutation_learner_cls)(
                 num_features=in_features if isinstance(in_features, int) else len(in_features),
                 device=device,
                 dtype=dtype,
-                **(permutation_args or dict()),
+                **(permutation_learner_args or dict()),
             )
         else:
             self.permutation_model = None
@@ -110,6 +108,7 @@ class OCDAF(torch.nn.Module):
 
         # print(f">>>> {latent_permutation.shape}\n{latent_permutation[0]}")
         # log prob inputs, noise_prob, prior
+        # print(">>>>>", latent_permutation[0])
         log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 
         # return log_prob, noise_prob, prior (if requested)

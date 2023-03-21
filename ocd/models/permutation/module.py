@@ -66,6 +66,7 @@ class LearnablePermutation(torch.nn.Module):
         if force_permutation is not None or self.force_permutation is not None:
             force_permutation = force_permutation if force_permutation is not None else self.force_permutation
             results = listperm2matperm(force_permutation, device=device)
+            results = results.repeat(num_samples, 1, 1)
             return (results, None) if return_noise else results  # for consistency with the other return statements
 
         # otherwise, use the current gamma parameter (or the given one) to compute the permutation
