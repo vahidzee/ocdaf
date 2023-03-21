@@ -156,7 +156,7 @@ def evaluate_permutations(mat, threshold: th.Optional[float] = 1e-4, reduce: boo
     return results
 
 
-def listperm2matperm(listperm: torch.Tensor, device=None, dtype=None):
+def listperm2matperm(listperm: th.Union[torch.Tensor, th.List[int]], device=None, dtype=None):
     """Converts a batch of permutations to its matricial form.
     Args:
       listperm: 2D tensor of permutations of shape [batch_size, n_objects] so that
@@ -168,6 +168,7 @@ def listperm2matperm(listperm: torch.Tensor, device=None, dtype=None):
         shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
         permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
     """
+    listperm = torch.as_tensor(listperm) if not isinstance(listperm, torch.Tensor) else listperm
     return torch.eye(listperm.shape[-1])[listperm.long()].to(device=device, dtype=dtype)
 
 

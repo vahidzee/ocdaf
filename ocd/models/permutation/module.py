@@ -13,18 +13,28 @@ from ocd.models.permutation.utils import (
 @dy.dynamize
 class LearnablePermutation(torch.nn.Module):
     def __init__(
-        self, num_features: int, device: th.Optional[torch.device] = None, dtype: th.Optional[torch.dtype] = None
+        self,
+        num_features: int,
+        force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
+        device: th.Optional[torch.device] = None,
+        dtype: th.Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.num_features = num_features
         self.device = device
-        self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
+        self.force_permutation = None
+        self.force_permutation = force_permutation  # used for debugging purposes only and is None by default
+        if force_permutation is None:
+            # initialize gamma for learnable permutation
+            self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
 
     def forward(
         self,
         num_samples: int = 1,
         # gamma
         gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
+        # force permutation
+        force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
         # retrieval parameters
         soft: bool = True,
         return_noise: bool = False,
@@ -52,14 +62,21 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
+        # force permutation if given (used for debugging purposes only)
+        if force_permutation is not None or self.force_permutation is not None:
+            force_permutation = force_permutation if force_permutation is not None else self.force_permutation
+            results = listperm2matperm(force_permutation, device=device)
+            return (results, None) if return_noise else results  # for consistency with the other return statements
+
+        # otherwise, use the current gamma parameter (or the given one) to compute the permutation
         device = device if device is not None else self.gamma.device
-        gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
         gumbel_noise = None
+        gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
             gumbel_noise_std = gumbel_noise_std if gumbel_noise_std is not None else self.gumbel_noise_std(**kwargs)
             gumbel_noise = gumbel_noise * gumbel_noise_std
-        if soft:
+        elif soft:
             perm_mat = self.soft_permutation(
                 gamma=gamma,
                 gumbel_noise=gumbel_noise,
@@ -202,4 +219,9 @@ class LearnablePermutation(torch.nn.Module):
         return evaluate_permutations(samples, threshold=threshold)
 
     def extra_repr(self) -> str:
-        return f"num_features={self.num_features}"
+        forced = (
+            f', force=[{",".join(str(i)for i in self.force_permutation)}]'
+            if self.force_permutation is not None
+            else ""
+        )
+        return f"num_features={self.num_features}" + forced

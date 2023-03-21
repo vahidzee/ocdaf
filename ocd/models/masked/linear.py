@@ -224,6 +224,7 @@ class MaskedLinear(torch.nn.Linear):
             output shape is ([num_perms,] batch, out_features) if perm_mat is not None,
         """
         elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
+        perm_mat = perm_mat.to(self.weight.device) if perm_mat is not None else None
         # compute the mask and mask the weights
         mask = self.mask if perm_mat is None else self.permute_mask(perm_mat)
         mask = self.reshape_mask(mask)
