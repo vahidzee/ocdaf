@@ -33,6 +33,7 @@ class OCDAF(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
+        # get an IntTensor of 1 to N
         self.flow = AffineFlow(
             base_distribution=base_distribution,
             base_distribution_args=base_distribution_args,
@@ -47,11 +48,17 @@ class OCDAF(torch.nn.Module):
             batch_norm_args=batch_norm_args,
             additive=additive,
             num_transforms=num_transforms,
+            #
+            # Will remove this:
             ordering=ordering,
+            # ordering=torch.IntTensor(range(in_features)),
+            #
             reversed_ordering=reversed_ordering,
             device=device,
             dtype=dtype,
         )
+
+        self.ordering = ordering
 
         if use_permutation:
             self.permutation_model = LearnablePermutation(
@@ -79,7 +86,7 @@ class OCDAF(torch.nn.Module):
         return_prior: bool = False,
         return_latent_permutation: bool = False,
         # args for dynamic methods
-        **kwargs
+        **kwargs,
     ):
         elementwise_perm = elementwise_perm if elementwise_perm is not None else self.flow[0].elementwise_perm
         if elementwise_perm:
@@ -91,6 +98,17 @@ class OCDAF(torch.nn.Module):
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
 
+        # Can comment out all of this:
+        # print("Ordering: ", self.ordering)
+        # if self.ordering is not None:
+        #     # Create a permutation matrix from the ordering
+        #     latent_permutation = torch.zeros((inputs.shape[1], inputs.shape[1]), device=inputs.device)
+        #     # print(latent_permutation)
+        #     latent_permutation[range(len(self.ordering)), self.ordering] = 1
+        #     # print(latent_permutation)
+        #     latent_permutation = latent_permutation.repeat(inputs.shape[0], 1, 1)
+
+        # print(f">>>> {latent_permutation.shape}\n{latent_permutation[0]}")
         # log prob inputs, noise_prob, prior
         log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
 

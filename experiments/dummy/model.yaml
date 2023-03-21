@@ -12,8 +12,7 @@ init_args:
     num_transforms: 3
     additive: False
     elementwise_perm: True
-    ordering: [0, 2, 1]
-    learn_permutation: False
+    ordering: [2, 0, 1]
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU

@@ -76,7 +76,8 @@ class LearnablePermutation(torch.nn.Module):
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
             gumbel_noise_std = gumbel_noise_std if gumbel_noise_std is not None else self.gumbel_noise_std(**kwargs)
             gumbel_noise = gumbel_noise * gumbel_noise_std
-        elif soft:
+
+        if soft:
             perm_mat = self.soft_permutation(
                 gamma=gamma,
                 gumbel_noise=gumbel_noise,
