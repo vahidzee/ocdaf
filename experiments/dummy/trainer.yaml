@@ -3,7 +3,7 @@ callbacks:
   - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
     init_args:
       epoch_buffer_size: 1
-      evaluate_every_n_epochs: 1
+      evaluate_every_n_epochs: 10
 # device
 accelerator: cpu
 devices: 1
@@ -13,7 +13,7 @@ gradient_clip_algorithm: value
 gradient_clip_val: 1.0
 # precision: 16
 # limits & training loop controls
-max_epochs: 10
+max_epochs: 600
 log_every_n_steps: 1
 check_val_every_n_epoch: 1
 # tracking & debugging
@@ -22,8 +22,8 @@ check_val_every_n_epoch: 1
 enable_checkpointing: false
 enable_model_summary: true
 enable_progress_bar: false
-# logger:
-#   class_path: lightning.pytorch.loggers.WandbLogger
-#   init_args:
-#     project: temporary
-#     name: dummy-config
+logger:
+  class_path: lightning.pytorch.loggers.WandbLogger
+  init_args:
+    project: temporary
+    name: dummy-visualize

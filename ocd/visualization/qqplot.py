@@ -21,10 +21,10 @@ def qqplot(a: torch.Tensor, b: torch.Tensor, a_name: str, b_name: str, image_siz
             ax.set_ylabel(b_name)
             mn = min(np.min(x_samples), np.min(y_samples))
             mx = max(np.max(x_samples), np.max(y_samples))
-            ax.plot(np.linspace(mn, mx, 100), np.linspace(mn, mx, 100), c="red", alpha=0.2)
-            np.sort(x_samples)
-            np.sort(y_samples)
-            ax.scatter(x_samples, y_samples, s=1, alpha=0.2)
+            ax.plot(np.linspace(mn, mx, 100), np.linspace(mn, mx, 100), c="red", alpha=0.2, label="y=x")
+            x_samples = np.sort(x_samples)
+            y_samples = np.sort(y_samples)
+            ax.scatter(x_samples, y_samples, s=1, alpha=0.2, label="samples")
 
             ax.legend()
 

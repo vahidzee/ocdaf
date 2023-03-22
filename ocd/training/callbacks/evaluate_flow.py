@@ -27,7 +27,6 @@ class EvaluateFlow(LoggingCallback):
         self.generator_batch_size = generator_batch_size
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        print("Doing the evaluation!")
         all_inputs = torch.cat(self.all_logged_values["inputs"], dim=0)
         all_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0)
 
@@ -44,4 +43,4 @@ class EvaluateFlow(LoggingCallback):
 
         imgs = qqplot(all_inputs, all_sampled, "inputs", "sampled", image_size=(15, 10))
 
-        trainer.logger.log_images("qqplot", imgs, self.epoch_counter)
+        trainer.logger.log_image("qqplot", imgs, self.epoch_counter)
