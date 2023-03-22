@@ -36,6 +36,7 @@ init_args:
   # scheduler_interval: "epoch"
   # scheduler_monitor: loss/val
   # the loss
+  # objective_cls: ocd.training.terms.LikelihoodTerm
   objective_args:
     nll: >
-      lambda training_module, batch: -training_module.model(batch)['log_prob'].mean()
+      lambda training_module, batch: -training_module.forward(batch)['log_prob'].mean()
