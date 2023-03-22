@@ -11,7 +11,7 @@ class MaskedAffineFlowTransform(MaskedMLP):
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
         residual: bool = False,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
         activation_args: th.Optional[dict] = None,
@@ -67,10 +67,7 @@ class MaskedAffineFlowTransform(MaskedMLP):
         s, t = self._split_scale_and_shift(autoregressive_params)
         inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
-        # outputs = (inputs - t) * torch.nn.functional.softplus(s)
-
         logabsdet = -torch.sum(s, dim=-1)
-        # logabsdet = torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
         return outputs, logabsdet
 
     def inverse(
@@ -105,7 +102,6 @@ class MaskedAffineFlowTransform(MaskedMLP):
             s, t = self._split_scale_and_shift(autoregressive_params)
             outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
             logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
-
         # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])
 

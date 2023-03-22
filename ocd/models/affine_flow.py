@@ -11,7 +11,7 @@ class AffineFlow(torch.nn.ModuleList):
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -73,6 +73,7 @@ class AffineFlow(torch.nn.ModuleList):
         Returns:
             z: transformed samples from the base distribution (z's)
         """
+        elementwise_perm: bool = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
         log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
         results = []
         for i, flow in enumerate(self):
@@ -80,7 +81,7 @@ class AffineFlow(torch.nn.ModuleList):
             if return_intermediate_results:
                 results.append(z)
             z, log_det = flow(
-                inputs=z, perm_mat=perm_mat, elementwise_perm=elementwise_perm if not i else True, **kwargs
+                inputs=z, perm_mat=perm_mat, elementwise_perm=(elementwise_perm if not i else True), **kwargs
             )
             log_dets += log_det.reshape(-1)
         if perm_mat is not None and not elementwise_perm:
@@ -176,7 +177,7 @@ class AffineFlow(torch.nn.ModuleList):
         # iterate over flows in reverse order and apply inverse
         for i, flow in enumerate(reversed(self)):
             z, log_det = flow.inverse(inputs=z, **kwargs)
-            log_dets += log_det  # negative sign is handled in flow.inverse
+            log_dets += log_det  # sign is handled in flow.inverse
 
         return z, log_det
 

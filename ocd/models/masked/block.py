@@ -11,7 +11,7 @@ class MaskedBlock(MaskedLinear):
         in_features: th.Union[th.List[int], int],
         out_features: th.Union[th.List[int], int],
         bias: bool = True,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
         # residual
         residual: bool = False,
         # activation

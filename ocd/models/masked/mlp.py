@@ -10,7 +10,7 @@ class MaskedMLP(torch.nn.ModuleList):
         in_features: th.Union[th.List[int], int],
         out_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
         # residual
         residual: bool = False,
         # blocks

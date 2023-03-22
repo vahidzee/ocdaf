@@ -41,7 +41,7 @@ class MaskedLinear(torch.nn.Linear):
         auto_connection: bool = True,
         reversed_ordering: bool = False,
         mask_dtype: torch.dtype = torch.uint8,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
     ) -> None:
         """
         innitializes module by initializing an ordering mixin and a linear layer.

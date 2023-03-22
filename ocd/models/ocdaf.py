@@ -10,7 +10,7 @@ class OCDAF(torch.nn.Module):
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
-        elementwise_perm: bool = False,
+        elementwise_perm: bool = True,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
