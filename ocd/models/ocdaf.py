@@ -10,7 +10,6 @@ class OCDAF(torch.nn.Module):
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
-        elementwise_perm: bool = True,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -38,7 +37,6 @@ class OCDAF(torch.nn.Module):
             base_distribution_args=base_distribution_args,
             in_features=in_features,
             layers=layers,
-            elementwise_perm=elementwise_perm,
             residual=residual,
             bias=bias,
             activation=activation,
@@ -62,8 +60,6 @@ class OCDAF(torch.nn.Module):
             )
         else:
             self.permutation_model = None
-        # setup some model parameters
-        self.elementwise_perm = elementwise_perm
 
     def forward(
         self,

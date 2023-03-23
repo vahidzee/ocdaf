@@ -11,7 +11,6 @@ class AffineFlow(torch.nn.ModuleList):
         # architecture
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
-        elementwise_perm: bool = True,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -33,14 +32,12 @@ class AffineFlow(torch.nn.ModuleList):
     ):
         super().__init__()
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
-        self.elementwise_perm = elementwise_perm
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
                 MaskedAffineFlowTransform(
                     in_features=in_features,
                     layers=layers,
-                    elementwise_perm=elementwise_perm,
                     residual=residual,
                     bias=bias,
                     activation=activation,
@@ -56,37 +53,25 @@ class AffineFlow(torch.nn.ModuleList):
         if ordering is not None:
             self.reorder(torch.IntTensor(ordering))
 
-    def forward(
-        self,
-        inputs,
-        perm_mat=None,
-        elementwise_perm: th.Optional[bool] = None,
-        return_intermediate_results: bool = False,
-        **kwargs
-    ):
+    def forward(self, inputs, perm_mat=None, return_intermediate_results: bool = False, **kwargs):
         """
         Args:
             inputs: samples from the data distribution (x's)
             perm_mat: permutation matrix to use for the flow (if None, then no permutation is used) (N, D, D)
-            elementwise_perm: whether to use elementwise permutation (if None, then self.elementwise_perm is used)
             return_intermediate_results: whether to return the intermediate results (z's) of the flow transformations
         Returns:
             z: transformed samples from the base distribution (z's)
         """
-        elementwise_perm: bool = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
+
         log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
         results = []
         for i, flow in enumerate(self):
             z = z.reshape(-1, inputs.shape[-1])
             if return_intermediate_results:
                 results.append(z)
-            z, log_det = flow(
-                inputs=z, perm_mat=perm_mat, elementwise_perm=(elementwise_perm if not i else True), **kwargs
-            )
+            z, log_det = flow(inputs=z, perm_mat=perm_mat, **kwargs)
             log_dets += log_det.reshape(-1)
-        if perm_mat is not None and not elementwise_perm:
-            log_dets = log_dets.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1)
-            z = z.reshape(-1, perm_mat.shape[0] if perm_mat.ndim == 3 else 1, inputs.shape[-1])
+
         z, log_dets = z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
         if return_intermediate_results:
             results.append(z)
@@ -97,21 +82,14 @@ class AffineFlow(torch.nn.ModuleList):
         self,
         inputs: torch.Tensor,
         perm_mat: th.Optional[torch.Tensor] = None,
-        elementwise_perm: th.Optional[bool] = None,
         forward: bool = True,
         vectorize: bool = True,
         **kwargs
     ) -> torch.Tensor:
-        elementwise_perm: bool = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
         # force evaluation mode
         model_training = self.training  # save training mode to restore later
         self.eval()
-        func = functools.partial(
-            getattr(self, "__call__" if forward else "inverse"),
-            perm_mat=perm_mat,
-            elementwise_perm=elementwise_perm,
-            **kwargs
-        )
+        func = functools.partial(getattr(self, "__call__" if forward else "inverse"), perm_mat=perm_mat, **kwargs)
         # make perm_mat 3d if it is not already
         perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
 
@@ -126,19 +104,8 @@ class AffineFlow(torch.nn.ModuleList):
         perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
         # its important to note that jacobian is [Output, Input] so to study the effect of permutation
         # we need to figure out what outputs we are interested in
-        if not elementwise_perm and perm_mat is not None:
-            # depending on the inputs, jacobian is either of shape [batch_size, num_perms, num_dims, batch_size, num_dims]
-            # or [batch_size, num_perms, num_dims, batch_size, num_perms, num_dims] either way, we
-            # take the mean over the batch dimension so that we either get [num_perms, num_dims, num_dims]
-            # or [num_perms, num_dims, num_perms, num_dims] (to study the effect of the permutations)
 
-            jacobian = jacobian.mean(0).sum(2)
-
-            if jacobian.ndim == 4:
-                jacobian = jacobian.transpose(1, 2).reshape(-1, jacobian.shape[-1], jacobian.shape[-1])
-                jacobian = jacobian[torch.arange(perm_mat.shape[0]).square()]
-
-        elif perm_mat is not None:
+        if perm_mat is not None:
             # jacobian is of shape [batch_size, num_dims, batch_size, num_dims], we first split it into
             # [k, num_perms, num_dims, num_dims] and then take the mean over k to get [num_perms, num_dims, num_dims]
             batch_size = jacobian.shape[0]

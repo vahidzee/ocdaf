@@ -41,7 +41,6 @@ class MaskedLinear(torch.nn.Linear):
         auto_connection: bool = True,
         reversed_ordering: bool = False,
         mask_dtype: torch.dtype = torch.uint8,
-        elementwise_perm: bool = True,
     ) -> None:
         """
         innitializes module by initializing an ordering mixin and a linear layer.
@@ -112,7 +111,6 @@ class MaskedLinear(torch.nn.Linear):
                 dtype=mask_dtype,
             ),
         )
-        self.elementwise_perm = elementwise_perm
         self.mode: th.Literal["block", "single"] = "block" if isinstance(self.out_blocks, list) else "single"
 
     def reorder(
@@ -202,7 +200,6 @@ class MaskedLinear(torch.nn.Linear):
         self,
         inputs: torch.Tensor,
         perm_mat: th.Optional[torch.Tensor] = None,
-        elementwise_perm: th.Optional[bool] = None,
     ) -> torch.Tensor:
         """
         Computes masked linear operation.
@@ -215,15 +212,12 @@ class MaskedLinear(torch.nn.Linear):
         Args:
             inputs: Input tensor (batched in the first dimensions.)
             perm_mat: Permutation matrix for the output neurons. ([num_perms], N x N)
-            elementwise_perm: If true, the permutation is applied elementwise, meaning
-                that we have [batch_size, N*N] as the perm_mat, and we want to apply
-                each permutation to each batch element. (default: self.elementwise_perm)
+
         Returns:
             A `torch.Tensor` which equals to masked linear operation on inputs, or:
                 `inputs @ (self.mask * self.weights).T + self.bias`
-            output shape is ([num_perms,] batch, out_features) if perm_mat is not None,
+            output shape is (batch, out_features) if perm_mat is not None,
         """
-        elementwise_perm = elementwise_perm if elementwise_perm is not None else self.elementwise_perm
         perm_mat = perm_mat.to(self.weight.device) if perm_mat is not None else None
         # compute the mask and mask the weights
         mask = self.mask if perm_mat is None else self.permute_mask(perm_mat)
@@ -235,26 +229,12 @@ class MaskedLinear(torch.nn.Linear):
         x = inputs.reshape(-1, inputs.shape[-1])  # flatten inputs (unflatten later)
         weights_batch_size, inputs_batch_size = weights.shape[0], x.shape[0]
 
-        if elementwise_perm:
-            # if we have elementwise permutations, we expect the perm_mat to have (and hence the weights)
-            # to have a weights_batch_size which divides the inputs_batch_size. We repeat the masked weights
-            # for each permutation, to cover all the inputs in batch. e.g. if we have 2 permutations and 4 inputs,
-            # we use repeat_interleave to repeat the masked weights 2 times, permute the first 2 inputs with the
-            # first permutation, and the second 2 inputs with the second permutation.
-            weights = weights.repeat_interleave(inputs_batch_size // weights_batch_size, dim=0)
-        else:
-            # if we have a batch of permutations, and a batch of inputs, and we don't want to apply elementwise
-            # permutations, we repeat the inputs for each permutation, and the weights for each input.
-            # e.g. if we have 2[xy] permutations and 4 inputs [abcd], we repeat the inputs 2 times, and the weights 4 times.
-            # now we have 8 inputs [abcdabcd] and 8 weights [xxxxyyyy], and we can apply the permutations to the inputs.
-            x = x.repeat(weights_batch_size, 1)  # repeat inputs for each permutation
-            weights = weights.repeat_interleave(inputs_batch_size, dim=0)
+        # we have elementwise permutations and we expect the perm_mat to have (and hence the weights)
+        # to have a weights_batch_size which divides the inputs_batch_size. We repeat the masked weights
+        # for each permutation, to cover all the inputs in batch. e.g. if we have 2 permutations and 4 inputs,
+        # we use repeat_interleave to repeat the masked weights 2 times, permute the first 2 inputs with the
+        # first permutation, and the second 2 inputs with the second permutation.
+        weights = weights.repeat_interleave(inputs_batch_size // weights_batch_size, dim=0)
 
-        results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)  # everything is batched now
-        results = (
-            results.reshape(inputs_batch_size, weights_batch_size, -1)
-            if not elementwise_perm and perm_mat is not None
-            else results
-        )
-        results = results.unflatten(0, inputs.shape[:-1])
-        return results + (self.bias if self.bias is not None else 0)
+        results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)
+        return results.unflatten(0, inputs.shape[:-1]) + (self.bias if self.bias is not None else 0)
