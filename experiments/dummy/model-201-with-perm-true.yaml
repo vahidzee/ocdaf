@@ -15,7 +15,7 @@ init_args:
       scale: 1.0
     # The flow model arguments
     in_features: 3
-    layers: [3, 3, 3]
+    layers: [3, 27, 243, 27, 3]
     num_transforms: 3
     additive: False
     elementwise_perm: True
