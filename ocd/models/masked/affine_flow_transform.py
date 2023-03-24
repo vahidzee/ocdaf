@@ -11,7 +11,6 @@ class MaskedAffineFlowTransform(MaskedMLP):
         in_features: th.Union[th.List[int], int],
         layers: th.List[th.Union[th.List[int], int]] = None,
         residual: bool = False,
-        elementwise_perm: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
         activation_args: th.Optional[dict] = None,
@@ -33,7 +32,6 @@ class MaskedAffineFlowTransform(MaskedMLP):
             in_features=in_features,
             layers=layers,
             out_features=out_features,
-            elementwise_perm=elementwise_perm,
             residual=residual,
             bias=bias,
             activation=activation,
@@ -65,19 +63,14 @@ class MaskedAffineFlowTransform(MaskedMLP):
         """
         autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
-        inputs = inputs.reshape(*inputs.shape[:-1], 1, inputs.shape[-1]) if inputs.ndim == s.ndim - 1 else inputs
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
-        # outputs = (inputs - t) * torch.nn.functional.softplus(s)
-
         logabsdet = -torch.sum(s, dim=-1)
-        # logabsdet = torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
         return outputs, logabsdet
 
     def inverse(
         self,
         inputs: torch.Tensor,
         perm_mat: th.Optional[bool] = None,
-        elementwise_perm: th.Optional[bool] = None,
         **kwargs,
     ) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -88,9 +81,6 @@ class MaskedAffineFlowTransform(MaskedMLP):
             inputs (torch.Tensor): the inputs to the inverse function (z's) (output of the forward function)
             perm_mat (torch.Tensor): the permutation matrices applied to the inputs that resulted in z.
                 if perm_mat is None, then no permutation matrices were applied to the inputs.
-            elementwise_perm (bool): whether or not to apply the permutation matrices elementwise
-                to each z in the batch. if elementwise_perm is None, then self.elementwise_perm is used.
-                This argument is only used to override self.elementwise_perm if needed, for testing purposes.
             **kwargs: additional keyword arguments to pass to the autoregressive network. (e.g. mask_idx)
         Returns:
             A tuple containing the outputs of the inverse function and the logabsdet of the inverse function.
@@ -101,11 +91,10 @@ class MaskedAffineFlowTransform(MaskedMLP):
         # passing the outputs through the autoregressive network elementwise for d times (where d is the dimensionality
         # of the input features) will result in the inverse of the affine transformation
         for _ in range(inputs.shape[-1]):
-            autoregressive_params = super().forward(outputs, perm_mat=perm_mat, elementwise_perm=True, **kwargs)
+            autoregressive_params = super().forward(outputs, perm_mat=perm_mat, **kwargs)
             s, t = self._split_scale_and_shift(autoregressive_params)
             outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
             logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
-
         # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])
 
