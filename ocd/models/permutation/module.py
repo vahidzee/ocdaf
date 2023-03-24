@@ -66,6 +66,7 @@ class LearnablePermutation(torch.nn.Module):
         if force_permutation is not None or self.force_permutation is not None:
             force_permutation = force_permutation if force_permutation is not None else self.force_permutation
             results = listperm2matperm(force_permutation, device=device)
+            results = results.repeat(num_samples, 1, 1)
             return (results, None) if return_noise else results  # for consistency with the other return statements
 
         # otherwise, use the current gamma parameter (or the given one) to compute the permutation
@@ -76,7 +77,8 @@ class LearnablePermutation(torch.nn.Module):
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
             gumbel_noise_std = gumbel_noise_std if gumbel_noise_std is not None else self.gumbel_noise_std(**kwargs)
             gumbel_noise = gumbel_noise * gumbel_noise_std
-        elif soft:
+
+        if soft:
             perm_mat = self.soft_permutation(
                 gamma=gamma,
                 gumbel_noise=gumbel_noise,

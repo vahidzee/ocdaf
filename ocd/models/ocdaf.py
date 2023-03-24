@@ -2,6 +2,8 @@ import torch
 from ocd.models.affine_flow import AffineFlow
 import typing as th
 from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
+import dypy as dy
+from lightning_toolbox import TrainingModule
 
 
 class OCDAF(torch.nn.Module):
@@ -26,12 +28,14 @@ class OCDAF(torch.nn.Module):
         ordering: th.Optional[torch.IntTensor] = None,
         reversed_ordering: bool = False,
         use_permutation: bool = True,
-        permutation_args: th.Optional[dict] = None,
+        permutation_learner_cls: th.Optional[str] = None,
+        permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
+        # get an IntTensor of 1 to N
         self.flow = AffineFlow(
             base_distribution=base_distribution,
             base_distribution_args=base_distribution_args,
@@ -51,12 +55,14 @@ class OCDAF(torch.nn.Module):
             dtype=dtype,
         )
 
+        self.ordering = ordering
+
         if use_permutation:
-            self.permutation_model = LearnablePermutation(
+            self.permutation_model = dy.get_value(permutation_learner_cls)(
                 num_features=in_features if isinstance(in_features, int) else len(in_features),
                 device=device,
                 dtype=dtype,
-                **(permutation_args or dict()),
+                **(permutation_learner_args or dict()),
             )
         else:
             self.permutation_model = None
@@ -75,6 +81,7 @@ class OCDAF(torch.nn.Module):
         return_prior: bool = False,
         return_latent_permutation: bool = False,
         # args for dynamic methods
+        training_module: th.Optional[TrainingModule] = None,
         **kwargs
     ):
         elementwise_perm = elementwise_perm if elementwise_perm is not None else self.flow[0].elementwise_perm
@@ -87,8 +94,10 @@ class OCDAF(torch.nn.Module):
                 inputs=inputs, num_samples=num_samples, soft=soft, return_noise=True, **kwargs
             )
 
-        # log prob inputs, noise_prob, prior
+        training_module.remember(inputs=inputs)
+        training_module.remember(perm_mat=latent_permutation)
         log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation, elementwise_perm=elementwise_perm)
+        training_module.remember(log_prob=log_prob)
 
         # return log_prob, noise_prob, prior (if requested)
         results = dict(log_prob=log_prob) if return_log_prob else dict()

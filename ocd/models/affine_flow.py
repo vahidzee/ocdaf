@@ -32,6 +32,7 @@ class AffineFlow(torch.nn.ModuleList):
     ):
         super().__init__()
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
+        self.in_features = in_features
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
@@ -156,7 +157,7 @@ class AffineFlow(torch.nn.ModuleList):
         Returns:
           Samples
         """
-        z = self.base_distribution(num_samples)[0]
+        z = self.base_distribution.sample((num_samples, self.in_features))
         return self.inverse(z, **kwargs)[0]
 
     def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:

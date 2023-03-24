@@ -3,17 +3,17 @@ init_args:
   # the model
   model_cls: ocd.models.ocdaf.OCDAF
   model_args:
+    use_permutation: False
     base_distribution: torch.distributions.Normal
     base_distribution_args:
       loc: 0.0
       scale: 1.0
     in_features: 3
-    layers: [3, 3]
+    layers: [3, 3, 3]
     num_transforms: 3
     additive: False
     elementwise_perm: True
     ordering: [0, 2, 1]
-    learn_permutation: False
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU
