@@ -50,10 +50,7 @@ class LoggingCallback(Callback):
         if self.log_training:
             self.training_batches_in_epoch += 1
             for key, item in pl_module.objective.latch.items():
-                if isinstance(item, torch.Tensor):
-                    self.all_logged_values[key].append(item.detach().cpu())
-                else:
-                    self.all_logged_values[key].append(item)
+                self.all_logged_values[key].append(item.detach().cpu())
 
         return super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
 
@@ -69,10 +66,7 @@ class LoggingCallback(Callback):
         if self.log_validation:
             self.validation_batches_in_epoch += 1
             for key, item in pl_module.objective.latch.items():
-                if isinstance(item, torch.Tensor):
-                    self.all_logged_values[key].append(item.detach().cpu())
-                else:
-                    self.all_logged_values[key].append(item)
+                self.all_logged_values[key].append(item.detach().cpu())
 
         return super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
 

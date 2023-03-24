@@ -36,11 +36,12 @@ class EvaluateFlow(LoggingCallback):
         for i in range(0, N, B):
             b = min(B, N - i)
             perm_mats = all_permutations[i : i + b]
+
             sampled_values = pl_module.model.flow.sample(num_samples=b, perm_mat=perm_mats)
-            all_sampled.append(sampled_values)
+            all_sampled.append(sampled_values.detach().cpu())
 
         all_sampled = torch.cat(all_sampled, dim=0)
 
-        imgs = qqplot(all_inputs, all_sampled, "inputs", "sampled", image_size=(15, 10))
+        imgs = qqplot(all_inputs.detach().cpu(), all_sampled, "inputs", "sampled", image_size=(15, 10))
 
         trainer.logger.log_image("qqplot", imgs, self.epoch_counter)

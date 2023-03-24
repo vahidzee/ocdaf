@@ -157,7 +157,11 @@ class AffineFlow(torch.nn.ModuleList):
         Returns:
           Samples
         """
-        z = self.base_distribution.sample((num_samples, self.in_features))
+        # Get the device of the current model
+        device = next(self[0].parameters()).device
+        # Set the noises and set their device
+        z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+
         return self.inverse(z, **kwargs)[0]
 
     def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:
