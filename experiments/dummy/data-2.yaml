@@ -7,10 +7,10 @@ init_args:
     scm_generator_args:
       graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:
-        enforce_ordering: [2, 0, 1]
+        enforce_ordering: [0, 1]
         graph_type: random_dag
-        n: 3
-        p: 0.5
+        n: 2
+        p: 0.7
         m: 10
         seed: 666
       seed: 100
@@ -26,4 +26,4 @@ init_args:
       t_function_signature: softplus
     observation_size: 10240
   val_size: 0.1
-  batch_size: 128
+  batch_size: 1024

@@ -28,14 +28,20 @@ class EvaluateFlow(LoggingCallback):
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         all_inputs = torch.cat(self.all_logged_values["inputs"], dim=0)
-        all_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0)
+
+        if self.all_logged_values["perm_mat"][0] is not None:
+            all_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0)
 
         N = all_inputs.shape[0]
         B = min(self.generator_batch_size, N)
         all_sampled = []
         for i in range(0, N, B):
             b = min(B, N - i)
-            perm_mats = all_permutations[i : i + b]
+
+            if self.all_logged_values["perm_mat"][0] is not None:
+                perm_mats = all_permutations[i : i + b]
+            else:
+                perm_mats = None
 
             sampled_values = pl_module.model.flow.sample(num_samples=b, perm_mat=perm_mats)
             all_sampled.append(sampled_values.detach().cpu())

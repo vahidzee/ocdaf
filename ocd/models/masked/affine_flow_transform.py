@@ -63,6 +63,12 @@ class MaskedAffineFlowTransform(MaskedMLP):
         """
         autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
+
+        # (1) Use Softplus
+        # outputs = (inputs - t) / torch.nn.functional.softplus(s)
+        # logabsdet = -torch.sum(torch.nn.functional.softplus(s), dim=-1)
+
+        # (2) Use exp
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
         logabsdet = -torch.sum(s, dim=-1)
         return outputs, logabsdet
@@ -93,6 +99,12 @@ class MaskedAffineFlowTransform(MaskedMLP):
         for _ in range(inputs.shape[-1]):
             autoregressive_params = super().forward(outputs, perm_mat=perm_mat, **kwargs)
             s, t = self._split_scale_and_shift(autoregressive_params)
+
+            # (1) Use Softplus
+            outputs = torch.nn.functional.softplus(s) * z + t
+            logabsdet = torch.sum(torch.nn.functional.softplus(s), dim=-1)
+
+            # (2) Use Exp
             outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
             logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
         # unflatten the outputs and logabsdet to match the original batch shape

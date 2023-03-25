@@ -8,11 +8,11 @@ init_args:
     base_distribution_args:
       loc: 0.0
       scale: 1.0
-    in_features: 3
-    layers: [100, 1000, 100, 3]
-    num_transforms: 10
+    in_features: 2
+    layers: [3, 3, 2]
+    num_transforms: 3
     additive: False
-    ordering: [2, 0, 1]
+    ordering: [0, 1]
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU
