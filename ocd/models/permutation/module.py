@@ -1,6 +1,6 @@
 import torch
 import typing as th
-import dypy as dy
+import dypy.wrappers as dyw
 from ocd.models.permutation.utils import (
     hungarian,
     sinkhorn,
@@ -10,7 +10,7 @@ from ocd.models.permutation.utils import (
 )
 
 
-@dy.dynamize
+@dyw.dynamize
 class LearnablePermutation(torch.nn.Module):
     def __init__(
         self,
@@ -93,11 +93,11 @@ class LearnablePermutation(torch.nn.Module):
         return (results, gumbel_noise) if return_noise else results
 
     # todo: does not work with the current version of dypy (make it a property later)
-    @dy.method
+    @dyw.method
     def parameterized_gamma(self):
         return self.gamma
 
-    @dy.method
+    @dyw.method
     def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
         """
         A dynamic method that returns the number of iterations for the Sinkhorn algorithm.
@@ -111,7 +111,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 50
 
-    @dy.method
+    @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
         """
         A dynamic method that returns the temperature for the Sinkhorn algorithm.
@@ -127,7 +127,7 @@ class LearnablePermutation(torch.nn.Module):
         return 0.1
 
     # todo: does not work with the current version of dypy (make it a property later)
-    @dy.method
+    @dyw.method
     def gumbel_noise_std(self, training_module=None, **kwargs):
         """
         A dynamic method that returns the standard deviation of the Gumbel noise.
