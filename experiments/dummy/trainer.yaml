@@ -5,7 +5,7 @@ callbacks:
       epoch_buffer_size: 1
       evaluate_every_n_epochs: 10
 # device
-accelerator: cpu
+accelerator: gpu
 devices: 1
 num_nodes: 0
 # optimization

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def qqplot(a: torch.Tensor, b: torch.Tensor, a_name: str, b_name: str, image_size: th.Tuple):
+def qqplot(a: torch.Tensor, b: torch.Tensor, reject_outliers_factor: float, a_name: str, b_name: str, image_size: th.Tuple):
     res = []
 
     for i in range(a.shape[1]):

@@ -20,11 +20,13 @@ class EvaluateFlow(LoggingCallback):
         epoch_buffer_size: int = 1,
         log_training: bool = True,
         log_validation: bool = False,
+        reject_outliers_factor: float = 3,
     ):
         super().__init__(
             evaluate_every_n_epochs, evaluate_every_n_epoch_logic, epoch_buffer_size, log_training, log_validation
         )
         self.generator_batch_size = generator_batch_size
+        self.reject_outliers_factor = reject_outliers_factor
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         all_inputs = torch.cat(self.all_logged_values["inputs"], dim=0)
@@ -48,6 +50,6 @@ class EvaluateFlow(LoggingCallback):
 
         all_sampled = torch.cat(all_sampled, dim=0)
 
-        imgs = qqplot(all_inputs.detach().cpu(), all_sampled, "inputs", "sampled", image_size=(15, 10))
+        imgs = qqplot(all_inputs.detach().cpu(), all_sampled, self.reject_outliers_factor, "inputs", "sampled", image_size=(15, 10))
 
         trainer.logger.log_image("qqplot", imgs, self.epoch_counter)
