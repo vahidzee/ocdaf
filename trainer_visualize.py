@@ -1,7 +1,6 @@
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch import LightningModule, LightningDataModule
 from lightning_toolbox import TrainingModule
-from lightning_toolbox import DataModule
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
@@ -30,9 +29,9 @@ def main():
     nx.draw(cli.datamodule.data.dag, with_labels=True)
     plt.show()
     print(cli.datamodule.data.explanation)
-    plt.hist(cli.datamodule.data.samples[0], density=True, bins=100, alpha=0.5, label="x0")
-    plt.hist(cli.datamodule.data.samples[1], density=True, bins=100, alpha=0.5, label="x1")
-    plt.hist(cli.datamodule.data.samples[2], density=True, bins=100, alpha=0.5, label="x2")
+    for c in cli.datamodule.data.samples.columns:
+        plt.hist(cli.datamodule.data.samples[c], density=True, bins=100, alpha=0.5, label=f"x_{c}")
+
     plt.legend()
     plt.show()
 
