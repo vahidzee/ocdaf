@@ -23,7 +23,7 @@ init_args:
       s_function_signature: softplus
       t_function: >
         lambda x: x + numpy.sin(x)
-      t_function_signature: expsigmoid
+      t_function_signature: sin_plus_x
     observation_size: 10240
   val_size: 0.1
   batch_size: 1024

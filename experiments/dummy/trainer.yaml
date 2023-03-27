@@ -4,8 +4,13 @@ callbacks:
     init_args:
       epoch_buffer_size: 1
       evaluate_every_n_epochs: 10
+  # - class_path: ocd.training.callbacks.checkpointing.CheckpointingCallback
+  #   init_args:
+  #     checkpoint_address: lightning_logs
+  #     checkpoint_name: 201-true-softplus
+  #     freq: 60
 # device
-accelerator: gpu
+accelerator: cpu
 devices: 1
 num_nodes: 0
 # optimization
@@ -26,4 +31,4 @@ logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
     project: temporary
-    name: dummy-visualize
+    name: 201-true-softplus

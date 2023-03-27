@@ -49,6 +49,11 @@ class MaskedAffineFlowTransform(MaskedMLP):
     ) -> torch.Tensor:
         return super().compute_dependencies(inputs, **kwargs, forward_function="forward" if forward else "inverse")
 
+    def get_s_t(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
+        s, t = self._split_scale_and_shift(autoregressive_params)
+        return s, t
+
     def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
         $T^{-1}$ is the inverse of $T$. $T$ is a function from latent $z$ to data $x$ of the form:
