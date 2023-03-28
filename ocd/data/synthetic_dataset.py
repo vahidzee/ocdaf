@@ -5,6 +5,7 @@ from .base_dataset import OCDDataset
 import typing as th
 from .scm import SCMGenerator
 import dypy
+from lightning_toolbox import DataModule
 
 
 class SyntheticOCDDataset(OCDDataset):

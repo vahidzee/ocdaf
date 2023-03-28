@@ -7,15 +7,15 @@ init_args:
     use_permutation: True
     permutation_learner_cls: ocd.models.permutation.LearnablePermutation
     permutation_learner_args:
-      force_permutation: [1, 2, 0]
+      force_permutation: [0, 1, 2, 3]
     # Base distribution arguments
     base_distribution: torch.distributions.Normal
     base_distribution_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    in_features: 3
-    layers: [3, 3, 3]
+    in_features: 4
+    layers: [4, 4, 4]
     num_transforms: 3
     additive: False
     residual: False

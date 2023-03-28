@@ -4,7 +4,7 @@ import numpy as np
 from ocd.models.masked import MaskedMLP
 
 
-class MaskedAffineFlowTransform(MaskedMLP):
+class MaskedAffineFlowTransform(torch.nn.Module):
     def __init__(
         self,
         # architecture args
@@ -24,11 +24,13 @@ class MaskedAffineFlowTransform(MaskedMLP):
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
+        super().__init__()
         self.additive = additive
         out_features = in_features
         if not additive:
             out_features = in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
-        super().__init__(
+
+        self.masked_mlp = MaskedMLP(
             in_features=in_features,
             layers=layers,
             out_features=out_features,
@@ -61,8 +63,14 @@ class MaskedAffineFlowTransform(MaskedMLP):
         Args:
             inputs (torch.Tensor): x ~ p_x(x)
         """
-        autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = super().forward(inputs, **kwargs)
+        autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = self.masked_mlp(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
+        print(s)
+        # (1) Use Softplus
+        # outputs = (inputs - t) / torch.nn.functional.softplus(s)
+        # logabsdet = -torch.sum(torch.nn.functional.softplus(s), dim=-1)
+
+        # (2) Use exp
         outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
         logabsdet = -torch.sum(s, dim=-1)
         return outputs, logabsdet
@@ -91,8 +99,14 @@ class MaskedAffineFlowTransform(MaskedMLP):
         # passing the outputs through the autoregressive network elementwise for d times (where d is the dimensionality
         # of the input features) will result in the inverse of the affine transformation
         for _ in range(inputs.shape[-1]):
-            autoregressive_params = super().forward(outputs, perm_mat=perm_mat, **kwargs)
+            autoregressive_params = self.masked_mlp(outputs, perm_mat=perm_mat, **kwargs)
             s, t = self._split_scale_and_shift(autoregressive_params)
+
+            # (1) Use Softplus
+            # outputs = torch.nn.functional.softplus(s) * z + t
+            # logabsdet = torch.sum(torch.nn.functional.softplus(s), dim=-1)
+
+            # (2) Use Exp
             outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
             logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
         # unflatten the outputs and logabsdet to match the original batch shape
@@ -112,5 +126,5 @@ class MaskedAffineFlowTransform(MaskedMLP):
 
     def extra_repr(self):
         additive = f", additive={self.additive}" if self.additive else ""
-        ordering = f", ordering={self.ordering}"
+        ordering = f", ordering={self.masked_mlp.ordering}"
         return super().extra_repr() + additive + ordering

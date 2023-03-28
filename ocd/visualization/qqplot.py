@@ -4,7 +4,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def qqplot(a: torch.Tensor, b: torch.Tensor, a_name: str, b_name: str, image_size: th.Tuple):
+def reject_outliers(data: np.array, factor: float):
+    """
+    It assumes that data is sorted and gives two indices l and r such that
+    all that is between l and r are between the range mean +- factor * std
+    """
+    standard_deviation = np.std(data)
+    mean = np.mean(data)
+    l = np.sum(data < mean - factor * standard_deviation)
+    r = len(data) - np.sum(data > mean + factor * standard_deviation) + 1
+    return l, r
+
+
+def qqplot(
+    a: torch.Tensor, b: torch.Tensor, reject_outliers_factor: float, a_name: str, b_name: str, image_size: th.Tuple
+):
     res = []
 
     for i in range(a.shape[1]):
@@ -24,6 +38,15 @@ def qqplot(a: torch.Tensor, b: torch.Tensor, a_name: str, b_name: str, image_siz
             ax.plot(np.linspace(mn, mx, 100), np.linspace(mn, mx, 100), c="red", alpha=0.2, label="y=x")
             x_samples = np.sort(x_samples)
             y_samples = np.sort(y_samples)
+
+            x_l, x_r = reject_outliers(x_samples, reject_outliers_factor)
+            y_l, y_r = reject_outliers(y_samples, reject_outliers_factor)
+
+            l = max(x_l, y_l)
+            r = min(x_r, y_r)
+            x_samples = x_samples[l:r]
+            y_samples = y_samples[l:r]
+
             ax.scatter(x_samples, y_samples, s=1, alpha=0.2, label="samples")
 
             ax.legend()

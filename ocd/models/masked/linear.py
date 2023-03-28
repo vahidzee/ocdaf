@@ -218,9 +218,13 @@ class MaskedLinear(torch.nn.Linear):
                 `inputs @ (self.mask * self.weights).T + self.bias`
             output shape is (batch, out_features) if perm_mat is not None,
         """
+
         perm_mat = perm_mat.to(self.weight.device) if perm_mat is not None else None
+        # inputs = inputs.to(self.weight.device)
+
         # compute the mask and mask the weights
         mask = self.mask if perm_mat is None else self.permute_mask(perm_mat)
+
         mask = self.reshape_mask(mask)
         weights = (mask * self.weight).transpose(-2, -1)
 
