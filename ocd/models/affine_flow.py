@@ -159,13 +159,12 @@ class AffineFlow(torch.nn.ModuleList):
           Samples
         """
         # Get the device of the current model
-        device = next(self[0].parameters()).device
+        device = next(self[0].parameters()).device  # TODO: this is very inefficient
         # Set the noises and set their device
         z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-
         return self.inverse(z, **kwargs)[0]
 
-    def log_prob(self, x, z=None, log_det=None, **kwargs) -> torch.Tensor:
+    def log_prob(self, x=None, z=None, logabsdet=None, **kwargs) -> torch.Tensor:
         """Get log probability for batch
 
         $$\log p_x(x) = \log p_z(T^{-1}(x)) + \log |det(J(T^{-1}(x)))|$$
@@ -176,11 +175,12 @@ class AffineFlow(torch.nn.ModuleList):
         Returns:
           log probability
         """
-        z, log_det = self.forward(x, **kwargs) if z is None else (z, log_det)
+        assert (x is None) != (z is None), "Either x or z must be None"
+        z, logabsdet = self.forward(x, **kwargs) if z is None else (z, logabsdet)
         flat_z = z.reshape(-1, z.shape[-1])
         log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
-        return log_base_prob + log_det
+        return log_base_prob + logabsdet
 
     def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:
