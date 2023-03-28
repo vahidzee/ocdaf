@@ -21,37 +21,37 @@ class CheckpointingCallback(Callback):
         self.checkpoint_address = checkpoint_address
         self.checkpoint_name = checkpoint_name
         self.freq = freq
+        if self.freq == 0:
+            raise ValueError("freq cannot be 0")
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        addr = os.path.join(self.checkpoint_address, self.checkpoint_name)
+        trainer.datamodule.data.samples.to_csv(os.path.join(self.addr, "data.csv"))
 
-        # check if the checkpoint address exists
-        if not os.path.exists(addr):
-            os.mkdir(addr)
-
-        trainer.datamodule.data.samples.to_csv(os.path.join(addr, "data.csv"))
-
-        return super().on_fit_end(trainer, pl_module)
+        return super().on_fit_start(trainer, pl_module)
 
     @property
     def addr(self):
-        return os.path.join(self.checkpoint_address, self.checkpoint_name)
-
-    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
+        addr = os.path.join(self.checkpoint_address, self.checkpoint_name)
         # check if the checkpoint address exists
         if not os.path.exists(addr):
             os.mkdir(addr)
+        return addr
 
+    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         if self.freq > 0:
-            if (trainer.current_epoch + 1) % self.freq == 2:
-                model_checkpoint_addr = os.path.join(addr, f"{trainer.current_epoch}-model.ckpt")
-                torch.save(pl_module.model.state_dict(), model_checkpoint_addr)
+            model_checkpoint_addr = os.path.join(self.addr, f"{trainer.current_epoch}-model.ckpt")
+            torch.save(pl_module.model.state_dict(), model_checkpoint_addr)
+            if (trainer.current_epoch + 1) % self.freq != 1:
+                prev_model = os.path.join(self.addr, f"{trainer.current_epoch - 1}-model.ckpt")
+                # remove the previous model
+                if os.path.exists(prev_model):
+                    os.remove(prev_model)
         else:
-            model_checkpoint_addr = os.path.join(addr, f"model.ckpt")
+            model_checkpoint_addr = os.path.join(self.addr, f"model.ckpt")
             torch.save(pl_module.model.state_dict(), model_checkpoint_addr)
 
         # save pl_module.hparams to yaml file
-        hparams_addr = os.path.join(addr, "model_args.yaml")
+        hparams_addr = os.path.join(self.addr, "model_args.yaml")
         with open(hparams_addr, "w") as f:
             yaml.dump(pl_module.model_args, f)
 

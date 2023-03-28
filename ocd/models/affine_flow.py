@@ -185,7 +185,7 @@ class AffineFlow(torch.nn.ModuleList):
         if ordering is not None:
             ordering = torch.IntTensor(ordering)
         for flow in self:
-            flow.reorder(ordering, **kwargs)
+            flow.made.reorder(ordering, **kwargs)
 
     @property
     def ordering(self) -> torch.IntTensor:
