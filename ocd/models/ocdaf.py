@@ -82,6 +82,7 @@ class OCDAF(torch.nn.Module):
         training_module: th.Optional[TrainingModule] = None,
         **kwargs
     ):
+        num_samples = inputs.shape[0]
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
@@ -95,6 +96,7 @@ class OCDAF(torch.nn.Module):
         log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation)
         if training_module is not None:
             training_module.remember(log_prob=log_prob)
+
 
         # return log_prob, noise_prob, prior (if requested)
         results = dict(log_prob=log_prob) if return_log_prob else dict()
