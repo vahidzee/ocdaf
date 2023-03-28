@@ -9,7 +9,6 @@ from ocd.models.permutation.utils import (
     evaluate_permutations,
     translate_idx_ordering,
 )
-from lightning_toolbox import TrainingModule
 
 
 @dyw.dynamize

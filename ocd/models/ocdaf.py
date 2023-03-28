@@ -77,12 +77,12 @@ class OCDAF(torch.nn.Module):
         return_log_prob: bool = True,
         return_noise_prob: bool = False,
         return_prior: bool = False,
+        return_latent: bool = False,
         return_latent_permutation: bool = False,
         # args for dynamic methods
         training_module: th.Optional[TrainingModule] = None,
         **kwargs
     ):
-        num_samples = inputs.shape[0]
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
@@ -93,7 +93,8 @@ class OCDAF(torch.nn.Module):
         if training_module is not None:
             training_module.remember(inputs=inputs)
             training_module.remember(perm_mat=latent_permutation)
-        log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation)
+        z, logabsdet = self.flow.forward(inputs, perm_mat=latent_permutation)
+        log_prob = self.flow.log_prob(z=z, logabsdet=logabsdet, perm_mat=latent_permutation)
         if training_module is not None:
             training_module.remember(log_prob=log_prob)
 
@@ -105,4 +106,7 @@ class OCDAF(torch.nn.Module):
             raise NotImplementedError("Haven't implemented prior yet.")
         if return_latent_permutation:
             results["latent_permutation"] = latent_permutation
+        if return_latent:
+            results["latent"] = z
+            results["logabsdet"] = logabsdet
         return results
