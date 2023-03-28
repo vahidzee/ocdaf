@@ -1,17 +1,18 @@
 import torch
 import typing as th
-import dypy as dy
+import dypy.wrappers as dyw
 from ocd.models.permutation.utils import (
     hungarian,
     sinkhorn,
     sample_gumbel_noise,
     listperm2matperm,
     evaluate_permutations,
+    translate_idx_ordering,
 )
 from lightning_toolbox import TrainingModule
 
 
-# @dy.dynamize
+@dyw.dynamize
 class LearnablePermutation(torch.nn.Module):
     def __init__(
         self,
@@ -24,10 +25,14 @@ class LearnablePermutation(torch.nn.Module):
         self.num_features = num_features
         self.device = device
         self.force_permutation = None
-        self.force_permutation = force_permutation  # used for debugging purposes only and is None by default
+
         if force_permutation is None:
             # initialize gamma for learnable permutation
             self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
+        else:
+            # used for debugging purposes only and is None by default
+            # self.force_permutation = translate_idx_ordering(force_permutation)
+            self.force_permutation = force_permutation
 
     def forward(
         self,
@@ -94,11 +99,11 @@ class LearnablePermutation(torch.nn.Module):
         return (results, gumbel_noise) if return_noise else results
 
     # todo: does not work with the current version of dypy (make it a property later)
-    # @dy.method
+    @dyw.method
     def parameterized_gamma(self):
         return self.gamma
 
-    # @dy.method
+    @dyw.method
     def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
         """
         A dynamic method that returns the number of iterations for the Sinkhorn algorithm.
@@ -112,7 +117,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         return 50
 
-    # @dy.method
+    @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
         """
         A dynamic method that returns the temperature for the Sinkhorn algorithm.
@@ -128,7 +133,7 @@ class LearnablePermutation(torch.nn.Module):
         return 0.1
 
     # todo: does not work with the current version of dypy (make it a property later)
-    # @dy.method
+    @dyw.method
     def gumbel_noise_std(self, training_module=None, **kwargs):
         """
         A dynamic method that returns the standard deviation of the Gumbel noise.
