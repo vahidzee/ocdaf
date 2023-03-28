@@ -1,5 +1,6 @@
 import torch
 from .masked import MaskedAffineFlowTransform
+from .permutation.utils import translate_idx_ordering
 import dypy as dy
 import typing as th
 import functools
@@ -52,7 +53,7 @@ class AffineFlow(torch.nn.ModuleList):
                 )
             )
         if ordering is not None:
-            self.reorder(torch.IntTensor(ordering))
+            self.reorder(torch.IntTensor(translate_idx_ordering(ordering)))
 
     def forward(self, inputs, perm_mat=None, return_intermediate_results: bool = False, **kwargs):
         """
@@ -185,7 +186,7 @@ class AffineFlow(torch.nn.ModuleList):
         if ordering is not None:
             ordering = torch.IntTensor(ordering)
         for flow in self:
-            flow.made.reorder(ordering, **kwargs)
+            flow.masked_mlp.reorder(ordering, **kwargs)
 
     @property
     def ordering(self) -> torch.IntTensor:
