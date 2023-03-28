@@ -3,17 +3,21 @@ init_args:
   # the model
   model_cls: ocd.models.ocdaf.OCDAF
   model_args:
-    use_permutation: False
+    # Permutation learner arguments
+    use_permutation: True
+    permutation_learner_cls: ocd.models.permutation.LearnablePermutation
+    permutation_learner_args:
+      force_permutation: [1, 0, 2]
+    # Base distribution arguments
     base_distribution: torch.distributions.Normal
     base_distribution_args:
       loc: 0.0
       scale: 1.0
+    # The flow model arguments
     in_features: 3
-    layers: [3, 3, 3]
+    layers: [100, 300, 100]
     num_transforms: 3
     additive: False
-    elementwise_perm: True
-    ordering: [1, 0, 2]
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU
@@ -31,6 +35,7 @@ init_args:
   # scheduler_interval: "epoch"
   # scheduler_monitor: loss/val
   # the loss
+  # objective_cls: ocd.training.terms.LikelihoodTerm
   objective_args:
     nll: >
-      lambda training_module, batch: -training_module.model(batch)['log_prob'].mean()
+      lambda training_module, batch: -training_module.forward(batch)['log_prob'].mean()

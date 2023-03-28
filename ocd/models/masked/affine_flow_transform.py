@@ -65,7 +65,6 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         """
         autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = self.masked_mlp(inputs, **kwargs)
         s, t = self._split_scale_and_shift(autoregressive_params)
-        print(s)
         # (1) Use Softplus
         # outputs = (inputs - t) / torch.nn.functional.softplus(s)
         # logabsdet = -torch.sum(torch.nn.functional.softplus(s), dim=-1)
