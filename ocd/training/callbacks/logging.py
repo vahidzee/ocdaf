@@ -85,7 +85,9 @@ class LoggingCallback(Callback):
         """
         The actual function that would be called whenever the logging functionality is needed
         """
-        pass
+        raise NotImplementedError(
+            "The evaluate function of a logging callback should be implemented by the child class"
+        )
 
     def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         res = super().on_train_epoch_end(trainer, pl_module)

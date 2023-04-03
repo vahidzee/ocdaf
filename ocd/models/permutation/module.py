@@ -9,6 +9,7 @@ from ocd.models.permutation.utils import (
     evaluate_permutations,
     translate_idx_ordering,
 )
+from lightning_toolbox import TrainingModule
 
 
 @dyw.dynamize
@@ -89,7 +90,8 @@ class LearnablePermutation(torch.nn.Module):
                 sinkhorn_num_iters=sinkhorn_num_iters,
                 **kwargs,
             )
-            results = perm_mat if return_matrix else perm_mat.argmax(-1)
+            # TODO: Check the following out closely! It might cause errors!
+            results = perm_mat if return_matrix else perm_mat.argmax(-2)
         else:
             results = self.hard_permutation(gamma=gamma, return_matrix=return_matrix, gumbel_noise=gumbel_noise)
 
@@ -140,7 +142,7 @@ class LearnablePermutation(torch.nn.Module):
         """
         if training_module is None:
             return 0.1
-        elif training_module.get_phase() == "maximization":
+        elif training_module.current_phase == "maximization":
             return 4
         else:
             return 0.5

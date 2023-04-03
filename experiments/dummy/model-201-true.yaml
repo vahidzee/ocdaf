@@ -15,9 +15,16 @@ init_args:
       scale: 1.0
     # The flow model arguments
     in_features: 3
+<<<<<<< HEAD
     layers: [100, 300, 100]
     num_transforms: 3
     additive: False
+=======
+    layers: [100, 1000, 100, 3]
+    num_transforms: 10
+    additive: False
+    ordering: [2, 0, 1]
+>>>>>>> 88ea1b57d5e6710f6bbbc608a53516cac65f08d1
     residual: False
     bias: true
     activation: torch.nn.LeakyReLU
