@@ -1,7 +1,6 @@
-
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import Callback
-from .logging import LoggingCallback
+from ..logging import LoggingCallback
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 import typing as th
 
