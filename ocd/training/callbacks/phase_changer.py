@@ -3,6 +3,7 @@ import typing as th
 import lightning.pytorch as pl
 from lightning_toolbox import TrainingModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
+import torch
 
 
 class PhaseChangerCallback(Callback):
@@ -25,6 +26,8 @@ class PhaseChangerCallback(Callback):
     def __init__(
         self,
         starting_phase: th.Literal["maximization", "expectation"] = "maximization",
+        # The setting for better performance
+        check_every_n_iterations: int = 1,
         # The settings regarding epoch limit values
         maximization_epoch_limit: int = 10,
         expectation_epoch_limit: int = 10,
@@ -35,6 +38,10 @@ class PhaseChangerCallback(Callback):
         generalization_patience: int = 5,
         generalization_threshold_eps: float = 0.0001,
     ):
+        self.check_every_n_iterations = check_every_n_iterations
+        self.training_iteration_counter = 0
+        self.validation_iteration_counter = 0
+
         self.starting_phase = starting_phase
 
         self.epochs_on_maximization = 0
@@ -97,6 +104,12 @@ class PhaseChangerCallback(Callback):
         batch_idx: int,
     ) -> None:
         ret = super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
+        self.training_iteration_counter += 1
+        if self.training_iteration_counter % self.check_every_n_iterations == 0:
+            return ret
+
+        outputs = pl_module.objective.results_latch
+
         if "loss" not in outputs:
             raise Exception(f"The training step must return a loss value but got the following instead:\n{outputs}")
 
@@ -108,6 +121,8 @@ class PhaseChangerCallback(Callback):
         else:
             self.training_loss_patience_remaining -= 1
             if self.training_loss_patience_remaining == 0:
+                print(">>>>>>> Changing phase <<<<<<<")
+                print(">>> Due to loss convergence <<<<")
                 self.change_phase(pl_module)
 
         # Take the minimum of current loss and the running minimum
@@ -125,6 +140,12 @@ class PhaseChangerCallback(Callback):
         dataloader_idx: int,
     ) -> None:
         ret = super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        self.validation_iteration_counter += 1
+        if self.validation_iteration_counter % self.check_every_n_iterations == 0:
+            return ret
+
+        outputs = pl_module.objective.results_latch
+
         if "loss" not in outputs:
             raise Exception(f"The validation step must return a loss value but got the following instead:\n{outputs}")
 
@@ -136,6 +157,8 @@ class PhaseChangerCallback(Callback):
         else:
             self.generalization_patience_remaining -= 1
             if self.generalization_patience_remaining == 0:
+                print(">>>>>>> Changing phase <<<<<<<")
+                print(">>> Due to validation early stopping <<<<")
                 self.change_phase(pl_module)
 
         # Take the minimum of current loss and the running minimum

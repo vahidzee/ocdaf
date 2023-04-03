@@ -29,10 +29,10 @@ class EvaluateFlow(LoggingCallback):
         self.reject_outliers_factor = reject_outliers_factor
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        all_inputs = torch.cat(self.all_logged_values["inputs"], dim=0)
+        all_inputs = self.all_logged_values["inputs"]
 
         if self.all_logged_values["perm_mat"][0] is not None:
-            all_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0)
+            all_permutations = self.all_logged_values["perm_mat"]
 
         all_sampled = []
         for input, perm_mat in zip(all_inputs, all_permutations):
@@ -41,6 +41,7 @@ class EvaluateFlow(LoggingCallback):
 
         all_sampled = torch.cat(all_sampled, dim=0)
         all_inputs = torch.cat(all_inputs, dim=0)
+
         imgs = qqplot(
             all_inputs.detach().cpu(),
             all_sampled,

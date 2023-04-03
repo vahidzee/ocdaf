@@ -270,7 +270,7 @@ class BirkhoffCallback(LoggingCallback):
                 self.birkhoff_vertex_scores.append(1)
             else:
                 ordering = perm.argmax(-2).tolist()
-                ordering_str = "-".join(ordering)
+                ordering_str = "-".join([str(x) for x in ordering])
                 if ordering_str not in ordering_to_score_mapping:
                     raise ValueError(
                         "The ordering {} was not found in the ordering_to_score_mapping".format(ordering_str)
@@ -278,6 +278,12 @@ class BirkhoffCallback(LoggingCallback):
                 else:
                     self.birkhoff_vertex_scores.append(ordering_to_score_mapping[ordering_str])
         self.birkhoff_vertex_scores = np.array(self.birkhoff_vertex_scores)
+
+    def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
+        if not hasattr(pl_module, "current_phase"):
+            raise ValueError(
+                "The Birkhoff callback only sits on top of a training module that has a current_phase attribute\nConsider adding a PhaseChangerCallback to your callbacks"
+            )
 
     def _print_unique_permutations(self, logged_permutations):
         real_logged_permutations = logged_permutations.argmax(axis=-2)
@@ -290,7 +296,7 @@ class BirkhoffCallback(LoggingCallback):
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         # Get the logged permutations
         logged_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0).detach().cpu().numpy()
-        logged_log_probs = torch.cat(self.all_logged_values["log_prob"], dim=0).detach().cpu().numpy()
+        logged_losses = -torch.cat(self.all_logged_values["log_prob"], dim=0).detach().cpu().numpy()
 
         # If we are to train the PCA every time, then we should fit it with the logged permutations here
         if self.fit_every_time:
@@ -302,7 +308,7 @@ class BirkhoffCallback(LoggingCallback):
         permutation_without_noise = permutation_without_noise.detach().cpu().numpy()
 
         clusters = None
-        cost_values = logged_log_probs
+        cost_values = logged_losses
         # If the logger wants to write the cost values, then we should cluster the points
         # and write the cost values at the centroid of each cluster
         if self.write_cost_values:
@@ -323,7 +329,7 @@ class BirkhoffCallback(LoggingCallback):
             colorbar_label="count backwards",
             image_size=(15, 10),
             title="Birkhoff Polytope of Permutations",
-            ylabel=f"phase {pl_module.get_phase()}",
+            ylabel=f"phase {pl_module.current_phase}",
             xlabel=f"epoch: {pl_module.current_epoch}",
         )
 

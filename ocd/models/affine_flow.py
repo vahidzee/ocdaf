@@ -144,10 +144,10 @@ class AffineFlow(torch.nn.ModuleList):
         """
         z, log_dets = inputs, 0  # initialize z and log_dets
         # iterate over flows in reverse order and apply inverse
+
         for i, flow in enumerate(reversed(self)):
             z, log_det = flow.inverse(inputs=z, **kwargs)
             log_dets += log_det  # sign is handled in flow.inverse
-
         return z, log_det
 
     def sample(self, num_samples: int, **kwargs) -> torch.Tensor:

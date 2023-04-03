@@ -1,17 +1,20 @@
 # callbacks
 callbacks:
+  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
     init_args:
       epoch_buffer_size: 1
-      evaluate_every_n_epochs: 10
+      evaluate_every_n_epochs: 30
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
       starting_phase: maximization
+      # Set to higher value for faster results
+      check_every_n_iterations: 1
       # The settings regarding epoch limit values
       maximization_epoch_limit: 400
       expectation_epoch_limit: 200
       # The settings regarding the loss convergence values
-      loss_convergence_patience: 5
+      loss_convergence_patience: 100
       loss_convergence_threshold_eps: 0.0001
       # The settings regarding the generalization gap
       generalization_patience: 5
@@ -19,19 +22,19 @@ callbacks:
   - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
     init_args:
       epoch_buffer_size: 1
-      evaluate_every_n_epochs: 10
+      evaluate_every_n_epochs: 1
       permutation_size: 3
       seed: 666
-      write_cost_values: False
+      write_cost_values: True
       core_points_has_birkhoff_vertices: True
       core_points_has_birkhoff_edges: False
       # Including correct orderings
       ordering_to_score_mapping: 
-        0-1-2: 1
-        0-2-1: 2
-        1-0-2: 1
+        0-1-2: 2
+        0-2-1: 1
+        1-0-2: 3
         1-2-0: 2
-        2-0-1: 1
+        2-0-1: 0
         2-1-0: 1
       # Include permutation names
       add_permutation_to_name: False
@@ -42,7 +45,7 @@ callbacks:
   #     checkpoint_name: 201-true-softplus
   #     freq: 60
 # device
-accelerator: gpu
+accelerator: cpu
 devices: 1
 num_nodes: 0
 # optimization
@@ -62,5 +65,5 @@ enable_progress_bar: false
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: temporary
-    name: 201-true-softplus
+    project: temporary-permutation
+    name: good-data-run

@@ -18,6 +18,7 @@ class LearnablePermutation(torch.nn.Module):
         self,
         num_features: int,
         force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
+        eps_sinkhorn: float = 1e-2,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
@@ -25,6 +26,7 @@ class LearnablePermutation(torch.nn.Module):
         self.num_features = num_features
         self.device = device
         self.force_permutation = None
+        self.eps_sinkhorn = eps_sinkhorn
 
         if force_permutation is None:
             # initialize gamma for learnable permutation
@@ -141,11 +143,12 @@ class LearnablePermutation(torch.nn.Module):
             The standard deviation of the Gumbel noise.
         """
         if training_module is None:
-            return 0.1
+            ret = 15.0
         elif training_module.current_phase == "maximization":
-            return 4
+            ret = 20.0
         else:
-            return 0.5
+            ret = 0.5
+        return ret
 
     def soft_permutation(
         self,
@@ -153,6 +156,7 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise: th.Optional[torch.Tensor] = None,
         sinkhorn_temp: th.Optional[float] = None,
         sinkhorn_num_iters: th.Optional[int] = None,
+        eps: th.Optional[float] = None,
         **kwargs,  # for sinkhorn num_iters and temp dynamic methods
     ) -> torch.Tensor:
         """
@@ -174,7 +178,20 @@ class LearnablePermutation(torch.nn.Module):
         # transform gamma with log-sigmoid and temperature
         gamma = torch.nn.functional.logsigmoid(gamma)
         noise = gumbel_noise if gumbel_noise is not None else 0.0
-        return sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
+        all_mats = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
+
+        # Sometimes sinkhorn operator returns matrices that are not doubly stochastic
+        # in these cases we get the problematic indices and set them to the identity matrix
+        eps = eps or self.eps_sinkhorn
+        cond_row = torch.any(
+            (torch.sum(all_mats, dim=-1) > 1.0 + eps) | (torch.sum(all_mats, dim=-1) < 1.0 - eps), dim=-1
+        )
+        cond_col = torch.any(
+            (torch.sum(all_mats, dim=-2) > 1.0 + eps) | (torch.sum(all_mats, dim=-2) < 1.0 - eps), dim=-1
+        )
+        all_mats[cond_row | cond_col] = torch.eye(self.num_features, device=all_mats.device)
+
+        return all_mats
 
     def hard_permutation(
         self,

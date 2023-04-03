@@ -25,6 +25,21 @@ def qqplot(
         x_samples = a[:, i].detach().cpu().numpy().flatten()
         y_samples = b[:, i].detach().cpu().numpy().flatten()
 
+        # Put aside all the nan values
+        potential_nan = np.isnan(x_samples) | np.isnan(y_samples)
+        potential_nan = potential_nan | np.isinf(x_samples) | np.isinf(y_samples)
+        potential_nan = potential_nan | (y_samples > np.mean(x_samples) + reject_outliers_factor * np.std(x_samples))
+        potential_nan = potential_nan | (y_samples < np.mean(x_samples) - reject_outliers_factor * np.std(x_samples))
+        potential_nan = potential_nan | (x_samples > np.mean(y_samples) + reject_outliers_factor * np.std(y_samples))
+        potential_nan = potential_nan | (x_samples < np.mean(y_samples) - reject_outliers_factor * np.std(y_samples))
+
+        # if there are any nan values throw a warning
+        # if np.sum(potential_nan) > 0:
+        #     print(f"Warning: nan values in the generator")
+
+        x_samples = x_samples[~potential_nan]
+        y_samples = y_samples[~potential_nan]
+
         fig, ax = plt.subplots()
         # customize the image size if needed
         if image_size:
@@ -36,6 +51,7 @@ def qqplot(
             mn = min(np.min(x_samples), np.min(y_samples))
             mx = max(np.max(x_samples), np.max(y_samples))
             ax.plot(np.linspace(mn, mx, 100), np.linspace(mn, mx, 100), c="red", alpha=0.2, label="y=x")
+            ax.text(0, 0, f"Outliers: {np.sum(potential_nan)}/{len(potential_nan)}", fontsize=10, color="red")
             x_samples = np.sort(x_samples)
             y_samples = np.sort(y_samples)
 

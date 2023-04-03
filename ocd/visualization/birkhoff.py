@@ -1,5 +1,6 @@
 import typing as th
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def visualize_exploration(

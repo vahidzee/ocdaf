@@ -54,7 +54,7 @@ class LoggingCallback(Callback):
                     self.all_logged_values[key].append(item.detach().cpu())
                 else:
                     self.all_logged_values[key].append(item)
-
+            self.all_logged_values["loss"].append(pl_module.objective.results_latch["loss"].detach().cpu())
         return super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
 
     def on_validation_batch_end(
