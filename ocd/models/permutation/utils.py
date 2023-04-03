@@ -5,6 +5,13 @@ import typing as th
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
 
 
+def translate_idx_ordering(idx: th.Union[th.List[int], th.List[th.List[int]]]):
+    if isinstance(idx[0], list):
+        return [translate_idx_ordering(i) for i in idx]
+    else:
+        return [j for i, j in sorted(zip(idx, range(len(idx))))]
+
+
 def sample_gumbel_noise(*args, eps=1e-20, **kwargs):
     """Samples arbitrary-shaped standard gumbel variables.
     Args:
