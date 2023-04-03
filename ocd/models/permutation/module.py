@@ -181,7 +181,7 @@ class LearnablePermutation(torch.nn.Module):
         all_mats = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
         # Sometimes sinkhorn operator returns matrices that are not doubly stochastic
-        # in these cases we get the problematic indices and set them to the identity matrix
+        # in these cases we get the problematic indices and set them to some hard permutation
         eps = eps or self.eps_sinkhorn
         cond_row = torch.any(
             (torch.sum(all_mats, dim=-1) > 1.0 + eps) | (torch.sum(all_mats, dim=-1) < 1.0 - eps), dim=-1
@@ -189,7 +189,11 @@ class LearnablePermutation(torch.nn.Module):
         cond_col = torch.any(
             (torch.sum(all_mats, dim=-2) > 1.0 + eps) | (torch.sum(all_mats, dim=-2) < 1.0 - eps), dim=-1
         )
-        all_mats[cond_row | cond_col] = torch.eye(self.num_features, device=all_mats.device)
+        idx = cond_row | cond_col
+        # For idx we set them using a hard permutation
+        if torch.any(idx):
+            hard_permutations = self.hard_permutation(gamma=gamma, gumbel_noise=gumbel_noise[idx])
+            all_mats[idx] = hard_permutations
 
         return all_mats
 
