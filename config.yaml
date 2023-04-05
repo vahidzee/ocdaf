@@ -1,0 +1,253 @@
+# lightning.pytorch==1.9.4
+seed_everything: 100
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      name: good-data-run-softplus
+      save_dir: .
+      version: null
+      offline: false
+      dir: null
+      id: null
+      anonymous: null
+      project: temporary-permutation
+      log_model: false
+      experiment: null
+      prefix: ''
+      checkpoint_name: null
+      job_type: null
+      config: null
+      entity: null
+      reinit: null
+      tags: null
+      group: null
+      notes: null
+      magic: null
+      config_exclude_keys: null
+      config_include_keys: null
+      mode: null
+      allow_val_change: null
+      resume: null
+      force: null
+      tensorboard: null
+      sync_tensorboard: null
+      monitor_gym: null
+      save_code: null
+      settings: null
+  enable_checkpointing: false
+  callbacks:
+  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+    init_args:
+      image_size: null
+  - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+    init_args:
+      starting_phase: maximization
+      check_every_n_iterations: 1
+      maximization_epoch_limit: 200
+      expectation_epoch_limit: 200
+      loss_convergence_patience: 100
+      loss_convergence_threshold_eps: 0.0001
+      generalization_patience: 5
+      generalization_threshold_eps: 0.0001
+  - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+    init_args:
+      evaluate_every_n_epochs: 1
+      evaluate_every_n_epoch_logic: null
+      epoch_buffer_size: 1
+      log_training: true
+      log_validation: false
+      permutation_size: 3
+      seed: 666
+      fit_every_time: false
+      write_cost_values: true
+      loss_cluster_count: 100
+      core_points_has_birkhoff_vertices: true
+      core_points_has_birkhoff_edges: false
+      ordering_to_score_mapping:
+        0-1-2: 2
+        0-2-1: 1
+        1-0-2: 3
+        1-2-0: 2
+        2-0-1: 0
+        2-1-0: 1
+      add_permutation_to_name: false
+  - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
+    init_args:
+      generator_batch_size: 100
+      evaluate_every_n_epochs: 3
+      evaluate_every_n_epoch_logic: null
+      epoch_buffer_size: 1
+      log_training: true
+      log_validation: false
+      reject_outliers_factor: 10.0
+      batch_size: 32
+  default_root_dir: null
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: value
+  num_nodes: 0
+  num_processes: null
+  devices: 1
+  gpus: null
+  auto_select_gpus: null
+  tpu_cores: null
+  ipus: null
+  enable_progress_bar: false
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: false
+  accumulate_grad_batches: null
+  max_epochs: 400
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  limit_predict_batches: null
+  val_check_interval: null
+  log_every_n_steps: 1
+  accelerator: cpu
+  strategy: null
+  sync_batchnorm: false
+  precision: 32
+  enable_model_summary: true
+  num_sanity_val_steps: 2
+  resume_from_checkpoint: null
+  profiler: null
+  benchmark: null
+  deterministic: null
+  reload_dataloaders_every_n_epochs: 0
+  auto_lr_find: false
+  replace_sampler_ddp: true
+  detect_anomaly: false
+  auto_scale_batch_size: false
+  plugins: null
+  amp_backend: null
+  amp_level: null
+  move_metrics_to_cpu: false
+  multiple_trainloader_mode: max_size_cycle
+  inference_mode: true
+ckpt_path: null
+model:
+  class_path: lightning_toolbox.TrainingModule
+  init_args:
+    model: null
+    model_cls: ocd.models.ocdaf.OCDAF
+    model_args:
+      use_permutation: true
+      permutation_learner_cls: ocd.models.permutation.LearnablePermutation
+      permutation_learner_args:
+        eps_sinkhorn: 0.01
+      base_distribution: torch.distributions.Normal
+      base_distribution_args:
+        loc: 0.0
+        scale: 1.0
+      in_features: 3
+      layers:
+      - 33
+      - 999
+      - 333
+      num_transforms: 3
+      additive: false
+      residual: false
+      bias: true
+      activation: torch.nn.LeakyReLU
+      activation_args:
+        negative_slope: 0.1
+    objective: null
+    objective_cls: lightning_toolbox.Objective
+    objective_args:
+      nll: 'lambda training_module, batch: -training_module.forward(batch)[''log_prob''].mean()
+
+        '
+    optimizer:
+    - torch.optim.AdamW
+    - torch.optim.AdamW
+    optimizer_frequency: null
+    optimizer_is_active:
+    - 'lambda training_module: training_module.current_phase == ''maximization''
+
+      '
+    - 'lambda training_module: training_module.current_phase == ''expectation''
+
+      '
+    optimizer_parameters:
+    - model.flow
+    - model.permutation_model
+    optimizer_args: null
+    lr: 0.001
+    scheduler: null
+    scheduler_name: null
+    scheduler_optimizer: null
+    scheduler_args: null
+    scheduler_interval: epoch
+    scheduler_frequency: 1
+    scheduler_monitor: null
+    scheduler_strict: null
+    save_hparams: true
+    initialize_superclass: true
+data:
+  class_path: lightning_toolbox.DataModule
+  init_args:
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+      seed: 100
+      scm_generator: ocd.data.scm.InvertibleModulatedGaussianSCMGenerator
+      scm_generator_args:
+        graph_generator: ocd.data.scm.GraphGenerator
+        graph_generator_args:
+          enforce_ordering:
+          - 2
+          - 0
+          - 1
+          graph_type: random_dag
+          n: 3
+          p: 0.7
+          m: 10
+          seed: 666
+        seed: 100
+        std: 1.0
+        mean: 0.0
+        weight_s:
+        - 1
+        - 2
+        weight_t:
+        - 1
+        - 2
+        s_function: 'lambda x: numpy.log(1 + numpy.exp(x))
+
+          '
+        s_function_signature: softplus
+        t_function: 'lambda x: x + numpy.sin(x)
+
+          '
+        t_function_signature: sin_plus_x
+      observation_size: 10240
+    train_dataset: null
+    train_dataset_args: null
+    val_size: 0.1
+    val_dataset: null
+    val_dataset_args: null
+    test_dataset: null
+    test_dataset_args: null
+    batch_size: 128
+    train_batch_size: null
+    val_batch_size: null
+    test_batch_size: null
+    pin_memory: true
+    train_pin_memory: null
+    val_pin_memory: null
+    test_pin_memory: null
+    train_shuffle: true
+    val_shuffle: false
+    test_shuffle: false
+    num_workers: 0
+    train_num_workers: null
+    val_num_workers: null
+    test_num_workers: null
+    seed: 0
+    save_hparams: true
+    initialize_superclass: true

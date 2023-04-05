@@ -1,17 +1,13 @@
 # callbacks
 callbacks:
   - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
-  - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
-    init_args:
-      epoch_buffer_size: 1
-      evaluate_every_n_epochs: 30
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
       starting_phase: maximization
       # Set to higher value for faster results
       check_every_n_iterations: 1
       # The settings regarding epoch limit values
-      maximization_epoch_limit: 400
+      maximization_epoch_limit: 200
       expectation_epoch_limit: 200
       # The settings regarding the loss convergence values
       loss_convergence_patience: 100
@@ -38,7 +34,11 @@ callbacks:
         2-1-0: 1
       # Include permutation names
       add_permutation_to_name: False
-      
+  - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
+    init_args:
+      epoch_buffer_size: 1
+      evaluate_every_n_epochs: 3
+      batch_size: 32
   # - class_path: ocd.training.callbacks.checkpointing.CheckpointingCallback
   #   init_args:
   #     checkpoint_address: lightning_logs
@@ -66,4 +66,4 @@ logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
     project: temporary-permutation
-    name: good-data-run
+    name: good-data-run-softplus

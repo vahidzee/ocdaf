@@ -21,6 +21,7 @@ class OCDAF(torch.nn.Module):
         # additional flow args
         additive: bool = False,
         num_transforms: int = 1,
+        clamp_val: float = 1e8,
         # base distribution
         base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
@@ -47,6 +48,7 @@ class OCDAF(torch.nn.Module):
             activation_args=activation_args,
             batch_norm=batch_norm,
             batch_norm_args=batch_norm_args,
+            clamp_val=clamp_val,
             additive=additive,
             num_transforms=num_transforms,
             ordering=ordering,
@@ -87,7 +89,12 @@ class OCDAF(torch.nn.Module):
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
             latent_permutation, gumbel_noise = self.permutation_model(
-                inputs=inputs, num_samples=inputs.shape[0], soft=soft, return_noise=True, **kwargs
+                inputs=inputs,
+                num_samples=inputs.shape[0],
+                soft=soft,
+                return_noise=True,
+                training_module=training_module,
+                **kwargs,
             )
 
         if training_module is not None:

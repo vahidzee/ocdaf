@@ -143,11 +143,13 @@ class LearnablePermutation(torch.nn.Module):
             The standard deviation of the Gumbel noise.
         """
         if training_module is None:
-            ret = 15.0
+            ret = 1
         elif training_module.current_phase == "maximization":
-            ret = 20.0
-        else:
+            ret = 15.0
+        elif training_module.current_phase == "expectation":
             ret = 0.5
+        else:
+            raise ValueError(f"Unknown phase: {training_module.current_phase}")
         return ret
 
     def soft_permutation(
@@ -192,8 +194,21 @@ class LearnablePermutation(torch.nn.Module):
         idx = cond_row | cond_col
         # For idx we set them using a hard permutation
         if torch.any(idx):
-            hard_permutations = self.hard_permutation(gamma=gamma, gumbel_noise=gumbel_noise[idx])
+            if isinstance(noise, torch.Tensor):
+                noise = noise[idx]
+            hard_permutations = self.hard_permutation(gamma=gamma, gumbel_noise=noise)
             all_mats[idx] = hard_permutations
+
+        eps = eps or self.eps_sinkhorn
+        cond_row = torch.any(
+            (torch.sum(all_mats, dim=-1) > 1.0 + eps) | (torch.sum(all_mats, dim=-1) < 1.0 - eps), dim=-1
+        )
+        cond_col = torch.any(
+            (torch.sum(all_mats, dim=-2) > 1.0 + eps) | (torch.sum(all_mats, dim=-2) < 1.0 - eps), dim=-1
+        )
+        idx = cond_row | cond_col
+        if torch.any(idx):
+            raise RuntimeError("Sinkhorn operator did not return a doubly stochastic matrix.")
 
         return all_mats
 
@@ -216,7 +231,7 @@ class LearnablePermutation(torch.nn.Module):
         gamma = gamma if gamma is not None else self.parameterized_gamma()
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
-        return listperm2matperm(listperm) if return_matrix else listperm
+        return listperm2matperm(listperm, device=gamma.device) if return_matrix else listperm
 
     def evaluate_permutations(
         self,

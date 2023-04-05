@@ -18,6 +18,8 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # transform args
         additive: bool = False,
+        # Clamp value
+        clamp_val: float = 1e9,
         # ordering
         reversed_ordering: bool = False,
         # general args
@@ -30,6 +32,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         if not additive:
             out_features = in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
 
+        self.clamp_val = clamp_val
         self.masked_mlp = MaskedMLP(
             in_features=in_features,
             layers=layers,
@@ -45,6 +48,14 @@ class MaskedAffineFlowTransform(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
+
+    def clamp(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        This function takes in a tensor and runs an element-wise operation on it.
+        If the values are between [-clamp_val, clamp_val], it returns the value.
+        otherwise, it returns +-self.clamp_val
+        """
+        return torch.clamp(x, -self.clamp_val, self.clamp_val)
 
     def compute_dependencies(
         self, inputs: th.Optional[torch.Tensor] = None, *, forward: bool = True, **kwargs
@@ -67,12 +78,23 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         s, t = self._split_scale_and_shift(autoregressive_params)
         # (1) Use Softplus
         # outputs = (inputs - t) / torch.nn.functional.softplus(s)
-        # logabsdet = -torch.sum(torch.nn.functional.softplus(s), dim=-1)
+        # logabsdet = -torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
 
         # (2) Use exp
-        outputs = inputs * torch.exp(-s) - t * torch.exp(-s)
-        logabsdet = -torch.sum(s, dim=-1)
-        return outputs, logabsdet
+        print("Inputs before FLOW:", torch.max(torch.abs(inputs)))
+        print("Exp -s:", torch.max(torch.abs(torch.exp(-s))))
+        print("t:", torch.max(torch.abs(t)))
+        # WARNING
+        # (inputs - t) * torch.exp(-s)
+        # is different from
+        # inputs * torch.exp(-s) - t * torch.exp(-s)
+        # while overflowing
+        outputs = (self.clamp(inputs) - self.clamp(t)) * self.clamp(torch.exp(-s))
+        print("After FLOW: ", torch.max(torch.abs(outputs)))
+
+        # Clamp the outputs to prevent overflow
+        logabsdet = -torch.sum(self.clamp(s), dim=-1)
+        return self.clamp(outputs), self.clamp(logabsdet)
 
     def inverse(
         self,
@@ -103,11 +125,13 @@ class MaskedAffineFlowTransform(torch.nn.Module):
 
             # (1) Use Softplus
             # outputs = torch.nn.functional.softplus(s) * z + t
-            # logabsdet = torch.sum(torch.nn.functional.softplus(s), dim=-1)
+            # logabsdet = torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
 
             # (2) Use Exp
-            outputs = torch.exp(s) * z + t  # this is the inverse of the affine transformation
-            logabsdet = torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
+            outputs = self.clamp(self.clamp(torch.exp(s)) * z + t)
+            # this is the inverse of the affine transformation
+            logabsdet = torch.sum(self.clamp(s), dim=-1)  # this is the inverse of the logabsdet
+            # Clamp the outputs to prevent overflow
         # unflatten the outputs and logabsdet to match the original batch shape
         return outputs.unflatten(0, inputs.shape[:-1]), logabsdet.unflatten(0, inputs.shape[:-1])
 

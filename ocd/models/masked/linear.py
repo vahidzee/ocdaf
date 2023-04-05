@@ -239,6 +239,11 @@ class MaskedLinear(torch.nn.Linear):
         # first permutation, and the second 2 inputs with the second permutation.
         weights = weights.repeat_interleave(inputs_batch_size // weights_batch_size, dim=0)
 
+        print("Maximum x before")
+        print(torch.max(torch.abs(x)))
+        print(torch.max(torch.abs(weights)))
         results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)
+        print("Maximum x after")
+        print(torch.max(torch.abs(results)))
 
         return results.unflatten(0, inputs.shape[:-1]) + (self.bias if self.bias is not None else 0)

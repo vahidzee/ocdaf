@@ -175,8 +175,8 @@ def listperm2matperm(listperm: th.Union[torch.Tensor, th.List[int]], device=None
         shape = [batch_size, n_objects, n_objects] so that matperm[n, :, :] is a
         permutation of the identity matrix, with matperm[n, i, listperm[n,i]] = 1
     """
-    listperm = torch.as_tensor(listperm) if not isinstance(listperm, torch.Tensor) else listperm
-    return torch.eye(listperm.shape[-1])[listperm.long()].to(device=device, dtype=dtype)
+    listperm = torch.as_tensor(listperm, device=device) if not isinstance(listperm, torch.Tensor) else listperm
+    return torch.eye(listperm.shape[-1], device=device)[listperm.long()].to(device=device, dtype=dtype)
 
 
 def hungarian(matrix_batch):
@@ -201,13 +201,14 @@ def hungarian(matrix_batch):
     import numpy as np
 
     # perform the hungarian algorithm on the cpu
+    device = matrix_batch.device
     matrix_batch = matrix_batch.detach().cpu().numpy()
     if matrix_batch.ndim == 2:
         matrix_batch = np.reshape(matrix_batch, [1, matrix_batch.shape[0], matrix_batch.shape[1]])
     sol = np.zeros((matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
     for i in range(matrix_batch.shape[0]):
         sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
-    return torch.from_numpy(sol)
+    return torch.from_numpy(sol).to(device)
 
 
 def all_permutations(n):

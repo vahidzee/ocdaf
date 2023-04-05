@@ -21,12 +21,14 @@ class EvaluateFlow(LoggingCallback):
         log_training: bool = True,
         log_validation: bool = False,
         reject_outliers_factor: float = 10,
+        batch_size: int = 32,
     ):
         super().__init__(
             evaluate_every_n_epochs, evaluate_every_n_epoch_logic, epoch_buffer_size, log_training, log_validation
         )
         self.generator_batch_size = generator_batch_size
         self.reject_outliers_factor = reject_outliers_factor
+        self.batch_size = batch_size
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         all_inputs = self.all_logged_values["inputs"]
@@ -36,8 +38,12 @@ class EvaluateFlow(LoggingCallback):
 
         all_sampled = []
         for input, perm_mat in zip(all_inputs, all_permutations):
-            sampled_values = pl_module.model.flow.sample(num_samples=input.shape[0], perm_mat=perm_mat)
-            all_sampled.append(sampled_values.detach().cpu())
+            # For each batch of the input data, decompose into multiple batches again
+            # this is for some cuda out of memory issues
+            for i in range(0, input.shape[0], self.batch_size):
+                b = min(self.batch_size, input.shape[0] - i)
+                sampled_values = pl_module.model.flow.sample(num_samples=b, perm_mat=perm_mat[i : i + b])
+                all_sampled.append(sampled_values.detach().cpu())
 
         all_sampled = torch.cat(all_sampled, dim=0)
         all_inputs = torch.cat(all_inputs, dim=0)

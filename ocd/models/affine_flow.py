@@ -21,6 +21,7 @@ class AffineFlow(torch.nn.ModuleList):
         # additional flow args
         additive: bool = False,
         num_transforms: int = 1,
+        clamp_val: float = 1e8,
         # base distribution
         base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
@@ -34,6 +35,7 @@ class AffineFlow(torch.nn.ModuleList):
         super().__init__()
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
         self.in_features = in_features
+        self.clamp_val = clamp_val
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
@@ -47,6 +49,7 @@ class AffineFlow(torch.nn.ModuleList):
                     batch_norm=batch_norm,
                     batch_norm_args=batch_norm_args,
                     additive=additive,
+                    clamp_val=clamp_val,
                     reversed_ordering=reversed_ordering,
                     device=device,
                     dtype=dtype,
@@ -73,6 +76,7 @@ class AffineFlow(torch.nn.ModuleList):
                 results.append(z)
             z, log_det = flow(inputs=z, perm_mat=perm_mat, **kwargs)
             log_dets += log_det.reshape(-1)
+            log_dets = torch.clamp(log_dets, -flow.clamp_val, flow.clamp_val)
 
         z, log_dets = z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
         if return_intermediate_results:
@@ -148,6 +152,7 @@ class AffineFlow(torch.nn.ModuleList):
         for i, flow in enumerate(reversed(self)):
             z, log_det = flow.inverse(inputs=z, **kwargs)
             log_dets += log_det  # sign is handled in flow.inverse
+            log_dets = torch.clamp(log_dets, -flow.clamp_val, flow.clamp_val)
         return z, log_det
 
     def sample(self, num_samples: int, **kwargs) -> torch.Tensor:
@@ -179,9 +184,11 @@ class AffineFlow(torch.nn.ModuleList):
         assert (x is None) != (z is None), "Either x or z must be None"
         z, logabsdet = self.forward(x, **kwargs) if z is None else (z, logabsdet)
         flat_z = z.reshape(-1, z.shape[-1])
+        # print the maximum and minimum values of the latent variables
+        print(flat_z.max(), flat_z.min())
         log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
-        return log_base_prob + logabsdet
+        return torch.clamp(log_base_prob + logabsdet, -self.clamp_val, self.clamp_val)
 
     def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:
