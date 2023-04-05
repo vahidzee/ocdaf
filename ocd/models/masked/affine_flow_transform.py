@@ -81,16 +81,12 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         # logabsdet = -torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
 
         # (2) Use exp
-        print("Inputs before FLOW:", torch.max(torch.abs(inputs)))
-        print("Exp -s:", torch.max(torch.abs(torch.exp(-s))))
-        print("t:", torch.max(torch.abs(t)))
         # WARNING
         # (inputs - t) * torch.exp(-s)
         # is different from
         # inputs * torch.exp(-s) - t * torch.exp(-s)
         # while overflowing
         outputs = (self.clamp(inputs) - self.clamp(t)) * self.clamp(torch.exp(-s))
-        print("After FLOW: ", torch.max(torch.abs(outputs)))
 
         # Clamp the outputs to prevent overflow
         logabsdet = -torch.sum(self.clamp(s), dim=-1)

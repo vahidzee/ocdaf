@@ -76,7 +76,6 @@ class AffineFlow(torch.nn.ModuleList):
                 results.append(z)
             z, log_det = flow(inputs=z, perm_mat=perm_mat, **kwargs)
             log_dets += log_det.reshape(-1)
-            log_dets = torch.clamp(log_dets, -flow.clamp_val, flow.clamp_val)
 
         z, log_dets = z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
         if return_intermediate_results:
@@ -152,7 +151,6 @@ class AffineFlow(torch.nn.ModuleList):
         for i, flow in enumerate(reversed(self)):
             z, log_det = flow.inverse(inputs=z, **kwargs)
             log_dets += log_det  # sign is handled in flow.inverse
-            log_dets = torch.clamp(log_dets, -flow.clamp_val, flow.clamp_val)
         return z, log_det
 
     def sample(self, num_samples: int, **kwargs) -> torch.Tensor:
@@ -188,7 +186,7 @@ class AffineFlow(torch.nn.ModuleList):
         print(flat_z.max(), flat_z.min())
         log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
-        return torch.clamp(log_base_prob + logabsdet, -self.clamp_val, self.clamp_val)
+        return log_base_prob + logabsdet
 
     def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
         if ordering is not None:

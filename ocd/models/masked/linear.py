@@ -113,6 +113,10 @@ class MaskedLinear(torch.nn.Linear):
         )
         self.mode: th.Literal["block", "single"] = "block" if isinstance(self.out_blocks, list) else "single"
 
+        # Register hooks for gradient clipping and nans
+        for param in self.parameters():
+            param.register_hook(lambda grad: torch.nan_to_num(grad, nan=0.0, posinf=1, neginf=-1))
+
     def reorder(
         self,
         inputs_ordering: torch.IntTensor,
