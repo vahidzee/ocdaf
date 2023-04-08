@@ -186,6 +186,8 @@ class BirkhoffCallback(LoggingCallback):
         ordering_to_score_mapping: th.Optional[th.Dict[str, int]] = None,
         # Include permutation names
         add_permutation_to_name: bool = False,
+        # Reject outlier cost values
+        reject_outlier_factor: th.Optional[float] = None,
     ) -> None:
         """
         This is a lightning callback that visualizes how the model explores and behaves.
@@ -226,6 +228,7 @@ class BirkhoffCallback(LoggingCallback):
         self.add_permutation_to_name = add_permutation_to_name
 
         self.seed = seed
+        self.reject_outlier_factor = reject_outlier_factor
         # set the seed of numpy
         np.random.seed(self.seed)
 
@@ -326,6 +329,7 @@ class BirkhoffCallback(LoggingCallback):
             sampled_permutations=logged_permutations,
             clusters=clusters,
             cost_values=cost_values,
+            outliers_factor=self.reject_outlier_factor,
             permutation_without_noise=permutation_without_noise,
             birkhoff_vertices=self.birkhoff_vertices,
             birkhoff_vertices_cost=self.birkhoff_vertex_scores,

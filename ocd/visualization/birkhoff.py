@@ -15,6 +15,7 @@ def visualize_exploration(
     birkhoff_vertices: th.Optional[np.array] = None,
     birkhoff_vertices_cost: th.Optional[np.array] = None,
     birkhoff_vertices_name: th.Optional[th.List] = None,
+    outliers_factor: th.Optional[float] = None,
     colorbar_label: str = "permutation scores",
     image_size: th.Optional[th.Tuple[float, float]] = None,
     ylabel: str = "y",
@@ -89,8 +90,23 @@ def visualize_exploration(
                 if cost_values is not None:
                     centroid_t = np.mean(sampled_permutations_t[clusters == c, :], axis=0)
                     # get the average cost of the cluster
-                    cost = np.mean(cost_values[clusters == c])
-                    text = f"{cost:.2f}/{100 * len(cost_values[clusters == c]) * 1.0 / len(cost_values):.1f}%"
+                    percent = int(100 * len(cost_values[clusters == c]) * 1.0 / len(cost_values))
+                    unfiltered_cost = np.mean(cost_values[clusters == c])
+
+                    # Reject outliers if outliers_factor is not None
+                    if outliers_factor is not None:
+                        filtered_cost = cost_values[clusters == c]
+                        filtered_cost = np.sort(filtered_cost)
+                        t = int(len(filtered_cost) * outliers_factor)
+                        filtered_cost = filtered_cost[t:-t]
+
+                    cost = np.mean(filtered_cost)
+
+                    if outliers_factor is not None:
+                        text = f"{cost:.2f}/{unfiltered_cost:.2f}/{percent}%"
+                    else:
+                        text = f"{cost:.2f}/{percent}%"
+
                     # plot text on the centroid
                     ax.text(centroid_t[0], centroid_t[1], text, fontsize=8)
         else:
