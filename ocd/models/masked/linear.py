@@ -112,10 +112,17 @@ class MaskedLinear(torch.nn.Linear):
             ),
         )
         self.mode: th.Literal["block", "single"] = "block" if isinstance(self.out_blocks, list) else "single"
+        self.contains_nan = False
 
         # Register hooks for gradient clipping and nans
+        def hook_fn(grad):
+            # if grad contains at least one nan, return a tensor of zeros
+            # this is for some rare cases where the gradient contains nans
+            # and we don't want to spoil the whole training thus far
+            return torch.zeros_like(grad) if self.contains_nan or torch.isnan(grad).any() else grad
+
         for param in self.parameters():
-            param.register_hook(lambda grad: torch.nan_to_num(grad, nan=0.0, posinf=1, neginf=-1))
+            param.register_hook(hook_fn)
 
     def reorder(
         self,
@@ -222,6 +229,12 @@ class MaskedLinear(torch.nn.Linear):
                 `inputs @ (self.mask * self.weights).T + self.bias`
             output shape is (batch, out_features) if perm_mat is not None,
         """
+        # if inputs contains a large value or nan set self.contains_nan to True
+        if torch.isnan(inputs).any() or torch.isinf(inputs).any() or torch.max(torch.abs(inputs)) > 1e3:
+            self.contains_nan = True
+        else:
+            self.contains_nan = False
+
         perm_mat = perm_mat.to(self.weight.device) if perm_mat is not None else None
         # inputs = inputs.to(self.weight.device)
         # compute the mask and mask the weights
@@ -243,11 +256,5 @@ class MaskedLinear(torch.nn.Linear):
         # first permutation, and the second 2 inputs with the second permutation.
         weights = weights.repeat_interleave(inputs_batch_size // weights_batch_size, dim=0)
 
-        print("Maximum x before")
-        print(torch.max(torch.abs(x)))
-        print(torch.max(torch.abs(weights)))
         results = torch.bmm(x.unsqueeze(1), weights).squeeze(1)
-        print("Maximum x after")
-        print(torch.max(torch.abs(results)))
-
         return results.unflatten(0, inputs.shape[:-1]) + (self.bias if self.bias is not None else 0)

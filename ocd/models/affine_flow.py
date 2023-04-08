@@ -183,7 +183,6 @@ class AffineFlow(torch.nn.ModuleList):
         z, logabsdet = self.forward(x, **kwargs) if z is None else (z, logabsdet)
         flat_z = z.reshape(-1, z.shape[-1])
         # print the maximum and minimum values of the latent variables
-        print(flat_z.max(), flat_z.min())
         log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
         log_base_prob = log_base_prob.reshape(z.shape[:-1])
         return log_base_prob + logabsdet

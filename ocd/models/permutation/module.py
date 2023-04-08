@@ -10,6 +10,7 @@ from ocd.models.permutation.utils import (
     translate_idx_ordering,
 )
 from lightning_toolbox import TrainingModule
+from .utils import is_permutation, is_doubly_stochastic
 
 
 @dyw.dynamize
@@ -18,7 +19,8 @@ class LearnablePermutation(torch.nn.Module):
         self,
         num_features: int,
         force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
-        eps_sinkhorn: float = 1e-2,
+        eps_sinkhorn_permutation_matrix: th.Optional[float] = None,
+        eps_sinkhorn_doubly_stochastic: th.Optional[float] = None,
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
@@ -26,11 +28,20 @@ class LearnablePermutation(torch.nn.Module):
         self.num_features = num_features
         self.device = device
         self.force_permutation = None
-        self.eps_sinkhorn = eps_sinkhorn
+        self.eps_sinkhorn_permutation_matrix = eps_sinkhorn_permutation_matrix
+        self.eps_sinkhorn_doubly_stochastic = eps_sinkhorn_doubly_stochastic
 
         if force_permutation is None:
             # initialize gamma for learnable permutation
             self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
+
+            def hook_fn(grad):
+                # if grad contains at least one nan, return a tensor of zeros
+                # this is for some rare cases where the gradient contains nans
+                # and we don't want to spoil the whole training thus far
+                return torch.zeros_like(grad) if torch.isnan(grad).any() else grad
+
+            self.gamma.register_hook(hook_fn)
         else:
             # used for debugging purposes only and is None by default
             self.force_permutation = translate_idx_ordering(force_permutation)
@@ -53,6 +64,7 @@ class LearnablePermutation(torch.nn.Module):
         sinkhorn_temp: th.Optional[float] = None,
         # general parameters
         device: th.Optional[torch.device] = None,
+        training_module: th.Optional[TrainingModule] = None,
         **kwargs,
     ) -> th.Union[th.Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """
@@ -69,6 +81,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
+        percentage = 1.0
         # force permutation if given (used for debugging purposes only)
         if force_permutation is not None or self.force_permutation is not None:
             force_permutation = force_permutation if force_permutation is not None else self.force_permutation
@@ -81,7 +94,11 @@ class LearnablePermutation(torch.nn.Module):
         gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
-            gumbel_noise_std = gumbel_noise_std if gumbel_noise_std is not None else self.gumbel_noise_std(**kwargs)
+            gumbel_noise_std = (
+                gumbel_noise_std
+                if gumbel_noise_std is not None
+                else self.gumbel_noise_std(training_module=training_module, **kwargs)
+            )
             gumbel_noise = gumbel_noise * gumbel_noise_std
 
         if soft:
@@ -90,6 +107,7 @@ class LearnablePermutation(torch.nn.Module):
                 gumbel_noise=gumbel_noise,
                 sinkhorn_temp=sinkhorn_temp,
                 sinkhorn_num_iters=sinkhorn_num_iters,
+                training_module=training_module,
                 **kwargs,
             )
             # TODO: Check the following out closely! It might cause errors!
@@ -98,6 +116,13 @@ class LearnablePermutation(torch.nn.Module):
             results = self.hard_permutation(gamma=gamma, return_matrix=return_matrix, gumbel_noise=gumbel_noise)
 
         return (results, gumbel_noise) if return_noise else results
+
+    def get_permutation_without_noise(self):
+        """
+        This function simply returns the permutation matrix without any noise.
+        This can be used for visualizing the Gamma parameters of the model for example.
+        """
+        return self.soft_permutation().detach().cpu().numpy()
 
     # todo: does not work with the current version of dypy (make it a property later)
     @dyw.method
@@ -145,9 +170,9 @@ class LearnablePermutation(torch.nn.Module):
         if training_module is None:
             ret = 1
         elif training_module.current_phase == "maximization":
-            ret = 15.0
+            ret = 5
         elif training_module.current_phase == "expectation":
-            ret = 0.5
+            ret = 5
         else:
             raise ValueError(f"Unknown phase: {training_module.current_phase}")
         return ret
@@ -158,7 +183,9 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise: th.Optional[torch.Tensor] = None,
         sinkhorn_temp: th.Optional[float] = None,
         sinkhorn_num_iters: th.Optional[int] = None,
-        eps: th.Optional[float] = None,
+        eps_sinkhorn_permutation_matrix: th.Optional[float] = None,
+        eps_sinkhorn_doubly_stochastic: th.Optional[float] = None,
+        training_module: th.Optional[TrainingModule] = None,
         **kwargs,  # for sinkhorn num_iters and temp dynamic methods
     ) -> torch.Tensor:
         """
@@ -170,7 +197,7 @@ class LearnablePermutation(torch.nn.Module):
             **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
 
         Returns:
-            The resulting permutation matrix.
+            The resulting permutation matrices, and the percentage of ones that are replaced by hard ones.
         """
         gamma = gamma if gamma is not None else self.parameterized_gamma()
         sinkhorn_temp = sinkhorn_temp if sinkhorn_temp is not None else self.sinkhorn_temp(**kwargs)
@@ -182,35 +209,44 @@ class LearnablePermutation(torch.nn.Module):
         noise = gumbel_noise if gumbel_noise is not None else 0.0
         all_mats = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
-        # Sometimes sinkhorn operator returns matrices that are not doubly stochastic
-        # in these cases we get the problematic indices and set them to some hard permutation
-        eps = eps or self.eps_sinkhorn
-        cond_row = torch.any(
-            (torch.sum(all_mats, dim=-1) > 1.0 + eps) | (torch.sum(all_mats, dim=-1) < 1.0 - eps), dim=-1
-        )
-        cond_col = torch.any(
-            (torch.sum(all_mats, dim=-2) > 1.0 + eps) | (torch.sum(all_mats, dim=-2) < 1.0 - eps), dim=-1
-        )
-        idx = cond_row | cond_col
+        if training_module is not None:
+            training_module.remember(all_perms_no_hard=all_mats)
+
+        # Now we will ignore outlier matrices and replace them with matrices obtained
+        # from the Hungarian algorithm.
+        # An outlier matrix is one that is too far away from the Birkhoff polytope vertices
+        # this will be caused in two cases:
+        # 1. The matrix is not doubly stochastic
+        # 2. The matrix is not permutation matrix
+        # The first condition is more strict
+
+        # idx contains all the "BAD" matrices
+        idx = None
+
+        # ignore matrices that have row sum or columns sums not in [1 - eps, 1 + eps]
+        if self.eps_sinkhorn_doubly_stochastic is not None:
+            eps = eps_sinkhorn_doubly_stochastic or self.eps_sinkhorn_doubly_stochastic
+            idx = is_doubly_stochastic(all_mats, threshold=eps)
+
+        # ignore the matrices that have elements between [eps_permutation, 1 - eps_permutation]
+        if self.eps_sinkhorn_permutation_matrix is not None:
+            eps = eps_sinkhorn_permutation_matrix or self.eps_sinkhorn_permutation_matrix
+            cond = is_permutation(all_mats, threshold=eps)
+            idx = cond if idx is None else idx & cond
+
         # For idx we set them using a hard permutation
-        if torch.any(idx):
+        if idx is not None and torch.any(~idx):
             if isinstance(noise, torch.Tensor):
-                noise = noise[idx]
+                noise = noise[~idx]
             hard_permutations = self.hard_permutation(gamma=gamma, gumbel_noise=noise)
-            all_mats[idx] = hard_permutations
+            surrogate_matrices = torch.zeros_like(all_mats)
+            surrogate_matrices[~idx] = hard_permutations
+            surrogate_matrices[idx] = all_mats[idx]
+            ret = surrogate_matrices
+        else:
+            ret = all_mats
 
-        eps = eps or self.eps_sinkhorn
-        cond_row = torch.any(
-            (torch.sum(all_mats, dim=-1) > 1.0 + eps) | (torch.sum(all_mats, dim=-1) < 1.0 - eps), dim=-1
-        )
-        cond_col = torch.any(
-            (torch.sum(all_mats, dim=-2) > 1.0 + eps) | (torch.sum(all_mats, dim=-2) < 1.0 - eps), dim=-1
-        )
-        idx = cond_row | cond_col
-        if torch.any(idx):
-            raise RuntimeError("Sinkhorn operator did not return a doubly stochastic matrix.")
-
-        return all_mats
+        return ret
 
     def hard_permutation(
         self,

@@ -14,6 +14,7 @@ def visualize_exploration(
     add_permutation_to_name: bool = False,
     birkhoff_vertices: th.Optional[np.array] = None,
     birkhoff_vertices_cost: th.Optional[np.array] = None,
+    birkhoff_vertices_name: th.Optional[th.List] = None,
     colorbar_label: str = "permutation scores",
     image_size: th.Optional[th.Tuple[float, float]] = None,
     ylabel: str = "y",
@@ -74,9 +75,9 @@ def visualize_exploration(
                 # get the centroid of the cluster
                 centroid = np.mean(sampled_permutations[clusters == c, :, :], axis=0)
 
-                cluster_label = "cluster {} of samples".format(int(c + 1))
+                cluster_label = f"cluster {int(c+1)}"
                 if add_permutation_to_name:
-                    cluster_label = f"{cluster_label} : {centroid.argmax(axis=-1)}"
+                    cluster_label = f"{cluster_label} : {centroid.argmax(axis=-2)}"
 
                 # set a marker according to cluster
                 ax.scatter(
@@ -89,7 +90,7 @@ def visualize_exploration(
                     centroid_t = np.mean(sampled_permutations_t[clusters == c, :], axis=0)
                     # get the average cost of the cluster
                     cost = np.mean(cost_values[clusters == c])
-                    text = f"{cost:.2f}/{len(cost_values[clusters == c])}"
+                    text = f"{cost:.2f}/{100 * len(cost_values[clusters == c]) * 1.0 / len(cost_values):.1f}%"
                     # plot text on the centroid
                     ax.text(centroid_t[0], centroid_t[1], text, fontsize=8)
         else:

@@ -44,10 +44,20 @@ class LoggingCallback(Callback):
         else:
             self.evaluate_every_n_epoch_logic = None
 
+    def logging_needed(self) -> bool:
+        # The following is intended for better performance
+        # if the buffer size is less than self.evaluate_every_n_epochs
+        # then this means that sometimes one does not need to even save anything
+        if self.evaluate_every_n_epochs is None:
+            return True
+        if self.epoch_counter % self.evaluate_every_n_epochs + self.epoch_buffer_size < self.evaluate_every_n_epochs:
+            return False
+        return True
+
     def on_train_batch_end(
         self, trainer: pl.Trainer, pl_module: TrainingModule, outputs: STEP_OUTPUT, batch: th.Any, batch_idx: int
     ) -> None:
-        if self.log_training:
+        if self.log_training and self.logging_needed():
             self.training_batches_in_epoch += 1
             for key, item in pl_module.objective.latch.items():
                 if isinstance(item, torch.Tensor):
@@ -66,7 +76,7 @@ class LoggingCallback(Callback):
         batch_idx: int,
         dataloader_idx: int,
     ) -> None:
-        if self.log_validation:
+        if self.log_validation and self.logging_needed():
             self.validation_batches_in_epoch += 1
             for key, item in pl_module.objective.latch.items():
                 if isinstance(item, torch.Tensor):
@@ -93,10 +103,12 @@ class LoggingCallback(Callback):
         res = super().on_train_epoch_end(trainer, pl_module)
         self.epoch_counter += 1
 
-        if self.epoch_counter > self.epoch_buffer_size:
-            # iterate over all the keys and pop the first element
-            for key in self.all_logged_values.keys():
-                for _ in range(self.training_batches_in_epoch + self.validation_batches_in_epoch):
+        # iterate over all the keys and pop the first element if the elements
+        # in it has become more than the buffer size
+        b = self.training_batches_in_epoch + self.validation_batches_in_epoch
+        for key in self.all_logged_values.keys():
+            if b > 0 and len(self.all_logged_values[key]) > b * self.epoch_buffer_size:
+                for _ in range(b):
                     self.all_logged_values[key].pop(0)
 
         self.training_batches_in_epoch = 0

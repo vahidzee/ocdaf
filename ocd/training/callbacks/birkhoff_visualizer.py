@@ -178,6 +178,7 @@ class BirkhoffCallback(LoggingCallback):
         fit_every_time: bool = False,
         # loss values printed
         write_cost_values: bool = False,
+        write_permutation_names: bool = False,
         loss_cluster_count: int = 100,
         core_points_has_birkhoff_vertices: bool = True,
         core_points_has_birkhoff_edges: bool = False,
@@ -265,6 +266,7 @@ class BirkhoffCallback(LoggingCallback):
         )
 
         self.birkhoff_vertex_scores = []
+        self.birkhoff_vertex_names = []
         for perm in self.birkhoff_vertices:
             if ordering_to_score_mapping is None:
                 self.birkhoff_vertex_scores.append(1)
@@ -277,6 +279,9 @@ class BirkhoffCallback(LoggingCallback):
                     )
                 else:
                     self.birkhoff_vertex_scores.append(ordering_to_score_mapping[ordering_str])
+                    self.birkhoff_vertex_names.append(ordering_str)
+        if not write_permutation_names:
+            self.birkhoff_vertex_names = None
         self.birkhoff_vertex_scores = np.array(self.birkhoff_vertex_scores)
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
@@ -304,8 +309,7 @@ class BirkhoffCallback(LoggingCallback):
 
         # Now get a permutation without noise from the model for representing the current state
         # of the permutation learner
-        permutation_without_noise = pl_module.model.permutation_model.soft_permutation()
-        permutation_without_noise = permutation_without_noise.detach().cpu().numpy()
+        permutation_without_noise = pl_module.model.permutation_model.get_permutation_without_noise()
 
         clusters = None
         cost_values = logged_losses
@@ -325,6 +329,7 @@ class BirkhoffCallback(LoggingCallback):
             permutation_without_noise=permutation_without_noise,
             birkhoff_vertices=self.birkhoff_vertices,
             birkhoff_vertices_cost=self.birkhoff_vertex_scores,
+            birkhoff_vertices_name=self.birkhoff_vertex_names,
             add_permutation_to_name=self.add_permutation_to_name,
             colorbar_label="count backwards",
             image_size=(15, 10),

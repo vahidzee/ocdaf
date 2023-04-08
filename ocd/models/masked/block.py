@@ -56,17 +56,12 @@ class MaskedBlock(MaskedLinear):
 
     def forward(self, inputs: torch.Tensor, perm_mat: torch.Tensor) -> torch.Tensor:
         outputs = super().forward(inputs, perm_mat=perm_mat)
-        # print("OUTPUTS before batch norm", torch.max(torch.abs(outputs)))
         outputs = self.batch_norm(outputs) if self.batch_norm else outputs
-        # print("OUTPUTS before activation", torch.max(torch.abs(outputs)))
         outputs = self.activation(outputs) if self.activation else outputs
-        # print("OUTPUTS before dropout", torch.max(torch.abs(outputs)))
         outputs = self.dropout(outputs) if self.dropout else outputs
-        # print("OUTPUTS before residual", torch.max(torch.abs(outputs)))
         if self.residual and self.in_blocks == self.out_blocks:
             # only perform residual connection if in_blocks == out_blocks
             outputs = outputs + inputs
-        # print("OUTPUTS after residual", torch.max(torch.abs(outputs)))
         return outputs
 
     def extra_repr(self) -> str:
