@@ -7,13 +7,13 @@ init_args:
     scm_generator_args:
       graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:
-        enforce_ordering: [0, 1, 2, 3]
-        graph_type: chain
+        enforce_ordering: [1, 2, 3, 0]
+        graph_type: random_dag
         n: 4
-        p: 0.5
-        m: 10
-        seed: 666
-      seed: 100
+        p: 0.3
+        m: 4
+        seed: 555
+      seed: 555
       std: 1.0
       mean: 0.0
       weight_s: [1, 2]
@@ -22,8 +22,8 @@ init_args:
         lambda x: numpy.log(1 + numpy.exp(x))
       s_function_signature: softplus
       t_function: >
-        lambda x: numpy.log(1 + numpy.exp(x))
-      t_function_signature: softplus
+        lambda x: x + numpy.sin(x)
+      t_function_signature: sin_plus_x
     observation_size: 10240
   val_size: 0.1
-  batch_size: 1024
+  batch_size: 128

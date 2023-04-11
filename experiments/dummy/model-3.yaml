@@ -8,7 +8,7 @@ init_args:
     permutation_learner_cls: ocd.models.permutation.LearnablePermutation
     permutation_learner_args:
       gumbel_noise_std: >
-        lambda self, training_module, **kwargs: 2 * 0.9 ** (training_module.current_epoch // 100) 
+        lambda self, training_module, **kwargs: 0.5 * 0.8 ** (training_module.current_epoch // 100) 
       permutation_type: hybrid-sparse-map-simulator
     # Base distribution arguments
     base_distribution: torch.distributions.Normal
@@ -16,7 +16,7 @@ init_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    in_features: 4
+    in_features: 3
     layers: [33, 99, 33]
     num_transforms: 1
     additive: False
@@ -42,12 +42,12 @@ init_args:
   scheduler_args:
     - mode: min
       factor: 0.75
-      patience: 30
-      min_lr: 0.00005
+      patience: 10
+      min_lr: 0.00000001
     - mode: min
       factor: 0.75
-      patience: 30
-      min_lr: 0.00005
+      patience: 10
+      min_lr: 0.00000001
   scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
   # scheduler_interval: ["epoch", "epoch"]
   # # scheduler_frequency: [22500, 22500]

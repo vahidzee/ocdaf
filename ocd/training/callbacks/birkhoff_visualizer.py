@@ -303,9 +303,14 @@ class BirkhoffCallback(LoggingCallback):
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         # Get the logged permutations
-        logged_permutations = torch.cat(self.all_logged_values["perm_mat"], dim=0).detach().cpu().numpy()
-        logged_losses = -torch.cat(self.all_logged_values["log_prob"], dim=0).detach().cpu().numpy()
-
+        logged_permutations = torch.cat(self.all_logged_values["permutation_to_display"], dim=0).detach().cpu().numpy()
+        logged_losses = -torch.cat(self.all_logged_values["log_prob_to_display"], dim=0).detach().cpu().numpy()
+        
+        # Use the hard permutations if available for clustering
+        permutations_used_for_clustering = torch.cat(self.all_logged_values["elementwise_perm_mat"], dim=0).detach().cpu().numpy()
+        if len(logged_permutations) != len(permutations_used_for_clustering):
+            permutations_used_for_clustering = logged_permutations
+            
         # If we are to train the PCA every time, then we should fit it with the logged permutations here
         if self.fit_every_time:
             self.pca.fit(logged_permutations.reshape(-1, self.permutation_size * self.permutation_size))
@@ -319,7 +324,7 @@ class BirkhoffCallback(LoggingCallback):
         # If the logger wants to write the cost values, then we should cluster the points
         # and write the cost values at the centroid of each cluster
         if self.write_cost_values:
-            clusters = cluster_particles(logged_permutations, self.core_points)
+            clusters = cluster_particles(permutations_used_for_clustering, self.core_points)
 
         # Generate the image
         img = visualize_exploration(

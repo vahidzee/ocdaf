@@ -35,7 +35,7 @@ class PermutationStatisticsCallback(LoggingCallback):
         self.threshold = threshold
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        logged_permutations = torch.cat(self.all_logged_values["all_perms_no_hard"], dim=0).detach().cpu()
+        logged_permutations = torch.cat(self.all_logged_values["permutation_to_display"], dim=0).detach().cpu()
         res = evaluate_permutations(logged_permutations, threshold=self.threshold)
         res = {f"explorability/{k}": v for k, v in res.items()}
         # log everything obtained in res which is a dictonary in pl_module.log

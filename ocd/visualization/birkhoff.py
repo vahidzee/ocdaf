@@ -149,7 +149,9 @@ def visualize_exploration(
                 marker="x",
                 label="Gamma without noise",
             )
-        ax.legend()
+        pos = ax.get_position()
+        ax.set_position([pos.x0, pos.y0, pos.width, pos.height * 0.85])
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.35), ncol=3)
 
         # draw everything to the figure for conversion
         fig.canvas.draw()

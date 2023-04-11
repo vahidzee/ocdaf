@@ -31,10 +31,10 @@ class EvaluateFlow(LoggingCallback):
         self.batch_size = batch_size
 
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        all_inputs = self.all_logged_values["inputs"]
+        all_inputs = self.all_logged_values["elementwise_input"]
 
-        if self.all_logged_values["perm_mat"][0] is not None:
-            all_permutations = self.all_logged_values["perm_mat"]
+        if self.all_logged_values["elementwise_perm_mat"][0] is not None:
+            all_permutations = self.all_logged_values["elementwise_perm_mat"]
 
         all_sampled = []
         for input, perm_mat in zip(all_inputs, all_permutations):

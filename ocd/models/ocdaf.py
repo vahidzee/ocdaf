@@ -4,6 +4,7 @@ import typing as th
 from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
 import dypy as dy
 from lightning_toolbox import TrainingModule
+from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
 
 
 class OCDAF(torch.nn.Module):
@@ -73,46 +74,97 @@ class OCDAF(torch.nn.Module):
         self,
         inputs: torch.Tensor,
         # permutation
-        soft: th.Optional[bool] = True,
+        permutation_type: th.Optional[PERMUTATION_TYPE_OPTIONS] = None,
         permute: bool = True,
         # return
         return_log_prob: bool = True,
         return_noise_prob: bool = False,
         return_prior: bool = False,
-        return_latent: bool = False,
         return_latent_permutation: bool = False,
         # args for dynamic methods
         training_module: th.Optional[TrainingModule] = None,
         **kwargs
     ):
+        results = {}
+
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
-            latent_permutation, gumbel_noise = self.permutation_model(
+            if self.permutation_model.permutation_type == "hybrid-sparse-map-simulator":
+                num_samples_dict = dict(
+                    num_soft_samples=inputs.shape[0],
+                    num_hard_samples=inputs.shape[0],
+                    num_samples=0,
+                )
+            else:
+                num_samples_dict = dict(num_samples=inputs.shape[0])
+            results, gumbel_noise = self.permutation_model(
                 inputs=inputs,
-                num_samples=inputs.shape[0],
-                soft=soft,
+                **num_samples_dict,
+                permutation_type=permutation_type,
                 return_noise=True,
                 training_module=training_module,
                 **kwargs,
             )
 
-        if training_module is not None:
-            training_module.remember(inputs=inputs)
-            training_module.remember(perm_mat=latent_permutation)
-        log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation)
-        if training_module is not None:
-            training_module.remember(log_prob=log_prob)
+        if (
+            self.permutation_model is not None
+            and self.permutation_model.permutation_type != "hybrid-sparse-map-simulator"
+        ):
+            # This is an element-wise input whereby for each input
+            # we have one permutation
+            latent_permutation = results["perm_mat"]
+            log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation)
+
+            if training_module is not None:
+                # Save for callbacks
+                training_module.remember(elementwise=True)
+                training_module.remember(elementwise_input=inputs)
+                training_module.remember(elementwise_perm_mat=latent_permutation)
+
+                if "soft_perm_mats" in results:
+                    training_module.remember(permutation_to_display=results["soft_perm_mats"])
+                else:
+                    training_module.remember(permutation_to_display=latent_permutation)
+
+                training_module.remember(log_prob_to_display=log_prob)
+
+        elif (
+            self.permutation_model is not None
+            and self.permutation_model.permutation_type == "hybrid-sparse-map-simulator"
+        ):
+            # This is the case where it is not Elementwise, for example,
+            # this might happen for the hybrid-sparse-map-simulation
+            soft_perm_mat = results["soft_perm_mat"]
+            hard_perm_mat = results["hard_perm_mat"]
+            inputs_repeated = torch.repeat_interleave(inputs, repeats=hard_perm_mat.shape[0], dim=0)
+            hard_perm_mat_repeated = hard_perm_mat.repeat(inputs.shape[0], 1, 1)
+            all_log_probs = self.flow.log_prob(inputs_repeated, perm_mat=hard_perm_mat_repeated)
+            log_prob_grid = all_log_probs.reshape(inputs.shape[0], hard_perm_mat.shape[0])
+            log_prob = torch.sum(log_prob_grid * results["score_grid"], dim=1)
+
+            if training_module is not None:
+                training_module.remember(elementwise=False)
+                training_module.remember(log_prob_to_display=log_prob)
+                training_module.remember(permutation_to_display=soft_perm_mat)
+                training_module.remember(elementwise_input=inputs_repeated)
+                training_module.remember(elementwise_perm_mat=hard_perm_mat_repeated)
+        elif self.permutation_model is None or not permute:
+            log_prob = self.flow.log_prob(inputs, perm_mat=latent_permutation)
+
+            if training_module is not None:
+                training_module.remember(elementwise_input=inputs)
 
         # return log_prob, noise_prob, prior (if requested)
-        results = dict(log_prob=log_prob) if return_log_prob else dict()
+        ret = dict(log_prob=log_prob) if return_log_prob else dict()
         if return_noise_prob:
-            results["noise_prob"] = gumbel_log_prob(gumbel_noise) if gumbel_noise is not None else 0
+            ret["noise_prob"] = gumbel_log_prob(gumbel_noise) if gumbel_noise is not None else 0
         if return_prior:
             raise NotImplementedError("Haven't implemented prior yet.")
         if return_latent_permutation:
-            results["latent_permutation"] = latent_permutation
-        if return_latent:
-            results["latent"] = z
-            results["logabsdet"] = logabsdet
-        return results
+            ret["latent_permutation"] = results
+
+        # TODO: remove this!
+        if "scores" in results:
+            ret["scores"] = results["scores"]
+        return ret

@@ -12,6 +12,24 @@ from ocd.models.permutation.utils import (
 from lightning_toolbox import TrainingModule
 from .utils import is_permutation, is_doubly_stochastic
 
+PERMUTATION_TYPE_OPTIONS = th.Literal[
+    "soft", "hard", "hybrid-dot-similarity", "hybrid-quantization", "hybrid-sparse-map-simulator"
+]
+
+
+class HybridJoin(torch.autograd.Function):
+    """
+    This function simply passes the backward inputs to both of the inputs
+    """
+
+    @staticmethod
+    def forward(ctx: th.Any, soft_permutations: torch.Tensor, hard_permutations: torch.Tensor) -> th.Any:
+        return hard_permutations
+
+    @staticmethod
+    def backward(ctx: th.Any, grad_outputs) -> th.Any:
+        return grad_outputs, None
+
 
 @dyw.dynamize
 class LearnablePermutation(torch.nn.Module):
@@ -21,6 +39,7 @@ class LearnablePermutation(torch.nn.Module):
         force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
         eps_sinkhorn_permutation_matrix: th.Optional[float] = None,
         eps_sinkhorn_doubly_stochastic: th.Optional[float] = None,
+        permutation_type: th.Optional[PERMUTATION_TYPE_OPTIONS] = "soft",
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
     ):
@@ -30,6 +49,7 @@ class LearnablePermutation(torch.nn.Module):
         self.force_permutation = None
         self.eps_sinkhorn_permutation_matrix = eps_sinkhorn_permutation_matrix
         self.eps_sinkhorn_doubly_stochastic = eps_sinkhorn_doubly_stochastic
+        self.permutation_type = permutation_type
 
         if force_permutation is None:
             # initialize gamma for learnable permutation
@@ -49,12 +69,14 @@ class LearnablePermutation(torch.nn.Module):
     def forward(
         self,
         num_samples: int = 1,
+        num_hard_samples: int = 0,
+        num_soft_samples: int = 0,
         # gamma
         gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
         # force permutation
         force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
         # retrieval parameters
-        soft: bool = True,
+        permutation_type: th.Optional[PERMUTATION_TYPE_OPTIONS] = None,
         return_noise: bool = False,
         return_matrix: bool = True,
         # sampling parameters
@@ -81,7 +103,6 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
-        percentage = 1.0
         # force permutation if given (used for debugging purposes only)
         if force_permutation is not None or self.force_permutation is not None:
             force_permutation = force_permutation if force_permutation is not None else self.force_permutation
@@ -92,6 +113,11 @@ class LearnablePermutation(torch.nn.Module):
         device = device if device is not None else self.gamma.device
         gumbel_noise = None
         gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
+
+        # If num_samples is None then set num_samples to the sum of num_hard_samples and num_soft_samples
+        if num_samples is None or num_samples == 0:
+            num_samples = num_hard_samples + num_soft_samples
+        # Generate Gumbel noise values
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
             gumbel_noise_std = (
@@ -101,7 +127,13 @@ class LearnablePermutation(torch.nn.Module):
             )
             gumbel_noise = gumbel_noise * gumbel_noise_std
 
-        if soft:
+        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
+
+        # Set up an empty dictionary results
+        results = {}
+        if permutation_type == "soft":
+            if num_hard_samples > 0:
+                raise ValueError("Cannot use hard samples with soft permutation, set num_hard_samples to 0.")
             perm_mat = self.soft_permutation(
                 gamma=gamma,
                 gumbel_noise=gumbel_noise,
@@ -111,9 +143,79 @@ class LearnablePermutation(torch.nn.Module):
                 **kwargs,
             )
             # TODO: Check the following out closely! It might cause errors!
-            results = perm_mat if return_matrix else perm_mat.argmax(-2)
+            results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
+        elif permutation_type == "hard":
+            if num_soft_samples > 0:
+                raise ValueError("Cannot use hard samples with soft permutation, set num_hard_samples to 0.")
+
+            results["perm_mat"] = self.hard_permutation(
+                gamma=gamma, return_matrix=return_matrix, gumbel_noise=gumbel_noise
+            )
+        elif permutation_type.startswith("hybrid"):
+            if permutation_type == "hybrid-quantization":
+                soft_perm_mats = self.soft_permutation(
+                    gamma=gamma,
+                    gumbel_noise=gumbel_noise,
+                    sinkhorn_temp=sinkhorn_temp,
+                    sinkhorn_num_iters=sinkhorn_num_iters,
+                    training_module=training_module,
+                    **kwargs,
+                )
+                hard_perm_mats = self.hard_permutation(gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise)
+
+                if max(num_hard_samples, num_soft_samples) > 0:
+                    raise ValueError(
+                        "For hybrid Quantization num_hard_samples and num_soft_samples should be set to 0."
+                    )
+                perm_mat = HybridJoin.apply(soft_perm_mats, hard_perm_mats)
+                results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
+                results["soft_perm_mats"] = soft_perm_mats
+            elif permutation_type == "hybrid-dot-similarity":
+                soft_perm_mats = self.soft_permutation(
+                    gamma=gamma,
+                    gumbel_noise=gumbel_noise,
+                    sinkhorn_temp=sinkhorn_temp,
+                    sinkhorn_num_iters=sinkhorn_num_iters,
+                    training_module=training_module,
+                    **kwargs,
+                )
+                hard_perm_mats = self.hard_permutation(gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise)
+
+                if max(num_hard_samples, num_soft_samples) > 0:
+                    raise ValueError(
+                        "For hybrid Dot Similarity num_hard_samples and num_soft_samples should be set to 0."
+                    )
+                dot_prods = torch.sum(soft_perm_mats * hard_perm_mats, dim=-1)
+                dot_prods = torch.sum(dot_prods, dim=-1)
+                results["perm_mat"] = hard_perm_mats if return_matrix else hard_perm_mats.argmax(-2)
+                results["scores"] = dot_prods
+                results["soft_perm_mats"] = soft_perm_mats
+            elif permutation_type == "hybrid-sparse-map-simulator":
+                soft_perm_mats = self.soft_permutation(
+                    gamma=gamma,
+                    gumbel_noise=gumbel_noise[:num_soft_samples],
+                    sinkhorn_temp=sinkhorn_temp,
+                    sinkhorn_num_iters=sinkhorn_num_iters,
+                    training_module=training_module,
+                    **kwargs,
+                )
+                hard_perm_mats = self.hard_permutation(
+                    gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise[num_soft_samples:]
+                )
+                # make all the hard_perm_mats unique
+                hard_perm_mats = torch.unique(hard_perm_mats, dim=0)
+                vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
+                vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
+                score_grid = vectorized_soft_mats @ vectorized_hard_mats.T
+                # normalize the rows of the score grid
+                score_grid = score_grid / torch.sum(score_grid, dim=-1, keepdim=True)
+                results["soft_perm_mat"] = soft_perm_mats
+                results["hard_perm_mat"] = hard_perm_mats
+                results["score_grid"] = score_grid
+            else:
+                raise Exception(f"Unknown hybrid permutation type: {permutation_type}")
         else:
-            results = self.hard_permutation(gamma=gamma, return_matrix=return_matrix, gumbel_noise=gumbel_noise)
+            raise Exception(f"Unknown permutation type: {permutation_type}.")
 
         return (results, gumbel_noise) if return_noise else results
 
@@ -304,3 +406,17 @@ class LearnablePermutation(torch.nn.Module):
             else ""
         )
         return f"num_features={self.num_features}" + forced
+
+
+if __name__ == "__main__":
+    theta1 = torch.nn.Parameter(torch.randn(1, 1))
+    theta2 = torch.nn.Parameter(torch.randn(1, 1))
+    x = torch.tensor([1.0])
+
+    a = theta1 * x
+    b = theta2 * x
+    fn = HybridJoin.apply
+    y = fn(a, b)
+    y.backward()
+    print(theta1.grad)
+    print(theta2.grad)

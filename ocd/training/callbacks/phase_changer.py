@@ -4,6 +4,8 @@ import lightning.pytorch as pl
 from lightning_toolbox import TrainingModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 import torch
+from lightning.pytorch import Trainer
+from lightning_toolbox import TrainingModule
 
 
 class PhaseChangerCallback(Callback):
@@ -68,7 +70,7 @@ class PhaseChangerCallback(Callback):
         self.generalization_early_stopping = generalization_early_stopping
         self.loss_convergence_early_stopping = loss_convergence_early_stopping
 
-    def change_phase(self, pl_module: TrainingModule) -> None:
+    def change_phase(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         # Change the current_phase of the training_module
         if pl_module.current_phase == "maximization":
             pl_module.current_phase = "expectation"
@@ -97,13 +99,13 @@ class PhaseChangerCallback(Callback):
             if self.epochs_on_maximization == self.maximization_epoch_limit:
                 # print(">>>>>>>>>>>> Change phase due to epoch limit <<<<<<<<<<<<<<")
                 # print(">>>>>>>>>>>> Change on maximization <<<<<<<<<<<<<<")
-                self.change_phase(pl_module)
+                self.change_phase(trainer, pl_module)
         elif pl_module.current_phase == "expectation":
             self.epochs_on_expectation += 1
             if self.epochs_on_expectation == self.expectation_epoch_limit:
                 # print(">>>>>>>>>>>> Change phase due to epoch limit <<<<<<<<<<<<<<")
                 # print(">>>>>>>>>>>> Change on expectation <<<<<<<<<<<<<<")
-                self.change_phase(pl_module)
+                self.change_phase(trainer, pl_module)
 
         return super().on_train_epoch_end(trainer, pl_module)
 
@@ -141,7 +143,7 @@ class PhaseChangerCallback(Callback):
             if self.training_loss_patience_remaining == 0:
                 # print(">>>>>>> Changing phase <<<<<<<")
                 # print(">>> Due to loss convergence <<<<")
-                self.change_phase(pl_module)
+                self.change_phase(trainer, pl_module)
 
         return ret
 
@@ -182,5 +184,5 @@ class PhaseChangerCallback(Callback):
                     if self.generalization_patience_remaining == 0:
                         # print(">>>>>>> Changing phase <<<<<<<")
                         # print(">>> Due to validation early stopping <<<<")
-                        self.change_phase(pl_module)
+                        self.change_phase(trainer, pl_module)
         return ret

@@ -1,0 +1,78 @@
+# callbacks
+callbacks:
+  - class_path: lightning.pytorch.callbacks.lr_monitor.LearningRateMonitor
+    init_args:
+      logging_interval: step
+  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+  - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+    init_args:
+      starting_phase: maximization
+      # Set to higher value for faster results
+      check_every_n_iterations: 1
+      # The settings regarding epoch limit values
+      maximization_epoch_limit: 100
+      expectation_epoch_limit: 100
+      # The settings regarding the generalization gap
+      generalization_early_stopping: []
+      generalization_patience: 10
+      generalization_threshold_eps: 0.01
+  - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+    init_args:
+      epoch_buffer_size: 1
+      evaluate_every_n_epochs: 5
+      permutation_size: 3
+      seed: 666
+      write_cost_values: True
+      write_permutation_names: True
+      core_points_has_birkhoff_vertices: True
+      core_points_has_birkhoff_edges: False
+      reject_outlier_factor: 0.1
+      # Including correct orderings
+      ordering_to_score_mapping: 
+        0-1-2: 2
+        0-2-1: 1
+        1-0-2: 3
+        1-2-0: 2
+        2-0-1: 0
+        2-1-0: 1
+      # Include permutation names
+      add_permutation_to_name: True
+  - class_path: ocd.training.callbacks.permutation_statistics.PermutationStatisticsCallback
+    init_args:
+      evaluate_every_n_epochs: 1
+      epoch_buffer_size: 1
+      threshold: 0.05
+  - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
+    init_args:
+      epoch_buffer_size: 1
+      evaluate_every_n_epochs: 30
+      batch_size: 32
+  # - class_path: ocd.training.callbacks.checkpointing.CheckpointingCallback
+  #   init_args:
+  #     checkpoint_address: lightning_logs
+  #     checkpoint_name: 201-true-softplus
+  #     freq: 60
+# device
+accelerator: gpu
+devices: 1
+num_nodes: 0
+# optimization
+gradient_clip_algorithm: value
+gradient_clip_val: 1.0
+# precision: 16
+# limits & training loop controls
+max_epochs: 10000
+log_every_n_steps: 1
+check_val_every_n_epoch: 1
+# tracking & debugging
+# track_grad_norm: inf
+# logger is setup while initializing the trainer
+enable_checkpointing: true
+enable_model_summary: true
+enable_progress_bar: false
+logger:
+  class_path: lightning.pytorch.loggers.WandbLogger
+  init_args:
+    project: temporary-permutation
+    name: good-data-run-softplus
+    checkpoint_name: full-pipeline
