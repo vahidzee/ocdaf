@@ -311,9 +311,6 @@ class LearnablePermutation(torch.nn.Module):
         noise = gumbel_noise if gumbel_noise is not None else 0.0
         all_mats = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
-        if training_module is not None:
-            training_module.remember(all_perms_no_hard=all_mats)
-
         # Now we will ignore outlier matrices and replace them with matrices obtained
         # from the Hungarian algorithm.
         # An outlier matrix is one that is too far away from the Birkhoff polytope vertices
@@ -369,7 +366,9 @@ class LearnablePermutation(torch.nn.Module):
         gamma = gamma if gamma is not None else self.parameterized_gamma()
         gamma = gamma + (gumbel_noise if gumbel_noise is not None else 0.0)
         listperm = hungarian(gamma)
-        return listperm2matperm(listperm, device=gamma.device) if return_matrix else listperm
+        if return_matrix:
+            return listperm2matperm(listperm, device=gamma.device)
+        return translate_idx_ordering(listperm.tolist())
 
     def evaluate_permutations(
         self,

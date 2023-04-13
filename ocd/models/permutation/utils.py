@@ -1,11 +1,12 @@
 import torch
 import typing as th
+import numpy as np
 
 # most of the codes are humbly borrowed/adapted from
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
 
 
-def translate_idx_ordering(idx: th.Union[th.List[int], th.List[th.List[int]]]):
+def translate_idx_ordering(idx: th.Union[th.List[int], th.List[th.List[int]], np.array]):
     if isinstance(idx[0], list):
         return [translate_idx_ordering(i) for i in idx]
     else:

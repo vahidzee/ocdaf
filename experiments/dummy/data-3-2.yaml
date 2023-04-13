@@ -1,0 +1,29 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+  dataset: ocd.data.SyntheticOCDDataset
+  dataset_args:
+    seed: 100
+    scm_generator: ocd.data.scm.InvertibleModulatedGaussianSCMGenerator
+    scm_generator_args:
+      graph_generator: ocd.data.scm.GraphGenerator
+      graph_generator_args:
+        enforce_ordering: [1, 2, 0]
+        graph_type: chain
+        n: 3
+        p: 0.7
+        m: 10
+        seed: 666
+      seed: 100
+      std: 1.0
+      mean: 0.0
+      weight_s: [1, 2]
+      weight_t: [1, 2]
+      s_function: >
+        lambda x: numpy.log(1 + numpy.exp(x))
+      s_function_signature: softplus
+      t_function: >
+        lambda x: 0.001 * x ** 3
+      t_function_signature: sin_plus_x
+    observation_size: 10240
+  val_size: 0.1
+  batch_size: 128

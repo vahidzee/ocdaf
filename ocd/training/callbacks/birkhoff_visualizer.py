@@ -24,6 +24,8 @@ from itertools import permutations
 import typing as th
 from lightning_toolbox import TrainingModule
 from ocd.visualization.birkhoff import visualize_exploration
+import networkx as nx
+from ocd.evaluation import backward_score
 
 MARKERS = ["^", "o", "x"]
 
@@ -188,6 +190,8 @@ class BirkhoffCallback(LoggingCallback):
         add_permutation_to_name: bool = False,
         # Reject outlier cost values
         reject_outlier_factor: th.Optional[float] = None,
+        # The causal graph
+        causal_graph: th.Optional[nx.DiGraph] = None,
     ) -> None:
         """
         This is a lightning callback that visualizes how the model explores and behaves.
@@ -271,18 +275,25 @@ class BirkhoffCallback(LoggingCallback):
         self.birkhoff_vertex_scores = []
         self.birkhoff_vertex_names = []
         for perm in self.birkhoff_vertices:
+            ordering = perm.argmax(-2).tolist()
+            ordering_str = "-".join([str(x) for x in ordering])
+            self.birkhoff_vertex_names.append(ordering_str)
+            
             if ordering_to_score_mapping is None:
-                self.birkhoff_vertex_scores.append(1)
+                if causal_graph is None:
+                    # ignore in this case and just add -1
+                    self.birkhoff_vertex_scores.append(-1)
+                else:
+                    self.birkhoff_vertex_scores.append(
+                        backward_score(ordering, causal_graph)
+                    )
             else:
-                ordering = perm.argmax(-2).tolist()
-                ordering_str = "-".join([str(x) for x in ordering])
                 if ordering_str not in ordering_to_score_mapping:
                     raise ValueError(
                         "The ordering {} was not found in the ordering_to_score_mapping".format(ordering_str)
                     )
                 else:
                     self.birkhoff_vertex_scores.append(ordering_to_score_mapping[ordering_str])
-                    self.birkhoff_vertex_names.append(ordering_str)
         if not write_permutation_names:
             self.birkhoff_vertex_names = None
         self.birkhoff_vertex_scores = np.array(self.birkhoff_vertex_scores)

@@ -1,6 +1,7 @@
 import typing as th
 import numpy as np
 import random
+import networkx as nx
 
 
 def dfs(node, adj, stack, visited):
@@ -43,21 +44,26 @@ def count_backward(perm: th.List[int], dag: np.array):
     return count
 
 
-def backward_score(perm: th.List[int], dag: np.array):
+def backward_score(perm: th.Union[th.List[int], th.List[th.List[int]]], dag: th.Union[np.array, nx.DiGraph]):
     """
     Args:
-        perm (list): permutation of the nodes
+        perm (list): permutation of the nodes (or a list of permutations)
         dag (np.array): adjacency matrix of the DAG
 
     Compute the ratio of backward edges to all edges given a permutation
-
-    This is used as a validation metric
+    If there are multiple permutations, compute the average score
     """
+    if isinstance(perm[0], list):
+        return sum([backward_score(p, dag) for p in perm]) / len(perm)
+
+    def edge_exists(u: int, v: int) -> bool:
+        return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
+
     n = len(perm)
     backwards, all = 0, 0
     for i in range(n):
         for j in range(n):
-            if dag[perm[j], perm[i]]:
+            if edge_exists(perm[j], perm[i]):
                 all += 1
                 if i < j:
                     backwards += 1
