@@ -1,8 +1,5 @@
 # callbacks
 callbacks:
-  - class_path: lightning.pytorch.callbacks.lr_monitor.LearningRateMonitor
-    init_args:
-      logging_interval: step
   - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
@@ -16,6 +13,8 @@ callbacks:
       generalization_early_stopping: []
       generalization_patience: 10
       generalization_threshold_eps: 0.01
+      reset_optimizers: True
+      reinitialize_weights_on_maximization: True
   - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
     init_args:
       epoch_buffer_size: 1
@@ -37,16 +36,6 @@ callbacks:
         2-1-0 : 2
       # Include permutation names
       add_permutation_to_name: True
-  - class_path: ocd.training.callbacks.permutation_statistics.PermutationStatisticsCallback
-    init_args:
-      evaluate_every_n_epochs: 1
-      epoch_buffer_size: 1
-      threshold: 0.05
-  - class_path: ocd.training.callbacks.evaluate_flow.EvaluateFlow
-    init_args:
-      epoch_buffer_size: 1
-      evaluate_every_n_epochs: 30
-      batch_size: 32
   # - class_path: ocd.training.callbacks.checkpointing.CheckpointingCallback
   #   init_args:
   #     checkpoint_address: lightning_logs
@@ -57,8 +46,8 @@ accelerator: gpu
 devices: 1
 num_nodes: 0
 # optimization
-gradient_clip_algorithm: value
-gradient_clip_val: 1.0
+# gradient_clip_algorithm: value
+# gradient_clip_val: 1.0
 # precision: 16
 # limits & training loop controls
 max_epochs: 10000

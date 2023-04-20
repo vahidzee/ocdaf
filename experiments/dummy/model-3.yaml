@@ -1,4 +1,4 @@
-class_path: lightning_toolbox.TrainingModule
+class_path: ocd.training.module.OCDafTrainingModule
 init_args:
   # the model
   model_cls: ocd.models.ocdaf.OCDAF
@@ -26,8 +26,12 @@ init_args:
     activation_args:
       negative_slope: 0.1
     clamp_val: 10000000
+  
+
   # the optimizer
   optimizer: [torch.optim.AdamW, torch.optim.AdamW]
+  optimizer_args:
+    weight_decay: 0.1
   optimizer_parameters:
     - model.flow
     - model.permutation_model
@@ -36,31 +40,52 @@ init_args:
       lambda training_module: training_module.current_phase == 'maximization'
     - >
       lambda training_module: training_module.current_phase == 'expectation'
-
-  lr: [0.001, 0.001]
-  scheduler: [torch.optim.lr_scheduler.ReduceLROnPlateau, torch.optim.lr_scheduler.ReduceLROnPlateau]
+  grad_clip_val: 1.0
+  lr: [0.01, 0.01]
+  scheduler: 
+    - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+    - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
   scheduler_args:
     - mode: min
-      factor: 0.75
-      patience: 15
-      min_lr: 0.00005
+      factor: 0.5
+      patience: 10
+      min_lr: 0.000005
+      threshold: 0.0001
     - mode: min
-      factor: 0.75
-      patience: 15
-      min_lr: 0.00005
+      factor: 0.5
+      patience: 10
+      min_lr: 0.000005
+      threshold: 0.0001
   scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
-  # # scheduler_interval: ["epoch", "epoch"]
-  # # # scheduler_frequency: [22500, 22500]
-  scheduler_monitor: ["loss/val", "loss/val"]
-  # the loss
-  # objective_cls: ocd.training.terms.NLLTerm 
+  scheduler_optimizer: [0, 1]
+  # # # # scheduler_interval: ["epoch", "epoch"]
+  # # # # # scheduler_frequency: [22500, 22500]
+  scheduler_monitor: ["loss", "loss"]
+  # # the loss
+  # # objective_cls: ocd.training.terms.NLLTerm 
   objective_args:
     nll:
       code: >
         def func(training_module, batch):
           t = training_module.forward(batch)
           res = t['log_prob']
-          if 'scores' in t:
-            res = res * t['scores']
           return -res.mean()
       function_of_interest: func
+    gamma-weight:
+      term_function:
+        code: >
+          def func(training_module, batch):
+            param = training_module.model.permutation_model.gamma
+            return torch.linalg.vector_norm(param.detach().cpu().reshape(-1))
+        function_of_interest: func
+      factor: 0.0
+    flow-weight:
+      term_function:
+        code: >
+          def func(training_module, batch):
+            ret = {}
+            for name, param in training_module.model.flow.named_parameters():
+              ret[name] = torch.linalg.vector_norm(param.detach().cpu().reshape(-1))
+            return ret
+        function_of_interest: func
+      factor: 0.0

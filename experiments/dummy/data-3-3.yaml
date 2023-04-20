@@ -22,7 +22,7 @@ init_args:
         lambda x: numpy.log(1 + numpy.exp(x))
       s_function_signature: softplus
       t_function: >
-        lambda x: 0.001 * x ** 3
+        lambda x: x ** 3 + 10
       t_function_signature: cube_and_dislocate
     observation_size: 10240
   val_size: 0.1

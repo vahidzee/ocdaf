@@ -4,7 +4,6 @@ import typing as th
 import numpy as np
 import networkx as nx
 
-
 class OCDDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -25,9 +24,26 @@ class OCDDataset(torch.utils.data.Dataset):
         """
         self.name = name
         self.explanation = explanation
+        # standardize all the columns
+        self.samples_statistics = {}
         # sort columns of samples alphabetically
         self.samples = samples.reindex(sorted(samples.columns), axis=1)
-        # print(samples)
+        
+        if isinstance(self.samples, pd.DataFrame):
+            for col in self.samples.columns:
+                avg = self.samples[col].mean()
+                std = self.samples[col].std()
+                self.samples_statistics[col] = {'mean': avg, 'std': std}
+                self.samples[col] = (self.samples[col] - avg) / std
+        elif isinstance(self.samples, np.array):
+            for col in range(self.samples.shape[1]):
+                avg = np.mean(self.samples[:, col])
+                std = np.std(self.samples[:, col])
+                self.samples_statistics[col] = {'mean': avg, 'std': std}
+                self.samples[:, col] = (self.samples[:, col] - avg) / std
+        else:
+            raise ValueError("samples must be either a pd.DataFrame or a np.array")
+        
         # set the intervention column
         self.intervention_column = intervention_column
         # intervention_values is the value that we intervened on

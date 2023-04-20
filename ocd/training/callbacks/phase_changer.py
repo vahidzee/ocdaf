@@ -41,6 +41,10 @@ class PhaseChangerCallback(Callback):
         generalization_early_stopping: th.List[th.Literal["expectation", "maximization"]] = ["maximization"],
         generalization_patience: int = 5,
         generalization_threshold_eps: float = 0.0001,
+        
+        #
+        reset_optimizers: bool = True,
+        reinitialize_weights_on_maximization: bool = False
     ):
         self.check_every_n_iterations = check_every_n_iterations
         self.training_iteration_counter = 0
@@ -69,8 +73,12 @@ class PhaseChangerCallback(Callback):
 
         self.generalization_early_stopping = generalization_early_stopping
         self.loss_convergence_early_stopping = loss_convergence_early_stopping
+        
+        self.reset_optimizers = reset_optimizers
+        self.reinitialize_weights_on_maximization = reinitialize_weights_on_maximization
 
     def change_phase(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
+        
         # Change the current_phase of the training_module
         if pl_module.current_phase == "maximization":
             pl_module.current_phase = "expectation"
@@ -88,6 +96,15 @@ class PhaseChangerCallback(Callback):
         # Change the generalization gap values
         self.generalization_patience_remaining = self.baseline_generalization_patience
         self.running_minimum_validation_loss = float("inf")
+        
+        if self.reset_optimizers:
+            pl_module.reset_optimizers()
+            
+        if self.reinitialize_weights_on_maximization and pl_module.current_phase == "maximization":
+            pl_module.reinitialize_flow_weights()
+        
+        
+        
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         pl_module.current_phase = self.starting_phase
