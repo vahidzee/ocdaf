@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from .base_generator import BaseGenerator
 from .graph_generator import GraphGenerator
 import dypy
-
+import numpy as np
 
 class SCMGenerator(ABC, BaseGenerator):
     def __init__(
@@ -147,7 +147,7 @@ class SCMGenerator(ABC, BaseGenerator):
         raise NotImplementedError("generate_node_functional_parameters must be implemented")
 
     @abstractmethod
-    def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int) -> float:
+    def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int, n_samples: int) -> np.array:
         """
         Return the noise value for the specific node given the parameters for that node.
 
@@ -159,11 +159,11 @@ class SCMGenerator(ABC, BaseGenerator):
     @abstractmethod
     def get_covariate_from_parents(
         self,
-        noise: float,
-        parents: th.List[float],
+        noise: np.array,
+        parents: th.List[np.array],
         parent_parameters: th.List[th.Dict[str, th.Any]],
         node_parameters: th.List[th.Dict[str, th.Any]],
-    ) -> float:
+    ) -> np.array:
         """
         Return the covariate value based on the noise on that node, the parents and the parameters of the parents
 

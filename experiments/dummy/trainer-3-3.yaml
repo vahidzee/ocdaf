@@ -14,7 +14,7 @@ callbacks:
       generalization_patience: 10
       generalization_threshold_eps: 0.01
       reset_optimizers: True
-      reinitialize_weights_on_maximization: True
+      reinitialize_weights_on_maximization: False
   - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
     init_args:
       epoch_buffer_size: 1

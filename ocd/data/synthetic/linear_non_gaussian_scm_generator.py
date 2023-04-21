@@ -1,4 +1,4 @@
-from . import SCMGenerator, GraphGenerator
+from ocd.data.scm import SCMGenerator, GraphGenerator
 import typing as th
 import networkx as nx
 import numpy as np
@@ -47,23 +47,23 @@ class LinearNonGaussianSCMGenerator(SCMGenerator):
 
     def get_covariate_from_parents(
         self,
-        noise: float,
+        noise: np.array,
         parents: th.List[float],
         parent_parameters: th.List[th.Dict[str, th.Any]],
         node_parameters: th.List[th.Dict[str, th.Any]],
-    ) -> float:
+    ) -> np.array:
         return (
             noise * node_parameters["scale"]
             + node_parameters["bias"]
             + sum([p * pp["weight"] for p, pp in zip(parents, parent_parameters)])
         )
 
-    def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int) -> float:
+    def get_exogenous_noise(self, noise_parameters: th.Dict[str, th.Any], seed: int, n_samples: int = 1) -> float:
         np.random.seed(seed)
         if self.noise_type == "laplace":
-            return np.random.laplace(0, 1)
+            return np.random.laplace(0, 1, n_samples)
         elif self.noise_type == "uniform":
-            return np.random.uniform(-1, 1)
+            return np.random.uniform(-1, 1, n_samples)
         else:
             raise NotImplementedError(f"Noise type {self.noise_type} not implemented")
 

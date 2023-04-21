@@ -12,7 +12,7 @@ class SyntheticOCDDataset(OCDDataset):
     def __init__(
         self,
         observation_size: int,
-        scm_generator: th.Union["SCMGenerator", str],
+        scm_generator: th.Union[SCMGenerator, str],
         scm_generator_args: th.Optional[th.Dict[str, th.Any]] = None,
         seed: th.Optional[int] = None,
         name: th.Optional[str] = None,
