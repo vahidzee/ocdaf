@@ -3,7 +3,7 @@ init_args:
   dataset: ocd.data.SyntheticOCDDataset
   dataset_args:
     seed: 100
-    scm_generator: ocd.data.scm.InvertibleModulatedGaussianSCMGenerator
+    scm_generator: ocd.data.synthetic.InvertibleModulatedGaussianSCMGenerator
     scm_generator_args:
       graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:

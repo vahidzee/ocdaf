@@ -27,7 +27,7 @@ callbacks:
             - [2, 0]
             - [2, 1]
             - [0, 1]
-accelerator: gpu
+accelerator: cpu
 devices: 1
 num_nodes: 0
 max_epochs: 10000 # SWEEP on this

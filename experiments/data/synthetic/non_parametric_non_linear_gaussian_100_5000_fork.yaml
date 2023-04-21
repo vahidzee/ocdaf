@@ -1,0 +1,20 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+        observation_size: 5000
+        scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+        scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: {graph_type: fork, n: 100, seed: 776}
+            noise_mean: 0.0
+            noise_std: 1.0
+            s_gamma_rbf_kernel: 1.0
+            s_mean_function_weights: [0.0, 0.0]
+            s_variance_rbf_kernel: 1.0
+            t_gamma_rbf_kernel: 1.0
+            t_mean_function_weights: [0.0, 0.0]
+            t_variance_rbf_kernel: 1.0
+        seed: 674
+    val_size: 0.1

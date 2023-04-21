@@ -1,0 +1,14 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+        observation_size: 10000
+        scm_generator: ocd.data.synthetic.LinearNonGaussianSCMGenerator
+        scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: {graph_type: erdos_renyi, n: 10, p: 0.4, seed: 988}
+            noise_type: uniform
+            weight: [-1.0, 1.0]
+        seed: 406
+    val_size: 0.1
