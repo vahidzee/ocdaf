@@ -43,34 +43,38 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
             noise_type (Literal['laplace', 'uniform'], optional): The type of noise. Defaults to 'laplace'.
         """
         super().__init__(graph_generator, graph_generator_args, seed)
-        self.noise_std = noise_std if isinstance(noise_std, tuple) else (noise_std, noise_std)
-        self.noise_mean = noise_mean if isinstance(noise_mean, tuple) else (noise_mean, noise_mean)
+        self.noise_std = noise_std if not isinstance(noise_std, float) else (noise_std, noise_std)
+        self.noise_mean = noise_mean if not isinstance(noise_mean, float) else (noise_mean, noise_mean)
 
         self.s_gamma_rbf_kernel = (
-            s_gamma_rbf_kernel if isinstance(s_gamma_rbf_kernel, tuple) else (s_gamma_rbf_kernel, s_gamma_rbf_kernel)
+            s_gamma_rbf_kernel
+            if not isinstance(s_gamma_rbf_kernel, float)
+            else (s_gamma_rbf_kernel, s_gamma_rbf_kernel)
         )
         self.s_variance_rbf_kernel = (
             s_variance_rbf_kernel
-            if isinstance(s_variance_rbf_kernel, tuple)
+            if not isinstance(s_variance_rbf_kernel, float)
             else (s_variance_rbf_kernel, s_variance_rbf_kernel)
         )
         self.s_mean_function_weights = (
             s_mean_function_weights
-            if isinstance(s_mean_function_weights, tuple)
+            if not isinstance(s_mean_function_weights, float)
             else (s_mean_function_weights, s_mean_function_weights)
         )
 
         self.t_gamma_rbf_kernel = (
-            t_gamma_rbf_kernel if isinstance(t_gamma_rbf_kernel, tuple) else (t_gamma_rbf_kernel, t_gamma_rbf_kernel)
+            t_gamma_rbf_kernel
+            if not isinstance(t_gamma_rbf_kernel, float)
+            else (t_gamma_rbf_kernel, t_gamma_rbf_kernel)
         )
         self.t_variance_rbf_kernel = (
             t_variance_rbf_kernel
-            if isinstance(t_variance_rbf_kernel, tuple)
+            if not isinstance(t_variance_rbf_kernel, float)
             else (t_variance_rbf_kernel, t_variance_rbf_kernel)
         )
         self.t_mean_function_weights = (
             t_mean_function_weights
-            if isinstance(t_mean_function_weights, tuple)
+            if not isinstance(t_mean_function_weights, float)
             else (t_mean_function_weights, t_mean_function_weights)
         )
         # Setup activation functions:

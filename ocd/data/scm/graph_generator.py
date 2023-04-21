@@ -2,6 +2,7 @@ from .base_generator import BaseGenerator
 import typing as th
 import numpy as np
 import networkx as nx
+import random
 
 
 class GraphGenerator(BaseGenerator):
@@ -68,7 +69,7 @@ class GraphGenerator(BaseGenerator):
             new_dag = nx.path_graph(self.graph_generator_args["n"])
         elif self.graph_generator_type in ["collider", "fork", "v_structure"]:
             # generate a star graph
-            new_dag = nx.star_graph(self.graph_generator_args["n"])
+            new_dag = nx.star_graph(self.graph_generator_args["n"] - 1)
             # swap the first and last node
             if self.graph_generator_type in ["collider", "v_structure"]:
                 all_nodes = list(new_dag.nodes.keys())
@@ -102,9 +103,19 @@ class GraphGenerator(BaseGenerator):
 
         # permute the nodes of new_dag if the ordering is not enforced, otherwise, do it according to the ordering
         correct_ordering = nx.topological_sort(new_dag)
+
         np.random.seed(seed=new_seed)
+        random.seed(new_seed)
         if self.enforce_ordering is not None:
             new_dag = nx.relabel_nodes(new_dag, dict(zip(correct_ordering, self.enforce_ordering)))
         else:
-            new_dag = nx.relabel_nodes(new_dag, dict(zip(correct_ordering, np.random.permutation(correct_ordering))))
+            mapping = {}
+            all_in_order = []
+            for x in correct_ordering:
+                all_in_order.append(x)
+            all_2 = all_in_order.copy()
+            random.shuffle(all_2)
+            for x, y in zip(all_in_order, all_2):
+                mapping[x] = y
+            new_dag = nx.relabel_nodes(new_dag, mapping)
         return new_dag

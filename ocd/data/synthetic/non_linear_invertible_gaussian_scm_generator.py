@@ -42,8 +42,8 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         mean: th.Union[float, th.Tuple[float, float]] = 0,
         weight_s: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
         weight_t: th.Union[float, th.Tuple[float, float]] = (-1.0, 1.0),
-        s_function: th.Optional[th.Union[th.Callable, str]] = None,
-        t_function: th.Optional[th.Union[th.Callable, str]] = None,
+        s_function: th.Optional[th.Union[th.Callable, str, th.Dict[str, str]]] = None,
+        t_function: th.Optional[th.Union[th.Callable, str, th.Dict[str, str]]] = None,
         s_function_signature: th.Optional[str] = None,
         t_function_signature: th.Optional[str] = None,
     ):
@@ -82,7 +82,12 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
             self.s_function = lambda x: numpy.log(1 + numpy.exp(x))
             self.s_function_signature = lambda x: f"softplus({x})"
         else:
-            self.s_function = dy.eval_function(s_function) if isinstance(s_function, str) else s_function
+            if isinstance(s_function, str):
+                self.s_function = dy.eval_function(s_function)
+            elif isinstance(s_function, dict):
+                self.s_function = dy.eval_function(**s_function)
+            else:
+                self.s_function = s_function
             if s_function_signature is None:
                 raise ValueError("s_function_signature must be provided if s_function is provided.")
             self.s_function_signature = lambda x: f"{s_function_signature}({x})"
@@ -92,7 +97,13 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
             self.t_function = lambda x: numpy.log(1 + numpy.exp(x))
             self.t_function_signature = lambda x: f"softplus({x})"
         else:
-            self.t_function = dy.eval_function(t_function) if isinstance(t_function, str) else t_function
+            if isinstance(t_function, str):
+                self.t_function = dy.eval_function(t_function)
+            elif isinstance(t_function, dict):
+                self.t_function = dy.eval_function(**t_function)
+            else:
+                self.t_function = t_function
+
             if t_function_signature is None:
                 raise ValueError("t_function_signature must be provided if t_function is provided.")
             self.t_function_signature = lambda x: f"{t_function_signature}({x})"
