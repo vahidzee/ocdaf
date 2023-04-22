@@ -7,8 +7,9 @@ init_args:
         scm_generator: ocd.data.synthetic.LinearNonGaussianSCMGenerator
         scm_generator_args:
             graph_generator: ocd.data.scm.GraphGenerator
-            graph_generator_args: {graph_type: erdos_renyi, n: 3, p: 0.4, seed: 144}
+            graph_generator_args: {graph_type: erdos_renyi, n: 3, p: 0.65, seed: 656}
             noise_type: laplace
+            seed: 346
             weight: [-1.0, 1.0]
-        seed: 183
+        seed: 451
     val_size: 0.1
