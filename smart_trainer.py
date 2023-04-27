@@ -65,9 +65,18 @@ def change_config_for_causal_discovery(old_config):
     """
     new_config = convert_to_dict(old_config)
 
+    # Build the graph and get the graph information
+    dataset_args = (
+        new_config["data"]["init_args"]["dataset_args"] if "dataset_args" in new_config["data"]["init_args"] else {}
+    )
+    dataset_args = dataset_args or {}
+    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**dataset_args)
+    graph = torch_dataset.dag
+    n = graph.number_of_nodes()
+
     # Handle the logger
     new_config["trainer"]["logger"]["init_args"]["name"]
-    logger_name = new_config["data"]["init_args"]["dataset_args"]["name"]
+    logger_name = torch_dataset.name
     mex = 0
     while os.path.exists(f"experiments/smart-trainer-logs/{logger_name}-{mex}"):
         mex += 1
@@ -75,13 +84,6 @@ def change_config_for_causal_discovery(old_config):
     # create the directory
     os.makedirs(f"experiments/smart-trainer-logs/{logger_name}")
     new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
-
-    # Build the graph and get the graph information
-    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(
-        **new_config["data"]["init_args"]["dataset_args"]
-    )
-    graph = torch_dataset.dag
-    n = graph.number_of_nodes()
 
     # Handle Birkhoff Callback, if the number of nodes is less than or equal to 4
     # then edit or add the Birkhoff callback to the callbacks list
@@ -112,7 +114,7 @@ def change_config_for_causal_discovery(old_config):
             if callback_config["class_path"] == "ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback":
                 indices.append(i)
         for i, ind in enumerate(indices):
-            callback_configs["trainer"]["callbacks"].pop(ind - i)
+            callback_configs.pop(ind - i)
     new_config["trainer"]["callbacks"] = callback_configs
 
     # Handle Permutation Statistics Callback
@@ -144,7 +146,7 @@ def change_config_for_causal_discovery(old_config):
     # Set the max_epoch
     global original_max_epoch
     original_max_epoch = new_config["trainer"]["max_epochs"]
-    new_config["trainer"]["max_epochs"] = min(10000, original_max_epoch * n**2)
+    new_config["trainer"]["max_epochs"] = min(100000, original_max_epoch * n**2)
 
     # Change the model in_features and dimensions
     new_config["model"]["init_args"]["model_args"]["in_features"] = n
@@ -152,7 +154,9 @@ def change_config_for_causal_discovery(old_config):
     distr_name = "torch.distributions.normal.Normal"
     distr_args = {"loc": 0.0, "scale": 1.0}
     if (
-        new_config["data"]["init_args"]["dataset_args"]["scm_generator"]
+        new_config["data"]["init_args"]["dataset_args"] is not None
+        and "scm_generator" in new_config["data"]["init_args"]["dataset_args"]
+        and new_config["data"]["init_args"]["dataset_args"]["scm_generator"]
         == "ocd.data.synthetic.LinearNonGaussianSCMGenerator"
     ):
         if new_config["data"]["init_args"]["dataset_args"]["scm_generator_args"]["noise_type"] == "uniform":
