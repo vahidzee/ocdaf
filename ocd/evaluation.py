@@ -35,16 +35,20 @@ def count_backward(perm: th.List[int], dag: np.array):
 
     This is used as a validation metric
     """
+
+    def edge_exists(u: int, v: int) -> bool:
+        return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
+
     n = len(perm)
     count = 0
     for i in range(n):
         for j in range(i + 1, n):
-            if dag[perm[j], perm[i]]:
+            if edge_exists(perm[j], perm[i]):
                 count += 1
     return count
 
 
-def backward_score(perm: th.Union[th.List[int], th.List[th.List[int]]], dag: th.Union[np.array, nx.DiGraph]):
+def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph]):
     """
     Args:
         perm (list): permutation of the nodes (or a list of permutations)
@@ -53,8 +57,6 @@ def backward_score(perm: th.Union[th.List[int], th.List[th.List[int]]], dag: th.
     Compute the ratio of backward edges to all edges given a permutation
     If there are multiple permutations, compute the average score
     """
-    if isinstance(perm[0], list):
-        return sum([backward_score(p, dag) for p in perm]) / len(perm)
 
     def edge_exists(u: int, v: int) -> bool:
         return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
