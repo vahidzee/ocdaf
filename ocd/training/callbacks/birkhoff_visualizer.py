@@ -25,7 +25,8 @@ import typing as th
 from lightning_toolbox import TrainingModule
 from ocd.visualization.birkhoff import visualize_exploration
 import networkx as nx
-from ocd.evaluation import backward_score
+from ocd.evaluation import backward_relative_penalty
+from scipy.optimize import linear_sum_assignment
 
 MARKERS = ["^", "o", "x"]
 
@@ -142,7 +143,10 @@ def cluster_particles(all_points: np.array, core_points: np.array) -> np.array:
     clusters = np.zeros(all_points.shape[0])
     for i, mat in enumerate(all_points):
         # get the index of the closest vertex
-        closest_vertex = np.argmin(np.linalg.norm(core_points - mat, axis=(1, 2)))
+        row_ind, col_ind = linear_sum_assignment(-mat)
+        mat_after_hungarian = np.zeros_like(mat)
+        mat_after_hungarian[row_ind, col_ind] = 1
+        closest_vertex = np.argmin(np.linalg.norm(core_points - mat_after_hungarian, axis=(1, 2)))
         clusters[i] = closest_vertex
     return clusters
 
@@ -224,6 +228,8 @@ class BirkhoffCallback(LoggingCallback):
             log_validation=log_validation,
         )
         # Infer permutation size from scm if not given
+        if permutation_size is None:
+            return
         self.permutation_size = permutation_size
 
         self.fit_every_time = fit_every_time
@@ -278,15 +284,13 @@ class BirkhoffCallback(LoggingCallback):
             ordering = perm.argmax(-2).tolist()
             ordering_str = "-".join([str(x) for x in ordering])
             self.birkhoff_vertex_names.append(ordering_str)
-            
+
             if ordering_to_score_mapping is None:
                 if causal_graph is None:
                     # ignore in this case and just add -1
                     self.birkhoff_vertex_scores.append(-1)
                 else:
-                    self.birkhoff_vertex_scores.append(
-                        backward_score(ordering, causal_graph)
-                    )
+                    self.birkhoff_vertex_scores.append(backward_relative_penalty(ordering, causal_graph))
             else:
                 if ordering_str not in ordering_to_score_mapping:
                     raise ValueError(
@@ -316,12 +320,14 @@ class BirkhoffCallback(LoggingCallback):
         # Get the logged permutations
         logged_permutations = torch.cat(self.all_logged_values["permutation_to_display"], dim=0).detach().cpu().numpy()
         logged_losses = -torch.cat(self.all_logged_values["log_prob_to_display"], dim=0).detach().cpu().numpy()
-        
+
         # Use the hard permutations if available for clustering
-        permutations_used_for_clustering = torch.cat(self.all_logged_values["elementwise_perm_mat"], dim=0).detach().cpu().numpy()
+        permutations_used_for_clustering = (
+            torch.cat(self.all_logged_values["elementwise_perm_mat"], dim=0).detach().cpu().numpy()
+        )
         if len(logged_permutations) != len(permutations_used_for_clustering):
             permutations_used_for_clustering = logged_permutations
-            
+
         # If we are to train the PCA every time, then we should fit it with the logged permutations here
         if self.fit_every_time:
             self.pca.fit(logged_permutations.reshape(-1, self.permutation_size * self.permutation_size))
