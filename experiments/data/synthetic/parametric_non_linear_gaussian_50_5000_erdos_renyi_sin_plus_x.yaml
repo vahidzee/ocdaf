@@ -1,6 +1,6 @@
 class_path: lightning_toolbox.DataModule
 init_args:
-    batch_size: 128
+    batch_size: 8
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
         name: parametric_non_linear_gaussian_50_5000_erdos_renyi_sin_plus_x

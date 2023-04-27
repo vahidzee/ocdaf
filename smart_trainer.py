@@ -150,6 +150,10 @@ def change_config_for_causal_discovery(old_config):
 
     # Change the model in_features and dimensions
     new_config["model"]["init_args"]["model_args"]["in_features"] = n
+    layers = new_config["model"]["init_args"]["model_args"]["layers"]
+    # multiple the hidden dimensions of the layers by n
+    new_config["model"]["init_args"]["model_args"]["layers"] = [x * n for x in layers]
+
     # TODO: maybe change the hidden layer architecture as well?
     distr_name = "torch.distributions.normal.Normal"
     distr_args = {"loc": 0.0, "scale": 1.0}
