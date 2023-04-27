@@ -7,30 +7,35 @@ callbacks:
       # Set to higher value for faster results
       check_every_n_iterations: 1
       # The settings regarding epoch limit values
-      maximization_epoch_limit: 100
-      expectation_epoch_limit: 100
+      maximization_epoch_limit: 120
+      expectation_epoch_limit: 120
       # The settings regarding the generalization gap
-      generalization_early_stopping: []
-      generalization_patience: 10
-      generalization_threshold_eps: 0.01
+      patience: 25
+      threshold: 0.0001
+      cooldown: 50
       reset_optimizers: True
       reinitialize_weights_on_maximization: False
+  - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+    init_args:
+      epoch_buffer_size: 1
+      evaluate_every_n_epochs: 5
+      seed: 666
+      write_cost_values: True
+      write_permutation_names: True
+      core_points_has_birkhoff_vertices: True
+      core_points_has_birkhoff_edges: False
+      reject_outlier_factor: 0.1
+      # Include permutation names
+      add_permutation_to_name: True
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
-      save_path: experiments/dummy/trainer-3-template
       num_samples: 1000
-      # This is optional:
-      causal_graph:
-        class_path: networkx.classes.digraph.DiGraph
-        init_args:
-          incoming_graph_data:
-            - [2, 0]
-            - [2, 1]
-            - [0, 1]
-accelerator: cpu
+      save_every_n_epochs: 100
+      log_every_n_epochs: 1
+accelerator: gpu
 devices: 1
 num_nodes: 0
-max_epochs: 10000 # SWEEP on this
+max_epochs: 100 # SWEEP on this
 log_every_n_steps: 1
 check_val_every_n_epoch: 1
 enable_checkpointing: true
@@ -39,6 +44,5 @@ enable_progress_bar: false
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: temporary-permutation
-    name: good-data-run-softplus
-    checkpoint_name: full-pipeline
+    project: synthetic-tests
+    name: dummy-name

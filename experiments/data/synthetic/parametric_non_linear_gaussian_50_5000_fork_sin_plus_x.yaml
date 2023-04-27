@@ -1,0 +1,24 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+        name: parametric_non_linear_gaussian_50_5000_fork_sin_plus_x
+        observation_size: 5000
+        scm_generator: ocd.data.synthetic.InvertibleModulatedGaussianSCMGenerator
+        scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: {graph_type: fork, n: 50, seed: 166}
+            mean: 0.0
+            s_function: {function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func}
+            s_function_signature: softplus
+            seed: 482
+            std: 1.0
+            t_function: {function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                    \ + x", function_of_interest: func}
+            t_function_signature: sin_plus_x
+            weight_s: [0.5, 1.5]
+            weight_t: [0.5, 1.5]
+        seed: 780
+    val_size: 0.1
