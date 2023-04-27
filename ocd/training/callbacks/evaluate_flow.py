@@ -33,8 +33,14 @@ class EvaluateFlow(LoggingCallback):
     def evaluate(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         all_inputs = self.all_logged_values["elementwise_input"]
 
-        if self.all_logged_values["elementwise_perm_mat"][0] is not None:
-            all_permutations = self.all_logged_values["elementwise_perm_mat"]
+        if (
+            "elementwise_perm_mat" not in self.all_logged_values
+            or len(self.all_logged_values["elementwise_perm_mat"]) == 0
+        ):
+            all_permutations = [None for _ in range(len(all_inputs))]
+        else:
+            if self.all_logged_values["elementwise_perm_mat"][0] is not None:
+                all_permutations = self.all_logged_values["elementwise_perm_mat"]
 
         all_sampled = []
         for input, perm_mat in zip(all_inputs, all_permutations):
@@ -42,7 +48,8 @@ class EvaluateFlow(LoggingCallback):
             # this is for some cuda out of memory issues
             for i in range(0, input.shape[0], self.batch_size):
                 b = min(self.batch_size, input.shape[0] - i)
-                sampled_values = pl_module.model.flow.sample(num_samples=b, perm_mat=perm_mat[i : i + b])
+                perm_mat_to_sample = None if perm_mat is None else perm_mat[i : i + b]
+                sampled_values = pl_module.model.flow.sample(num_samples=b, perm_mat=perm_mat_to_sample)
                 all_sampled.append(sampled_values.detach().cpu())
 
         all_sampled = torch.cat(all_sampled, dim=0)
