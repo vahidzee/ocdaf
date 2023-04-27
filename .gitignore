@@ -157,3 +157,6 @@ test-project/*
 
 # logs created by the smart_trainer
 experiments/smart-trainer-logs/*
+
+# Synthetic test checkpoints
+synthetic-tests/*
