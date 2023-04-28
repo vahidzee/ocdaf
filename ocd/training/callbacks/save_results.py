@@ -10,40 +10,45 @@ import typing as th
 import numpy as np
 import json
 import networkx as nx
-from ocd.evaluation import backward_score
+import ocd.evaluation as eval_metrics
 import dypy as dy
+
+all_evaluation_metrics = {
+    "backward_relative_penalty": eval_metrics.backward_relative_penalty,
+    "count_backward": eval_metrics.count_backward,
+}
 
 
 class SavePermutationResultsCallback(Callback):
     def __init__(
         self,
-        save_path: str,
+        save_path: th.Optional[str] = None,
         save_every_n_epochs: th.Optional[int] = None,
+        log_every_n_epochs: th.Optional[int] = None,
         num_samples: int = 1000,
         ordering_to_score_mapping: th.Optional[th.Dict[str, th.Union[float, int]]] = None,
         causal_graph: th.Optional[th.Union[str, nx.DiGraph]] = None,
+        log_into_logger: bool = True,
         # causal_graph_args: th.Optional[dict] = None,
     ):
+        if save_path is None:
+            return
         self.save_path = save_path
         # create save_path if it does not exist
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
         self.save_every_n_epochs = save_every_n_epochs
+        self.log_every_n_epochs = log_every_n_epochs
         self.epoch_counter = 0
         self.num_samples = num_samples
 
         self.ordering_to_score_mapping = ordering_to_score_mapping
         self.causal_graph = causal_graph
-        # self.causal_graph = causal_graph_cls if isinstance(causal_graph_cls, nx.DiGraph) else None
-        # if self.causal_graph is None and causal_graph_cls is not None:
-        #     causal_graph_args = causal_graph_args if causal_graph_args is not None else {}
-        #     self.causal_graph = dy.eval(causal_graph_cls)(**causal_graph_args)
 
-    def _save_results(self, pl_module: TrainingModule, filename: th.Optional[str] = None) -> None:
-        filename = filename if filename is not None else f"results-epoch-{self.epoch_counter}"
-        filename += ".json"
+        self.log_into_logger = log_into_logger
 
+    def _get_res_dict(self, pl_module: TrainingModule):
         # save the results
         perm_model = pl_module.model.permutation_model
 
@@ -60,9 +65,23 @@ class SavePermutationResultsCallback(Callback):
             if mx is None or permutation_map[key] > permutation_map[mx]:
                 mx = key
 
+        best_permutation = [int(i) for i in mx.split("-")]
         ret = {}
+        ret["metrics"] = {"average": {}, "best": {}}
+
+        # Calculate all the metrics
         if self.causal_graph is not None:
-            ret["avg_score"] = backward_score(all_permutations, self.causal_graph)
+            for metric_name, metric_func in all_evaluation_metrics.items():
+                sm = 0
+                running_avg = 0
+                for perm, c in permutation_map.items():
+                    perm_int = [int(i) for i in perm.split("-")]
+                    score = metric_func(perm_int, self.causal_graph)
+                    running_avg = (running_avg * sm + score * c) / (sm + c)
+                    sm += c
+                ret["metrics"]["average"][metric_name] = running_avg
+                ret["metrics"]["best"][metric_name] = metric_func(best_permutation, self.causal_graph)
+
         if self.ordering_to_score_mapping is not None:
             score = 0.0
             cnt_cumul = 0.0
@@ -72,13 +91,27 @@ class SavePermutationResultsCallback(Callback):
                 score += c * self.ordering_to_score_mapping[perm]
                 cnt_cumul += c
             ret["avg_score"] = score / cnt_cumul
+            ret["best_score"] = self.ordering_to_score_mapping[mx]
 
         ret["permutation_map"], ret["most_common_permutation"] = permutation_map, mx
 
+        return ret
+
+    def _save_results(self, pl_module: TrainingModule, filename: th.Optional[str] = None) -> None:
+        filename = filename if filename is not None else f"results-epoch-{self.epoch_counter}"
+        filename += ".json"
+
+        ret = self._get_res_dict(pl_module)
         saving_path = os.path.join(self.save_path, filename)
         # save res to saving_path
         with open(saving_path, "w") as f:
             json.dump(ret, f, indent=4)
+
+    def _log_results(self, pl_module: TrainingModule) -> None:
+        ret = self._get_res_dict(pl_module)
+        for key1, val1 in ret["metrics"].items():
+            for key2, val2 in val1.items():
+                pl_module.log(f"metrics/{key1}-{key2}", float(val2))
 
     def on_fit_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
         self._save_results(pl_module, filename="final-results")
@@ -89,5 +122,7 @@ class SavePermutationResultsCallback(Callback):
         if self.save_every_n_epochs is not None and self.epoch_counter % self.save_every_n_epochs == 0:
             # save the results
             self._save_results(pl_module)
+        if self.log_every_n_epochs is not None and self.epoch_counter % self.log_every_n_epochs == 0:
+            self._log_results(pl_module)
 
         return super().on_train_epoch_end(trainer, pl_module)

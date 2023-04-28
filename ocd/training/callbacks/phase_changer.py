@@ -17,8 +17,7 @@ class PhaseChangerCallback(Callback):
     The phase change occures in different scenarios:
 
     (1) When the training process loss has converged to a certain value
-    (2) When a generalization gap is occuring and the validation loss is increasing
-    (3) When the number of epochs in each phase has reached their corresponding set limit
+    (2) When the monitoring value (in this case loss/validation loss) has Plateaued
 
     For each of these settings, there are hyperparameters that can be adjusted to control
     the phase change process.
@@ -34,17 +33,12 @@ class PhaseChangerCallback(Callback):
         expectation_epoch_limit: int = 10,
         # The settings regarding the loss convergence values
         check_every_n_iterations: int = 1,  # for performance reasons
-        loss_convergence_early_stopping: bool = False,
-        loss_convergence_patience: int = 5,
-        loss_convergence_threshold_eps: float = 0.0001,
-        # The settings regarding the generalization gap
-        generalization_early_stopping: th.List[th.Literal["expectation", "maximization"]] = ["maximization"],
-        generalization_patience: int = 5,
-        generalization_threshold_eps: float = 0.0001,
-        
-        #
+        patience: int = 5,
+        threshold: float = 0.0001,
+        cooldown: int = 0,
         reset_optimizers: bool = True,
-        reinitialize_weights_on_maximization: bool = False
+        reinitialize_weights_on_maximization: bool = False,
+        log_onto_logger: bool = True,
     ):
         self.check_every_n_iterations = check_every_n_iterations
         self.training_iteration_counter = 0
@@ -58,27 +52,22 @@ class PhaseChangerCallback(Callback):
         self.epochs_on_expectation = 0
         self.expectation_epoch_limit = expectation_epoch_limit
 
-        self.baseline_training_loss_patience = loss_convergence_patience
-        self.training_loss_patience_remaining = loss_convergence_patience
-        self.loss_convergence_threshold_eps = loss_convergence_threshold_eps
-        self.running_minimum_training_loss = float("inf")
-
-        self.baseline_generalization_patience = generalization_patience
-        self.generalization_patience_remaining = generalization_patience
-        self.generalization_threshold_eps = generalization_threshold_eps
-        self.running_minimum_validation_loss = float("inf")
-
+        self.baseline_patience = patience
+        self.patience_remaining = patience
+        self.threshold = threshold
         self.validation_running_avg = 0
+        self.running_minimum_validation_loss = float("inf")
+        self.cooldown = cooldown
         self.num_validation_batches = 0
+        self.cooldown_counter = cooldown
+        self.cooldown_base_counter = cooldown
 
-        self.generalization_early_stopping = generalization_early_stopping
-        self.loss_convergence_early_stopping = loss_convergence_early_stopping
-        
         self.reset_optimizers = reset_optimizers
         self.reinitialize_weights_on_maximization = reinitialize_weights_on_maximization
 
+        self.log_onto_logger = log_onto_logger
+
     def change_phase(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        
         # Change the current_phase of the training_module
         if pl_module.current_phase == "maximization":
             pl_module.current_phase = "expectation"
@@ -89,22 +78,17 @@ class PhaseChangerCallback(Callback):
         self.epochs_on_expectation = 0
         self.epochs_on_maximization = 0
 
-        # Change the loss convergence values
-        self.training_loss_patience_remaining = self.baseline_training_loss_patience
-        self.running_minimum_training_loss = float("inf")
-
         # Change the generalization gap values
-        self.generalization_patience_remaining = self.baseline_generalization_patience
         self.running_minimum_validation_loss = float("inf")
-        
+        self.patience_remaining = self.baseline_patience
+
         if self.reset_optimizers:
             pl_module.reset_optimizers()
-            
+
         if self.reinitialize_weights_on_maximization and pl_module.current_phase == "maximization":
             pl_module.reinitialize_flow_weights()
-        
-        
-        
+
+        self.cooldown_counter = self.cooldown_base_counter
 
     def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
         pl_module.current_phase = self.starting_phase
@@ -114,55 +98,13 @@ class PhaseChangerCallback(Callback):
         if pl_module.current_phase == "maximization":
             self.epochs_on_maximization += 1
             if self.epochs_on_maximization == self.maximization_epoch_limit:
-                # print(">>>>>>>>>>>> Change phase due to epoch limit <<<<<<<<<<<<<<")
-                # print(">>>>>>>>>>>> Change on maximization <<<<<<<<<<<<<<")
                 self.change_phase(trainer, pl_module)
         elif pl_module.current_phase == "expectation":
             self.epochs_on_expectation += 1
             if self.epochs_on_expectation == self.expectation_epoch_limit:
-                # print(">>>>>>>>>>>> Change phase due to epoch limit <<<<<<<<<<<<<<")
-                # print(">>>>>>>>>>>> Change on expectation <<<<<<<<<<<<<<")
                 self.change_phase(trainer, pl_module)
 
         return super().on_train_epoch_end(trainer, pl_module)
-
-    def on_train_batch_end(
-        self,
-        trainer: pl.Trainer,
-        pl_module: TrainingModule,
-        outputs: th.Optional[STEP_OUTPUT],
-        batch: th.Any,
-        batch_idx: int,
-    ) -> None:
-        ret = super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
-
-        if not self.loss_convergence_early_stopping or pl_module.current_phase == "expectation":
-            return ret
-        self.training_iteration_counter += 1
-
-        if self.training_iteration_counter % self.check_every_n_iterations != 0:
-            return ret
-
-        outputs = pl_module.objective.results_latch
-
-        if "loss" not in outputs:
-            raise Exception(f"The training step must return a loss value but got the following instead:\n{outputs}")
-
-        # If the current loss is less than (min - eps) then reset the patience
-        # otherwise, decrement the patience and if the patience reaches zero, change the phase
-        current_loss = outputs["loss"]
-        if current_loss < self.running_minimum_training_loss - self.loss_convergence_threshold_eps:
-            self.training_loss_patience_remaining = self.baseline_training_loss_patience
-            # Take the minimum of current loss and the running minimum
-            self.running_minimum_training_loss = min(self.running_minimum_training_loss, current_loss)
-        else:
-            self.training_loss_patience_remaining -= 1
-            if self.training_loss_patience_remaining == 0:
-                # print(">>>>>>> Changing phase <<<<<<<")
-                # print(">>> Due to loss convergence <<<<")
-                self.change_phase(trainer, pl_module)
-
-        return ret
 
     def on_validation_batch_end(
         self,
@@ -174,9 +116,6 @@ class PhaseChangerCallback(Callback):
         dataloader_idx: int,
     ) -> None:
         ret = super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
-
-        if pl_module.current_phase not in self.generalization_early_stopping:
-            return ret
 
         outputs = pl_module.objective.results_latch
 
@@ -190,16 +129,35 @@ class PhaseChangerCallback(Callback):
             self.num_validation_batches = batch_idx + 1
         else:
             if self.num_validation_batches == batch_idx + 1:
+                should_change_phase = False
+
                 current_loss = self.validation_running_avg
 
-                if current_loss <= self.running_minimum_validation_loss + self.generalization_threshold_eps:
-                    self.generalization_patience_remaining = self.baseline_generalization_patience
-                    # Take the minimum of current loss and the running minimum
-                    self.running_minimum_validation_loss = min(self.running_minimum_validation_loss, current_loss)
+                self.cooldown_counter = max(0, self.cooldown_counter - 1)
+
+                if current_loss <= self.running_minimum_validation_loss * (1 - self.threshold):
+                    self.patience_remaining = self.baseline_patience
                 else:
-                    self.generalization_patience_remaining -= 1
-                    if self.generalization_patience_remaining == 0:
-                        # print(">>>>>>> Changing phase <<<<<<<")
-                        # print(">>> Due to validation early stopping <<<<")
+                    self.patience_remaining = max(0, self.patience_remaining - 1)
+                    if self.patience_remaining == 0 and self.cooldown_counter == 0:
+                        should_change_phase = True
+
+                # Take the minimum of current loss and the running minimum
+                self.running_minimum_validation_loss = min(self.running_minimum_validation_loss, current_loss)
+
+                if self.log_onto_logger:
+                    pl_module.log("phase-changer/current_validation_loss", current_loss)
+                    pl_module.log(
+                        "phase-changer/running_minimum_validation_loss", self.running_minimum_validation_loss
+                    )
+                    pl_module.log("phase-changer/patience_remaining", float(self.patience_remaining))
+                    pl_module.log(
+                        "phase-changer/current_phase-0-maximization-1-expectation",
+                        0.0 if pl_module.current_phase == "maximization" else 1.0,
+                    )
+                    pl_module.log("phase-changer/cooldown-counter", float(self.cooldown_counter))
+
+                    if should_change_phase:
                         self.change_phase(trainer, pl_module)
+
         return ret

@@ -142,12 +142,17 @@ class InvertibleModulatedGaussianSCMGenerator(SCMGenerator):
         parent_parameters: th.List[th.Dict[str, th.Any]],
         node_parameters: th.List[th.Dict[str, th.Any]],
     ) -> numpy.array:
-        t = self.t_function(
-            sum([p * pp["weight_t"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_t"]
-        )
-        s = self.s_function(
-            sum([p * pp["weight_s"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_s"]
-        )
+        t_input = sum([p * pp["weight_t"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_t"]
+
+        if isinstance(t_input, float):
+            t_input = t_input * np.ones_like(noise)
+
+        t = self.t_function(t_input)
+
+        s_input = sum([p * pp["weight_s"] for p, pp in zip(parents, parent_parameters)]) + node_parameters["weight_s"]
+        if isinstance(s_input, float):
+            s_input = s_input * np.ones_like(noise)
+        s = self.s_function(s_input)
         return t + s * noise
 
     def get_covariate_from_parents_signature(
