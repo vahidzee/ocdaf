@@ -20,6 +20,7 @@ class AffineFlow(torch.nn.ModuleList):
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
         additive: bool = False,
+        share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
         clamp_val: float = 1e8,
         # base distribution
@@ -49,6 +50,7 @@ class AffineFlow(torch.nn.ModuleList):
                     batch_norm=batch_norm,
                     batch_norm_args=batch_norm_args,
                     additive=additive,
+                    share_parameters=share_parameters,
                     clamp_val=clamp_val,
                     reversed_ordering=reversed_ordering,
                     device=device,

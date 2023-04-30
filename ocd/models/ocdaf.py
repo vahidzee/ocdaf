@@ -21,6 +21,7 @@ class OCDAF(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
         additive: bool = False,
+        share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
         clamp_val: float = 1e8,
         # base distribution
@@ -51,6 +52,7 @@ class OCDAF(torch.nn.Module):
             batch_norm_args=batch_norm_args,
             clamp_val=clamp_val,
             additive=additive,
+            share_parameters=share_parameters,
             num_transforms=num_transforms,
             ordering=ordering,
             reversed_ordering=reversed_ordering,

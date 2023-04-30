@@ -18,6 +18,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # transform args
         additive: bool = False,
+        share_parameters: bool = False,  # share parameters between scale and shift
         # Clamp value
         clamp_val: float = 1e9,
         # ordering
@@ -27,16 +28,12 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
     ):
         super().__init__()
-        self.additive = additive
-        out_features = in_features
-        if not additive:
-            out_features = in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
-
+        self.additive: bool = additive
+        self.share_parameters: bool = share_parameters
         self.clamp_val = clamp_val
-        self.masked_mlp = MaskedMLP(
+        args = dict(
             in_features=in_features,
             layers=layers,
-            out_features=out_features,
             residual=residual,
             bias=bias,
             activation=activation,
@@ -48,6 +45,14 @@ class MaskedAffineFlowTransform(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
+
+        if not share_parameters:
+            self.masked_mlp_shift = MaskedMLP(**args, out_features=in_features)
+            self.masked_mlp_scale = MaskedMLP(**args, out_features=in_features) if not additive else None
+        else:
+            self.masked_mlp = MaskedMLP(
+                **args, out_features=in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
+            )
 
     def clamp(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -62,6 +67,15 @@ class MaskedAffineFlowTransform(torch.nn.Module):
     ) -> torch.Tensor:
         return super().compute_dependencies(inputs, **kwargs, forward_function="forward" if forward else "inverse")
 
+    def get_scale_and_shift(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+        if self.share_parameters:
+            autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = self.masked_mlp(inputs, **kwargs)
+            s, t = self._split_scale_and_shift(autoregressive_params)
+        else:
+            s: torch.Tensor = self.masked_mlp_shift(inputs, **kwargs)
+            t: torch.Tensor = self.masked_mlp_scale(inputs, **kwargs) if not self.additive else torch.zeros_like(s)
+        return s, t
+
     def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """
         $T^{-1}$ is the inverse of $T$. $T$ is a function from latent $z$ to data $x$ of the form:
@@ -74,8 +88,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         Args:
             inputs (torch.Tensor): x ~ p_x(x)
         """
-        autoregressive_params: th.Tuple[torch.Tensor, torch.Tensor] = self.masked_mlp(inputs, **kwargs)
-        s, t = self._split_scale_and_shift(autoregressive_params)
+        s, t = self.get_scale_and_shift(inputs, **kwargs)
         # (1) Use Softplus
         # outputs = (inputs - t) / torch.nn.functional.softplus(s)
         # logabsdet = -torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
@@ -116,9 +129,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         # passing the outputs through the autoregressive network elementwise for d times (where d is the dimensionality
         # of the input features) will result in the inverse of the affine transformation
         for _ in range(inputs.shape[-1]):
-            autoregressive_params = self.masked_mlp(outputs, perm_mat=perm_mat, **kwargs)
-            s, t = self._split_scale_and_shift(autoregressive_params)
-
+            s, t = self.get_scale_and_shift(outputs, perm_mat=perm_mat, **kwargs)
             # (1) Use Softplus
             # outputs = torch.nn.functional.softplus(s) * z + t
             # logabsdet = torch.sum(torch.log(torch.nn.functional.softplus(s)), dim=-1)
@@ -145,5 +156,9 @@ class MaskedAffineFlowTransform(torch.nn.Module):
 
     def extra_repr(self):
         additive = f", additive={self.additive}" if self.additive else ""
-        ordering = f", ordering={self.masked_mlp.ordering}"
-        return super().extra_repr() + additive + ordering
+        ordering = (
+            f"ordering={self.masked_mlp.ordering}"
+            if self.share_parameters
+            else f"ordering={self.masked_mlp_shift.ordering}"
+        )
+        return super().extra_repr() + ordering + additive
