@@ -1,0 +1,43 @@
+# callbacks
+callbacks:
+  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+  - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+    init_args:
+      starting_phase: maximization
+      # Set to higher value for faster results
+      check_every_n_iterations: 1
+      # The settings regarding epoch limit values
+      maximization_epoch_limit: 120
+      expectation_epoch_limit: 120
+      # The settings regarding the generalization gap
+      patience: 25
+      threshold: 0.0001
+      cooldown: 50
+      reset_optimizers: True
+      reinitialize_weights_on_maximization: False
+  - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+    init_args:
+      epoch_buffer_size: 1
+      evaluate_every_n_epochs: 5
+      seed: 666
+      write_cost_values: True
+      write_permutation_names: True
+      core_points_has_birkhoff_vertices: True
+      core_points_has_birkhoff_edges: False
+      reject_outlier_factor: 0.1
+      # Include permutation names
+      add_permutation_to_name: True
+  - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
+    init_args:
+      num_samples: 1000
+      save_every_n_epochs: 100
+      log_every_n_epochs: 1
+accelerator: gpu
+devices: 1
+num_nodes: 0
+max_epochs: 100 # SWEEP on this
+log_every_n_steps: 1
+check_val_every_n_epoch: 1
+enable_checkpointing: true
+enable_model_summary: true
+enable_progress_bar: false
