@@ -160,3 +160,6 @@ experiments/smart-trainer-logs/*
 
 # Synthetic test checkpoints
 synthetic-tests/*
+
+# The configuration that Lightning Constantly makes
+config.yaml
