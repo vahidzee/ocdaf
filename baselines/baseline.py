@@ -9,7 +9,7 @@ class Baseline:
         """
         self.name = name
 
-    def fit(self, dataset: OCDDataset) -> th.List[int]:
+    def fit(self, dataset: OCDDataset, *args) -> th.List[int]:
         """ Fit the baseline on the dataset
         Args:
             dataset: The dataset to fit on
