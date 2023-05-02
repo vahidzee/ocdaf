@@ -12,6 +12,7 @@ import json
 import networkx as nx
 import ocd.evaluation as eval_metrics
 import dypy as dy
+import warnings
 
 all_evaluation_metrics = {
     "backward_relative_penalty": eval_metrics.backward_relative_penalty,
@@ -32,6 +33,10 @@ class SavePermutationResultsCallback(Callback):
         # causal_graph_args: th.Optional[dict] = None,
     ):
         if save_path is None:
+            # TODO: This can have side-effects
+            # send a warning that the save_path is not set
+            # and that the results will not be saved
+            warnings.warn("save_path is not set, results will not be saved [This might cause issues]")
             return
         self.save_path = save_path
         # create save_path if it does not exist
