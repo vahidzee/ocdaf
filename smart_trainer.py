@@ -53,7 +53,7 @@ def convert_to_dict(config: th.Union[Namespace, list, dict]) -> th.Union[dict, l
     return ret_config
 
 
-def change_config_for_causal_discovery(old_config):
+def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     """
     This function takes in a base configuration and changes it for the causal discovery phase.
     In this phase, the ordering will be discovered.
@@ -64,18 +64,17 @@ def change_config_for_causal_discovery(old_config):
     Finally, we end up with a configuration that is ready to be used by the Lightning Trainer.
     """
     new_config = convert_to_dict(old_config)
-
     # Build the graph and get the graph information
     dataset_args = (
         new_config["data"]["init_args"]["dataset_args"] if "dataset_args" in new_config["data"]["init_args"] else {}
     )
+
     dataset_args = dataset_args or {}
     torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**dataset_args)
     graph = torch_dataset.dag
     n = graph.number_of_nodes()
 
     # Handle the logger
-    new_config["trainer"]["logger"]["init_args"]["name"]
     logger_name = torch_dataset.name
     mex = 0
     while os.path.exists(f"experiments/smart-trainer-logs/{logger_name}-{mex}"):
@@ -83,12 +82,14 @@ def change_config_for_causal_discovery(old_config):
     logger_name = f"{logger_name}-{mex}"
     # create the directory
     os.makedirs(f"experiments/smart-trainer-logs/{logger_name}")
-    new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
+    if not bypass_logger:
+        new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
 
     # Handle Birkhoff Callback, if the number of nodes is less than or equal to 4
     # then edit or add the Birkhoff callback to the callbacks list
     # if not, remove it entirely
     callback_configs = new_config["trainer"]["callbacks"]
+
     if n <= 4:
         # Find the Birkhoff config if it exists or add it to the callbacks if it does not
         birkhoff_config = None
@@ -172,6 +173,9 @@ def change_config_for_causal_discovery(old_config):
 
     new_config["model"]["init_args"]["model_args"]["base_distribution"] = distr_name
     new_config["model"]["init_args"]["model_args"]["base_distribution_args"] = distr_args
+
+    if bypass_logger:
+        return new_config, logger_name
 
     return Namespace(new_config), logger_name
 
