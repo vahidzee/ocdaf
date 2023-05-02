@@ -11,3 +11,5 @@ seaborn
 # for graphs generation and sampling
 networkx
 jsonargparse[signatures]
+
+cdt
