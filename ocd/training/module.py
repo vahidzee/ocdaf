@@ -25,7 +25,7 @@ class OCDafTrainingModule(TrainingModule):
         self.map_phase_to_idx = {phase: i for i, phase in enumerate(self.phases)}
 
         # for each scheduler have the running average
-        self.running_avg = [0 for _ in self._schedulers]
+        self.running_avg = [0 for _ in self._schedulers] if self._schedulers is not None else None
 
         self.cnt = 0
 
@@ -55,6 +55,7 @@ class OCDafTrainingModule(TrainingModule):
         Returns:
             None if the model is in evaluation mode, else a tensor with the training objective
         """
+
         if hasattr(self, "current_phase"):
             optimizer_idx = self.map_phase_to_idx[self.current_phase]
         else:
@@ -83,12 +84,16 @@ class OCDafTrainingModule(TrainingModule):
             opt.zero_grad()
             loss = results["loss"]
             self.manual_backward(loss)
+
+            # Manually adding
+            # self.trainer.global_step += 1
+
             opt.step()
 
             self.log(f"lr/{optimizer_idx}", opt.param_groups[0]["lr"], on_step=True, on_epoch=True, prog_bar=True)
 
             return loss.mean() if isinstance(loss, torch.Tensor) else loss
-        else:
+        elif self._schedulers is not None:
             for i, sched in enumerate(self._schedulers):
                 monitor_key = sched["monitor"]
                 self.running_avg[i] = (
@@ -96,8 +101,9 @@ class OCDafTrainingModule(TrainingModule):
                 ) / (batch_idx + 1)
 
     def on_train_epoch_end(self):
+        ret = super().on_train_epoch_end()
         if self._schedulers is None:
-            return
+            return ret
         for scheduler_idx in range(len(self._schedulers)):
             # TODO: This is hacky, but I don't know how to do it better
             if hasattr(self, "current_phase") and self.current_phase not in self._schedulers[scheduler_idx]["name"]:
@@ -109,6 +115,7 @@ class OCDafTrainingModule(TrainingModule):
                     scheduler.step(self.running_avg[scheduler_idx])
                 else:
                     scheduler.step()
+        return ret
 
     def training_step(self, batch, batch_idx, **kwargs):
         return self.step(batch, batch_idx, name="train", **kwargs)

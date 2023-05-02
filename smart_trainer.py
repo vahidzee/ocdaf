@@ -19,6 +19,7 @@ from lightning.pytorch.cli import LightningCLI, LightningArgumentParser
 from lightning.pytorch import LightningModule, LightningDataModule
 from lightning_toolbox import TrainingModule, DataModule
 from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
 import os
 from jsonargparse.namespace import Namespace
 import typing as th
@@ -32,6 +33,7 @@ import lightning.pytorch as pl
 import pprint
 
 original_max_epoch: int
+checkpoint_path: th.Optional[str] = None
 
 
 def convert_to_dict(config: th.Union[Namespace, list, dict]) -> th.Union[dict, list]:
@@ -53,7 +55,7 @@ def convert_to_dict(config: th.Union[Namespace, list, dict]) -> th.Union[dict, l
     return ret_config
 
 
-def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
+def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, bypass_birkhoff: bool = False):
     """
     This function takes in a base configuration and changes it for the causal discovery phase.
     In this phase, the ordering will be discovered.
@@ -77,11 +79,11 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     # Handle the logger
     logger_name = torch_dataset.name
     mex = 0
-    while os.path.exists(f"experiments/smart-trainer-logs/{logger_name}-{mex}"):
+    while os.path.exists(f"experiments/smart/smart-trainer-logs/{logger_name}-{mex}"):
         mex += 1
     logger_name = f"{logger_name}-{mex}"
     # create the directory
-    os.makedirs(f"experiments/smart-trainer-logs/{logger_name}")
+    os.makedirs(f"experiments/smart/smart-trainer-logs/{logger_name}")
     if not bypass_logger:
         new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
 
@@ -90,7 +92,7 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     # if not, remove it entirely
     callback_configs = new_config["trainer"]["callbacks"]
 
-    if n <= 4:
+    if n <= 4 and not bypass_birkhoff:
         # Find the Birkhoff config if it exists or add it to the callbacks if it does not
         birkhoff_config = None
         ind_of_interest = None
@@ -137,7 +139,7 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
         callback_configs.append(perm_save_callback)
         ind_of_interest = len(callback_configs) - 1
 
-    callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart-trainer-logs/{logger_name}"
+    callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/{logger_name}"
     callback_configs[ind_of_interest]["init_args"]["causal_graph"] = {
         "class_path": "networkx.classes.digraph.DiGraph",
         "init_args": {"incoming_graph_data": list(graph.edges)},
@@ -155,7 +157,6 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     # multiple the hidden dimensions of the layers by n
     new_config["model"]["init_args"]["model_args"]["layers"] = [x * n for x in layers]
 
-    # TODO: maybe change the hidden layer architecture as well?
     distr_name = "torch.distributions.normal.Normal"
     distr_args = {"loc": 0.0, "scale": 1.0}
     if (
@@ -276,7 +277,8 @@ def custom_run(conf: th.Union[Namespace, dict], phase: str, log_dir: str):
         overwrite=True,
         multifile=False,
     )
-    cli.trainer.fit(cli.model, cli.datamodule)
+    global checkpoint_path
+    cli.trainer.fit(cli.model, cli.datamodule, ckpt_path=checkpoint_path)
 
 
 def main():
@@ -289,6 +291,16 @@ def main():
     if "--inference" in sys.argv:
         has_inference = True
         sys.argv.remove("--inferece")
+    if "fit" not in sys.argv:
+        raise Exception("Please specify the fit command, the smart trainer only works on fit mode of lightningCLI")
+    else:
+        sys.argv.remove("fit")
+        for i, t in enumerate(sys.argv):
+            if t.startswith("--ckpt_path="):
+                global checkpoint_path
+                checkpoint_path = t.split("=")[1]
+                sys.argv.pop(i)
+                break
 
     # parser.parse_object()
     cli = LightningCLI(
@@ -306,12 +318,15 @@ def main():
     if has_discovery:
         # Overwrite the base configuration with the causal discovery configuration
         config_for_discovery, logger_name = change_config_for_causal_discovery(base_config)
-        log_dir = f"experiments/smart-trainer-logs/{logger_name}"
+        log_dir = f"experiments/smart/smart-trainer-logs/{logger_name}"
 
         custom_run(config_for_discovery, phase="causal_discovery", log_dir=log_dir)
         wandb.finish()
 
-        with open(f"experiments/smart-trainer-logs/{logger_name}/final-results.json", "r") as f:
+        with open(
+            f"experiments/smart/smart-trainer-logs/{logger_name}/final-results.json",
+            "r",
+        ) as f:
             results = json.load(f)
 
         correct_permutation = [int(i) for i in results["most_common_permutation"].split("-")]

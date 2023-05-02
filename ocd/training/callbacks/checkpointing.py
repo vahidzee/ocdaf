@@ -1,58 +1,37 @@
-"""
-This callback contains some functionalities to evaluate how good the flow performs
-"""
-
-# from lightning.pytorch.callbacks import Callback
-from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.callbacks import ModelCheckpoint
 import lightning.pytorch as pl
-from lightning_toolbox import TrainingModule
-import torch
-from ocd.visualization.qqplot import qqplot
-import typing as th
-import os
-import yaml
 from lightning.pytorch import Trainer
-import pandas as pd
+from lightning_toolbox import TrainingModule
 
 
-class CheckpointingCallback(Callback):
-    def __init__(self, checkpoint_address: str, checkpoint_name: str, freq: int = -1):
-        super().__init__()
-        self.checkpoint_address = checkpoint_address
-        self.checkpoint_name = checkpoint_name
-        self.freq = freq
-        if self.freq == 0:
-            raise ValueError("freq cannot be 0")
+# TODO: Make sure to submit an issue on Pytorch Lightning about the incompatibility of manual optimization with multiple
+# optimizers and also using ModelCheckpoint callback. The bug that we found was that global_step was not being updated
+# and it remained equal to zero.
+class DebuggedModelCheckpoint(ModelCheckpoint):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_pl_module_phase = None
+        self.edge_detected = False
 
-    def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        trainer.datamodule.data.samples.to_csv(os.path.join(self.addr, "data.csv"))
-
-        return super().on_fit_start(trainer, pl_module)
-
-    @property
-    def addr(self):
-        addr = os.path.join(self.checkpoint_address, self.checkpoint_name)
-        # check if the checkpoint address exists
-        if not os.path.exists(addr):
-            os.mkdir(addr)
-        return addr
-
-    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        if self.freq > 0:
-            model_checkpoint_addr = os.path.join(self.addr, f"{trainer.current_epoch}-model.ckpt")
-            torch.save(pl_module.model.state_dict(), model_checkpoint_addr)
-            if (trainer.current_epoch + 1) % self.freq != 1:
-                prev_model = os.path.join(self.addr, f"{trainer.current_epoch - 1}-model.ckpt")
-                # remove the previous model
-                if os.path.exists(prev_model):
-                    os.remove(prev_model)
+    def on_train_epoch_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
+        ret = super().on_train_epoch_end(trainer, pl_module)
+        if self.last_pl_module_phase != pl_module.current_phase:
+            self.last_pl_module_phase = pl_module.current_phase
+            self.edge_detected = True
         else:
-            model_checkpoint_addr = os.path.join(self.addr, f"model.ckpt")
-            torch.save(pl_module.model.state_dict(), model_checkpoint_addr)
+            self.edge_detected = False
+        return ret
 
-        # save pl_module.hparams to yaml file
-        hparams_addr = os.path.join(self.addr, "model_args.yaml")
-        with open(hparams_addr, "w") as f:
-            yaml.dump(pl_module.model_args, f)
+    def _should_skip_saving_checkpoint(self, trainer: pl.Trainer) -> bool:
+        from lightning.pytorch.trainer.states import TrainerFn
 
-        return super().on_train_epoch_end(trainer, pl_module)
+        # if edge is not detected, then skip
+        if not self.edge_detected:
+            return True
+
+        # ignore the condition on global_step
+        return (
+            bool(trainer.fast_dev_run)  # disable checkpointing with fast_dev_run
+            or trainer.state.fn != TrainerFn.FITTING  # don't save anything during non-fit
+            or trainer.sanity_checking  # don't save anything during sanity check
+        )

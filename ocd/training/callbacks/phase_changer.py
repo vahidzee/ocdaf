@@ -113,7 +113,7 @@ class PhaseChangerCallback(Callback):
         outputs: th.Optional[STEP_OUTPUT],
         batch: th.Any,
         batch_idx: int,
-        dataloader_idx: int,
+        dataloader_idx: th.Optional[int] = None,
     ) -> None:
         ret = super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
 
@@ -121,7 +121,6 @@ class PhaseChangerCallback(Callback):
 
         if "loss" not in outputs:
             raise Exception(f"The validation step must return a loss value but got the following instead:\n{outputs}")
-
         # If the current loss is less than (min + eps) then reset the patience
         # otherwise, decrement the patience and if the patience reaches zero, change the phase
         self.validation_running_avg = (self.validation_running_avg * batch_idx + outputs["loss"]) / (batch_idx + 1)

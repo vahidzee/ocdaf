@@ -405,17 +405,3 @@ class LearnablePermutation(torch.nn.Module):
             else ""
         )
         return f"num_features={self.num_features}" + forced
-
-
-if __name__ == "__main__":
-    theta1 = torch.nn.Parameter(torch.randn(1, 1))
-    theta2 = torch.nn.Parameter(torch.randn(1, 1))
-    x = torch.tensor([1.0])
-
-    a = theta1 * x
-    b = theta2 * x
-    fn = HybridJoin.apply
-    y = fn(a, b)
-    y.backward()
-    print(theta1.grad)
-    print(theta2.grad)

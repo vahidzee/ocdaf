@@ -74,7 +74,7 @@ class LoggingCallback(Callback):
         outputs: th.Optional[STEP_OUTPUT],
         batch: th.Any,
         batch_idx: int,
-        dataloader_idx: int,
+        dataloader_idx: th.Optional[int] = None,
     ) -> None:
         if self.log_validation and self.logging_needed():
             self.validation_batches_in_epoch += 1
