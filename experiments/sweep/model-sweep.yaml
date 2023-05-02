@@ -8,7 +8,7 @@ init_args:
     permutation_learner_cls: ocd.models.permutation.LearnablePermutation
     permutation_learner_args:
       gumbel_noise_std: >
-        lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs // 200)) * (training_module.current_epoch // 200) 
+        lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) 
       permutation_type: hybrid-sparse-map-simulator
     # Base distribution arguments
     base_distribution: torch.distributions.Normal
@@ -31,7 +31,7 @@ init_args:
   # the optimizer
   optimizer: [torch.optim.AdamW, torch.optim.AdamW]
   optimizer_args:
-    weight_decay: 0.1
+    weight_decay: 0.25
   optimizer_parameters:
     - model.flow
     - model.permutation_model
@@ -71,21 +71,3 @@ init_args:
           res = t['log_prob']
           return -res.mean()
       function_of_interest: func
-    gamma-weight:
-      term_function:
-        code: >
-          def func(training_module, batch):
-            param = training_module.model.permutation_model.gamma
-            return torch.linalg.vector_norm(param.detach().cpu().reshape(-1))
-        function_of_interest: func
-      factor: 0.0
-    flow-weight:
-      term_function:
-        code: >
-          def func(training_module, batch):
-            ret = {}
-            for name, param in training_module.model.flow.named_parameters():
-              ret[name] = torch.linalg.vector_norm(param.detach().cpu().reshape(-1))
-            return ret
-        function_of_interest: func
-      factor: 0.0

@@ -1,0 +1,10 @@
+{
+    "metrics": {
+        "average": {},
+        "best": {}
+    },
+    "permutation_map": {
+        "1-2-0": 1.0
+    },
+    "most_common_permutation": "1-2-0"
+}

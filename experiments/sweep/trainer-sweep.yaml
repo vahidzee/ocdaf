@@ -1,6 +1,5 @@
 # callbacks
 callbacks:
-  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
       starting_phase: maximization
@@ -30,8 +29,7 @@ callbacks:
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
       num_samples: 1000
-      save_every_n_epochs: 100
-      log_every_n_epochs: 1
+      log_every_n_epochs: 5
 accelerator: gpu
 devices: 1
 num_nodes: 0
@@ -41,8 +39,3 @@ check_val_every_n_epoch: 1
 enable_checkpointing: true
 enable_model_summary: true
 enable_progress_bar: false
-logger:
-  class_path: lightning.pytorch.loggers.WandbLogger
-  init_args:
-    project: synthetic-tests
-    name: dummy-name
