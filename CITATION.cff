@@ -13,6 +13,9 @@ authors:
     family-names: Kamkari
     email: hamidk@cs.toronto.edu
     affiliation: "University of Toronto"
+  - given-names: Vahid
+    family-names: Balazadeh
+    email: vahid@cs.toronto.edu
 repository-code: "https://github.com/vahidzee/ocd/"
 abstract: >-
   A python library for two-staged causal discovery, first find the causal order, 
