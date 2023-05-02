@@ -163,3 +163,6 @@ synthetic-tests/*
 
 # The configuration that Lightning Constantly makes
 config.yaml
+
+# All the checkpoints
+*.ckpt
