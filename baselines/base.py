@@ -15,7 +15,7 @@ class AbstractBaseline(abc.ABC):
 
     def __init__(
         self,
-        dataset: th.Union["OCDDataset", str],
+        dataset: th.Union["OCDDataset", str],  # type: ignore
         name: th.Optional[str] = None,
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
     ):
@@ -51,13 +51,13 @@ class AbstractBaseline(abc.ABC):
         """
         raise NotImplementedError()
 
-    def evalulate(self):
+    def evaluate(self):
         """Evaluate the baseline on the dataset.
 
         Returns:
             A dictionary of evaluation metrics
         """
-        estimated_order = self.estimate_order()
+        estimated_order = self.estimate_order()[::-1]  # TODO: why reverse?
         # count the number of backward edges
         backward_count = count_backward(estimated_order, self.dataset.dag)
         # compute the backward relative penalty

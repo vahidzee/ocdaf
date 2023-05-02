@@ -31,7 +31,7 @@ def estimate_hessian(X, eta_G, eta_H, s=None):
 class Score(AbstractBaseline):
     def __init__(
         self,
-        dataset: th.Union["OCDDataset", str],
+        dataset: th.Union["OCDDataset", str],  # type: ignore
         name: th.Optional[str] = None,  # name to override the default name
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
