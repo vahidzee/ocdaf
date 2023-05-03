@@ -10,12 +10,11 @@ class CAM(AbstractBaseline):
     def __init__(
         self,
         dataset: th.Union["OCDDataset", str],  # type: ignore
-        name: th.Optional[str] = None,  # name to override the default name
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
         linear: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name=name)
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name='CAM')
         self.linear = linear
 
     def estimate_order(self):

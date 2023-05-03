@@ -7,11 +7,12 @@ library(devtools);
 install_github("https://github.com/cran/CAM");
 ```
 
-For DAG LEARNING ON THE PERMUTAHEDRON, you need to install the following:
+For `DAG LEARNING ON THE PERMUTAHEDRON`, you need to install the following:
 ```
 git clone git@github.com:vzantedeschi/DAGuerreotype.git
 cd DAGuerreotype
 chmod +x linux-install.sh
 ./linux-install.sh
+python setup.py install
 ```
 
