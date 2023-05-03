@@ -300,7 +300,11 @@ def sweep_run(args):
     )
     sweep_config = logger.experiment.config
     sweep_config = decompress_parameter_config(sweep_config)
+    print("After decompression:")
+    pprint(sweep_config)
     sweep_config = unflatten_sweep_config(sweep_config)
+    print("After unflattening:")
+    pprint(sweep_config)
 
     # overwrite the sweep configurations
     args = overwrite_args(args, sweep_config)
@@ -308,14 +312,14 @@ def sweep_run(args):
         new_conf, _ = change_config_for_causal_discovery(args, bypass_logger=True)
     else:
         new_conf = convert_to_dict(sweep_conf_dict)
-        
+
     # TODO: Add checkpoint callback to the trainer
     checkpoint_dir = Path(args.sweep.default_root_dir) / str(logger.experiment.id)
     if not checkpoint_dir.exists():
         checkpoint_dir.mkdir(parents=True)
     new_conf["trainer"]["callbacks"].append(
         {
-            "class_path": "lightning.pytorch.callbacks.ModelCheckpoint",
+            "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
             "init_args": {
                 "dirpath": checkpoint_dir,
                 "verbose": True,
@@ -356,7 +360,14 @@ def sweep_run(args):
     logger.experiment
     trainer = pl.Trainer(logger=logger, **config_init.trainer)
 
-    trainer.fit(model, datamodule=datamodule)
+    # Handle checkpointing
+    ckpt_path = None
+    ckpt_list = sorted(checkpoint_dir.glob("*.ckpt"), key=os.path.getmtime)
+    if ckpt_list:
+        ckpt_path = checkpoint_dir / ckpt_list[-1]
+    if ckpt_path is not None:
+        print("RUNNING WITH CHECKPOINT: ", ckpt_path)
+    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
 
 
 if __name__ == "__main__":
