@@ -19,7 +19,15 @@ python trainer.py fit --config <config-file>.yaml
 For the templates for example, you can re-write as follows:
 
 ```bash
-python trainer.py --data experiments/simple/data-simple.yaml --model experiments/simple/model-simple.yaml --trainer experiments/simple/trainer-simple.yaml
+python trainer.py fit --data experiments/simple/data-simple.yaml --model experiments/simple/model-simple.yaml --trainer experiments/simple/trainer-simple.yaml
+```
+
+### Running Checkpoints
+
+You can also run checkpoints using the simple trainer. To do so, you can use the following command:
+
+```bash
+python trainer.py fit --data <path-to-data> --model experiments/simple/<model-config-file>.yaml --trainer experiments/simple/<trainer-config-file>.yaml --ckpt_path=<path-to-checkpoint>
 ```
 
 ## Smart Trainer
@@ -32,7 +40,7 @@ The smart trainer is a code that controls the meta-data of the simple trainer. I
 All the logs of the smart trainer are saved in the `experiments/smart-trainer-log` directory. The smart trainer creates a subdirectory under this directory and creates a `causal_discovery-config.yaml` which is the final configuration that the **Simple** trainer is being run on. Note that to run the smart trainer, you can use the same scheme as the simple trainer but drop the `fit` argument (as it is automatically set to fit) and also add a `--discovery` option to it.
 
 ```bash
-python smart_trainer.py --data <data-config-file>.yaml --model <model-config-file>.yaml --trainer <trainer-config-file>.yaml --discovery
+python smart_trainer.py fit --data <data-config-file>.yaml --model <model-config-file>.yaml --trainer <trainer-config-file>.yaml --discovery
 ```
 
 You can find a set of template configurations in the `experiments/smart` directory to play around with.
@@ -42,8 +50,12 @@ You can find a set of template configurations in the `experiments/smart` directo
 The smart trainer can also be used to do a two-step training phase. If you add a `--inference` option to the runner above, after running the discovery phase, it will read the correct permutation from the `json` logs that the model provides and using that correct ordering fits a new model. This way, you can use the smart trainer to do causal inference as well by facilitating the entire parameters of OCDaf and running it on the basic fixed permutation setting. The model obtained from this phase can be used for inference purposes such as modeling interventions or generating data.
 
 ```bash
-python smart_trainer.py --data <data-config-file>.yaml --model <model-config-file>.yaml --trainer <trainer-config-file>.yaml --discovery --inference
+python smart_trainer.py fit --data <data-config-file>.yaml --model <model-config-file>.yaml --trainer <trainer-config-file>.yaml --discovery --inference
 ```
+
+### Running Checkpoints
+
+Similar to the simple trainer, you can also run checkpoints using the smart trainer.
 
 ## Sweep
 
@@ -120,7 +132,7 @@ sweep_configuration:
             init_args:
                 activation_args:
                     negative_slope: 
-                        unique_name: ns
+                        sweep_identifier: ns
                         sweep: True
                         values:
                         - 0.001
@@ -135,7 +147,7 @@ sweep_configuration:
                 - 10000
 ```
 
-Note that the `unique_name` field should contain unique names for each of the sweeped parameters. If you do not provide a unique name, the code will throw an exception.
+Note that the `sweep_identifier` field should contain unique names for each of the sweeped parameters. If you do not provide a unique name, the code will throw an exception.
 
 **Visualization Aliases for Values.** Sometimes, you would want to provide aliases for the values as well (This only works for sweeps that have `values` field). For example, you want to visualize `max_epochs=100` as `small_epochs`, `max_epoch=1000` as `medium_epochs`, and `max_epochs=10000` as `large_epochs`. You can do this by adding the following to the sweep configuration file:
 
@@ -146,7 +158,7 @@ sweep_configuration:
             init_args:
                 activation_args:
                     negative_slope: 
-                        unique_name: ns
+                        sweep_identifier: ns
                         sweep: True
                         values:
                         - 0.001
@@ -159,7 +171,7 @@ sweep_configuration:
                 - 100
                 - 1000
                 - 10000
-                values_display_name:
+                sweep_alias:
                 - small_epochs
                 - medium_epochs
                 - large_epochs

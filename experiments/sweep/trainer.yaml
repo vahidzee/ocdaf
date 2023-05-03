@@ -1,5 +1,6 @@
 # callbacks
 callbacks:
+  # - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
       starting_phase: maximization
@@ -28,14 +29,26 @@ callbacks:
       add_permutation_to_name: True
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
+      save_path: experiments/simple/my-saves
       num_samples: 1000
       log_every_n_epochs: 5
+  - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
+    init_args:
+      dirpath: experiments/smart/checkpoints
+      save_last: true
+      verbose: true
+      every_n_epochs: 1
 accelerator: gpu
 devices: 1
 num_nodes: 0
-max_epochs: 100 # SWEEP on this
+max_epochs: 5000 # SWEEP on this
 log_every_n_steps: 1
 check_val_every_n_epoch: 1
 enable_checkpointing: true
 enable_model_summary: true
 enable_progress_bar: false
+logger:
+  class_path: lightning.pytorch.loggers.WandbLogger
+  init_args:
+    project: smart-trainer
+

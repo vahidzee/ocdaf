@@ -1,8 +1,7 @@
 project: my-sweep-project
-run_name: random-name
 checkpoint_interval: 30
 default_root_dir: experiments/sweep
-sweep_id: null
+use_smart_trainer: True
 agent_run_args:
   count: 10
 sweep_configuration:
@@ -22,12 +21,12 @@ sweep_configuration:
                 lambda self, training_module, **kwargs: 2 * ((1 - (1.0 * training_module.trainer.current_epoch / training_module.trainer.max_epochs)) ** 3)
               - >
                 lambda self, training_module, **kwargs: 2 - (2.0 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-              values_display_name:
+              sweep_alias:
               - exponential
               - linear
           layers: 
             sweep: True
-            unique_name: custom_layers
+            sweep_identifier: custom_layers
             values:
             - [10, 11, 30]
             - [5, 10, 6]
