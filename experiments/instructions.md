@@ -178,3 +178,11 @@ sweep_configuration:
 ```
 
 This can be particularly useful when the sweep on the values is not on simple primitive values, but on entire dictionaries or large strings.
+
+### Handling Preemptive Runs
+
+Sometimes, runs might be killed preemptively. To handle this, all the checkpoints are stored in the `sweep/checkpoints` directory. For runs that have not yet ended, there exists a directory with their corresponding logger id. Therefore, if a set of runs have been interrupted, you can run the sweep in the resume mode which will pick one of these runs from the checkpoint directory and continue it:
+
+```
+python sweep.py --data <data-config-file>.yaml --model <model-config-file>.yaml --trainer <trainer-config-file>.yaml --sweep <sweep-config-file>.yaml --sweep.sweep_id=<sweep-id> --sweep.resume=True
+```
