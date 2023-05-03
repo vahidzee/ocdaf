@@ -164,5 +164,10 @@ synthetic-tests/*
 # The configuration that Lightning Constantly makes
 config.yaml
 
-# All the checkpoints
+# Lightning checkpoints and logs
 *.ckpt
+experiments/simple/checkpoints/*
+experiments/simple/my-saves/*
+experiments/smart/smart-trainer-logs/*
+experiments/smart/checkpoints/*
+experiments/sweep/checkpoints/*
