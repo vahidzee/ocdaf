@@ -16,7 +16,8 @@ init_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    layers: [11, 33, 11]
+    in_features: 20
+    layers: [33, 99, 33]
     num_transforms: 1
     additive: False
     residual: False
@@ -31,7 +32,7 @@ init_args:
   optimizer: [torch.optim.AdamW, torch.optim.AdamW]
   optimizer_args:
   - weight_decay: 0.25
-  - weight_decay: 0.1   
+  - weight_decay: 0.1    
   optimizer_parameters:
     - model.flow
     - model.permutation_model

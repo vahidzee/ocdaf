@@ -352,20 +352,24 @@ def sweep_run(args):
     # Add a checkpointing callback to the trainer
     if not checkpoint_dir.exists():
         checkpoint_dir.mkdir(parents=True)
-    args.trainer.callbacks.append(
-        Namespace(
-            {
-                "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
-                "init_args": {
-                    "dirpath": checkpoint_dir,
-                    "verbose": True,
-                    "train_time_interval": timedelta(seconds=args.sweep.checkpoint_interval),
-                    "save_top_k": -1,
-                },
-            }
-        )
+    
+    new_callback = Namespace(
+        {
+            "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
+            "init_args": {
+                "dirpath": checkpoint_dir,
+                "verbose": True,
+                "train_time_interval": timedelta(seconds=args.sweep.checkpoint_interval),
+                "save_top_k": -1,
+            },
+        }
     )
-
+    
+    if len(new_conf["trainer"]["callbacks"]) > 0 and new_conf['trainer']['callbacks'][-1]['class_path'] == "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint":
+        new_conf["trainer"]["callbacks"][-1] = new_callback
+    else:
+        new_conf["trainer"]["callbacks"].append(new_callback)
+    
     parser = build_parser()
     args = parser.parse_object(args)
 
@@ -413,7 +417,6 @@ if __name__ == "__main__":
     parameter_config = compress_parameter_config(parameter_config)
     # turn the args.sweep.sweep_configuration into a dictionary
     sweep_conf_dict = convert_to_dict(args.sweep.sweep_configuration)
-
     sweep_conf_dict["parameters"] = parameter_config
 
     def custom_run():

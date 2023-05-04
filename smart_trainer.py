@@ -74,7 +74,8 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, 
     dataset_args = dataset_args or {}
     construction_args_copy = dataset_args.copy()
     # Disable simulation for runtime acceleration purposes
-    construction_args_copy['enable_simulate'] = False
+    if new_config['data']['init_args']['dataset'] == 'ocd.data.SyntheticOCDDataset':
+        construction_args_copy['enable_simulate'] = False
     torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**construction_args_copy)
     graph = torch_dataset.dag
     n = graph.number_of_nodes()
