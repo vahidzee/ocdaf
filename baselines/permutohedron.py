@@ -29,6 +29,7 @@ from daguerreo import utils
 from daguerreo.args import parse_pipeline_args
 import networkx as nx
 import typing as th
+import torch
 
 from base import AbstractBaseline
 
@@ -49,15 +50,19 @@ class Permutohedron(AbstractBaseline):
 
         # parse args
         arg_parser = parse_pipeline_args()
-        self.args = arg_parser.parse_args()
+        self.args = arg_parser.parse_args([])
         self.seed = seed
         self.args.standardize = True
         self.args.sparsifier = 'none'
         self.args.equations = 'linear' if self.linear else 'nonlinear'
+        self.args.wandb = False
+        self.args.num_epochs = 500  # Todo default max epochs is 5000
+        self.args.joint = False
 
     def estimate_order(self):
         utils.init_seeds(seed=self.seed)
-        samples = self.get_data(conversion="pandas")
+        torch.set_default_dtype(torch.double)
+        samples = self.get_data(conversion="tensor").double()
         daguerro = Daguerro.initialize(samples, self.args, self.args.joint)
         daguerro, samples = utils.maybe_gpu(self.args, daguerro, samples)
         _ = daguerro(samples, utils.AVAILABLE[self.args.loss], self.args)

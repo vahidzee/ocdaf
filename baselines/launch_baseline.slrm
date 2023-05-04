@@ -1,0 +1,26 @@
+#!/bin/sh
+# Node resource configurations
+#SBATCH --job-name=baselines
+#SBATCH --account=deadline
+#SBATCH --qos=deadline
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=8
+#SBATCH --partition=a40,t4v2
+#SBATCH --gres=gpu:1
+#SBATCH --error="slurm-%j.err"
+#SBATCH --output="slurm-%j.out"
+
+# Append is important because otherwise preemption resets the file
+#SBATCH --open-mode=append
+
+echo `date`: Job $SLURM_JOB_ID is allocated resource
+. $HOME/pytorch-2-env
+python3.9 run_baselines.py --project "ocd-baselines" --sweep_id "z94cav6d"
+
+echo `date`: "Job $SLURM_JOB_ID finished running, exit code: $?"
+date=$(date '+%Y-%m-%d')
+archive=$HOME/finished_jobs/$SLURM_JOB_NAME/$date/$SLURM_JOB_ID
+mkdir -p $archive
+
+cp ./slurm-${SLURM_JOB_ID}.out $archive/job.out && rm ./slurm-${SLURM_JOB_ID}.out
+cp ./slurm-${SLURM_JOB_ID}.err $archive/job.err && rm ./slurm-${SLURM_JOB_ID}.err

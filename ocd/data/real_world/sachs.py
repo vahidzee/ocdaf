@@ -2,12 +2,15 @@ import networkx as nx
 
 from ocd.data import OCDDataset
 import pandas as pd
+import os
+
+_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class SachsOCDDataset(OCDDataset):
     def __init__(self):
         # load csv file into pandas dataframe
-        df = pd.read_csv("ocd/data/real_world/sachs_cd3cd28.csv")
+        df = pd.read_csv(os.path.join(_DATA_DIR, "sachs_cd3cd28.csv"))
         label_mapping = {
             0: "Raf",
             1: "Mek",
