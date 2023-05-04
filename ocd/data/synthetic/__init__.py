@@ -1,3 +1,3 @@
 from .linear_non_gaussian_scm_generator import LinearNonGaussianSCMGenerator
-from .non_linear_invertible_gaussian_scm_generator import InvertibleModulatedGaussianSCMGenerator
+from .parametric import ParametricSCMGenerator
 from .gaussian_process import GaussianProcessBasedSCMGeberator

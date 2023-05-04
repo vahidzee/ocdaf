@@ -10,6 +10,10 @@ sweep_configuration:
     goal: minimize
     name: metrics/best-backward_relative_penalty
   parameters:
+    seed_everything:
+      sweep: True
+      values: [111, 666, 100]
+      sweep_alias: [first_seed, second_seed, third_seed]
     data:
       sweep: True
       sweep_alias:
