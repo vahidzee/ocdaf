@@ -56,6 +56,8 @@ class Sweep:
     run_when_instantiate: bool = False
     use_smart_trainer: bool = False
     resume: bool = False
+    # custom made
+    bypass_birkhoff: bool = False
 
 
 compression_mapping = {}
@@ -152,6 +154,10 @@ def build_parser(with_sweep: bool = True):
 
     parser.add_lightning_class_args(LightningModule, "model", subclass_mode=True)
     parser.add_lightning_class_args(LightningDataModule, "data", subclass_mode=True)
+
+    parser.add_argument(
+        "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
+    )
     return parser
 
 
@@ -159,13 +165,11 @@ def build_args():
     parser = build_parser()
     args = parser.parse_args()
 
-    args.sweep.default_root_dir = Path.cwd() / args.sweep.default_root_dir / "checkpoints"
+    args.sweep.default_root_dir = Path.cwd() / args.sweep.default_root_dir
 
     # if the path does not exists then create it
     if not os.path.exists(args.sweep.default_root_dir):
         os.makedirs(args.sweep.default_root_dir)
-
-    args.sweep.wandb_id_file_path = args.sweep.default_root_dir / "_wandb_runid.txt"
 
     return args
 
@@ -181,27 +185,6 @@ def unflatten_sweep_config(flat_conf: dict):
             cur = cur[path]
         cur[path_to_key[-1]] = val
     return conf
-    # def fix_list_components(tree_dict: dict) -> th.Union[th.List, dict]:
-    #     all_elements_are_indices = True
-    #     for key, val in tree_dict.items():
-    #         if not key.startswith(IDX_INDICATOR):
-    #             all_elements_are_indices = False
-    #     if all_elements_are_indices:
-    #         ret = [None for _ in range(len(tree_dict))]
-    #         for key, val in tree_dict.items():
-    #             idx = int(key[len(IDX_INDICATOR) :])
-    #             ret[idx] = fix_list_components(val) if isinstance(val, dict) else val
-    #         # Check if ret has any None values
-    #         if any([val is None for val in ret]):
-    #             raise ValueError("Not all indices are filled in the list")
-    #         return ret
-    #     else:
-    #         ret = {}
-    #         for key, val in tree_dict.items():
-    #             ret[key] = fix_list_components(val) if isinstance(val, dict) else val
-    #         return ret
-
-    # return fix_list_components(conf)
 
 
 def flatten_sweep_config(tree_conf: dict):
@@ -221,18 +204,6 @@ def flatten_sweep_config(tree_conf: dict):
                         t.pop(SWEEP_INDICATION)
                         ret[IDX_INDICATOR + str(idx)] = t
                         has_something_to_iterate_over = True
-                    # elif isinstance(val, dict) and key == SWEEP_BLOCK:
-                    #     if 'values' not in val:
-                    #         raise ValueError("Sweep block must have a 'values' key")
-                    #     if VALUES_DISPLAY_NAME not in val:
-                    #         raise ValueError("Sweep block must contain aliases for each value")
-
-                    #     inner_key = IDX_INDICATOR + str(idx) + SEPARATOR + key
-                    #     ret[inner_key] = val.copy()
-                    #     for iidx in range(len(val['values'])):
-                    #         ret[inner_key]['values'][iidx] = val['values'][iidx]
-
-                    #     has_something_to_iterate_over = True
                     else:
                         flattened, has_something = flatten_tree(val)
                         if has_something:
@@ -252,16 +223,6 @@ def flatten_sweep_config(tree_conf: dict):
                             t.pop(SWEEP_INDICATION)
                             ret[key] = t
                             has_something_to_iterate_over = True
-                        # elif isinstance(val, dict) and key == SWEEP_BLOCK:
-                        #     if 'values' not in val:
-                        #         raise ValueError("Sweep block must have a 'values' key")
-                        #     if VALUES_DISPLAY_NAME not in val:
-                        #         raise ValueError("Sweep block must contain aliases for each value")
-
-                        #     ret[key] = val.copy()
-                        #     for iidx in range(len(val['values'])):
-                        #         ret[key]['values'][iidx] = val['values'][iidx]
-                        #     has_something_to_iterate_over = True
                         else:
                             flattened, has_something = flatten_tree(val)
                             if has_something:
@@ -297,10 +258,12 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
     elif isinstance(args, dict):
         for key, val in sweep_config.items():
             if isinstance(val, dict):
-                new_args = overwrite_args(args[key], val)
+                new_args = overwrite_args(args[key] if key in args else None, val)
                 args[key] = new_args
             else:
                 args[key] = val
+    elif args is None:
+        return sweep_config
     else:
         raise ValueError("args must be a Namespace or a list in the overwrite_args")
 
@@ -363,11 +326,14 @@ def init_or_resume_wandb_run(
 
 
 def sweep_run(args):
-    # ----------
-    # wandb logger
-    # ----------
+    # Setup the checkpoint directory
+    parent_checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
+    # if the path does not exists then create it
+    if not os.path.exists(parent_checkpoint_dir):
+        os.makedirs(parent_checkpoint_dir)
+
     logger, sweep_config, checkpoint_dir = init_or_resume_wandb_run(
-        checkpoint_dir=args.sweep.default_root_dir,
+        checkpoint_dir=parent_checkpoint_dir,
         project_name=args.sweep.project,
         run_name=args.sweep.run_name,
         resume=args.sweep.resume,
@@ -378,10 +344,12 @@ def sweep_run(args):
     args = overwrite_args(args, sweep_config)
 
     if args.sweep.use_smart_trainer:
-        new_conf, _ = change_config_for_causal_discovery(args, bypass_logger=True, bypass_birkhoff=True)
+        new_conf, _ = change_config_for_causal_discovery(
+            args, bypass_logger=True, bypass_birkhoff=args.sweep.bypass_birkhoff
+        )
         args = overwrite_args(args, new_conf)
 
-    # TODO: Add checkpoint callback to the trainer
+    # Add a checkpointing callback to the trainer
     if not checkpoint_dir.exists():
         checkpoint_dir.mkdir(parents=True)
     args.trainer.callbacks.append(
@@ -407,7 +375,7 @@ def sweep_run(args):
     delattr(args_copy, "sweep")
     new_parser.save(
         args_copy,
-        os.path.join(args.sweep.default_root_dir, f"discovery-config-{logger.experiment.id}.yaml"),
+        os.path.join(parent_checkpoint_dir, f"discovery-config-{logger.experiment.id}.yaml"),
         skip_none=False,
         overwrite=True,
         multifile=False,
@@ -449,7 +417,8 @@ if __name__ == "__main__":
     sweep_conf_dict["parameters"] = parameter_config
 
     def custom_run():
-        if args.sweep.resume and check_checkpoint_exists(args.sweep.default_root_dir):
+        checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
+        if args.sweep.resume and check_checkpoint_exists(checkpoint_dir):
             # If resuming is enabled and a checkpoint file exists, then resume from there
             sweep_run(args=args)
         else:
