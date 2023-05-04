@@ -54,6 +54,19 @@ class MaskedAffineFlowTransform(torch.nn.Module):
                 **args, out_features=in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
             )
 
+    def reorder(
+        self,
+        ordering: th.Optional[torch.IntTensor] = None,
+        seed: th.Optional[int] = None,
+        mask_index: th.Optional[int] = None,
+        initialization: bool = False,
+    ) -> None:
+        if not self.share_parameters:
+            self.masked_mlp_shift.reorder(ordering, seed, mask_index, initialization)
+            self.masked_mlp_scale.reorder(ordering, seed, mask_index, initialization)
+        else:
+            self.masked_mlp.reorder(ordering, seed, mask_index, initialization)
+
     def clamp(self, x: torch.Tensor) -> torch.Tensor:
         """
         This function takes in a tensor and runs an element-wise operation on it.

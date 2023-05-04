@@ -193,7 +193,7 @@ class AffineFlow(torch.nn.ModuleList):
         if ordering is not None:
             ordering = torch.IntTensor(ordering)
         for flow in self:
-            flow.masked_mlp.reorder(ordering, **kwargs)
+            flow.reorder(ordering, **kwargs)
 
     @property
     def ordering(self) -> torch.IntTensor:
