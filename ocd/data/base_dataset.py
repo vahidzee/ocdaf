@@ -7,12 +7,13 @@ import networkx as nx
 class OCDDataset(torch.utils.data.Dataset):
     def __init__(
         self,
-        samples: th.Union[pd.DataFrame, np.array],
+        samples: th.Optional[th.Union[pd.DataFrame, np.array]],
         dag: nx.DiGraph,
         intervention_column: th.Optional[int] = None,
         intervention_values: th.Optional[th.List[th.Any]] = None,
         name: th.Optional[str] = None,
         explanation: th.Optional[str] = None,
+        standardization: bool = True,
     ):
         """
         Args:
@@ -21,9 +22,23 @@ class OCDDataset(torch.utils.data.Dataset):
             intervention_node: the node which has been intervened on (todo: add support for multiple nodes)
             intervention_values: the values of the intervened node (split equally and sequentially among the samples)
             name: name of the dataset (optional, used for printing)
+            standardization: whether to standardize the samples or not, either ways self.samples_statistic
+                            contains the mean and std of each column as a dictionary
         """
         self.name = name
         self.explanation = explanation
+        
+        # set the intervention column
+        self.intervention_column = intervention_column
+        # intervention_values is the value that we intervened on
+        self.intervention_values = intervention_values
+        # set the dag
+        self.dag = dag
+        
+        
+        if samples is None:
+            return
+        
         # standardize all the columns
         self.samples_statistics = {}
         # sort columns of samples alphabetically
@@ -34,22 +49,18 @@ class OCDDataset(torch.utils.data.Dataset):
                 avg = self.samples[col].mean()
                 std = self.samples[col].std()
                 self.samples_statistics[col] = {'mean': avg, 'std': std}
-                self.samples[col] = (self.samples[col] - avg) / std
+                if standardization:
+                    self.samples[col] = (self.samples[col] - avg) / std
         elif isinstance(self.samples, np.array):
             for col in range(self.samples.shape[1]):
                 avg = np.mean(self.samples[:, col])
                 std = np.std(self.samples[:, col])
                 self.samples_statistics[col] = {'mean': avg, 'std': std}
-                self.samples[:, col] = (self.samples[:, col] - avg) / std
+                if standardization:
+                    self.samples[:, col] = (self.samples[:, col] - avg) / std
         else:
             raise ValueError("samples must be either a pd.DataFrame or a np.array")
         
-        # set the intervention column
-        self.intervention_column = intervention_column
-        # intervention_values is the value that we intervened on
-        self.intervention_values = intervention_values
-        # set the dag
-        self.dag = dag
 
     def __len__(self):
         return len(self.samples)

@@ -1,0 +1,25 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+        name: parametric_laplace_modulated_25_1000_full_linear
+        observation_size: 1000
+        scm_generator: ocd.data.synthetic.InvertibleModulatedGaussianSCMGenerator
+        scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: {graph_type: full, n: 25, seed: 953}
+            mean: 0.0
+            noise_parameters: {mean: 0.0, scale: 1.0}
+            noise_type: laplace
+            s_function: {function_descriptor: "def func(x):\n    return numpy.ones_like(x)",
+                function_of_interest: func}
+            s_function_signature: ret1
+            seed: 960
+            std: 1.0
+            t_function: {function_descriptor: "def func(x):\n    return x", function_of_interest: func}
+            t_function_signature: identity
+            weight_s: [0.5, 1.5]
+            weight_t: [0.5, 1.5]
+        seed: 724
+    val_size: 0.1

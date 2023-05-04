@@ -16,6 +16,7 @@ class SyntheticOCDDataset(OCDDataset):
         scm_generator_args: th.Optional[th.Dict[str, th.Any]] = None,
         seed: th.Optional[int] = None,
         name: th.Optional[str] = None,
+        enable_simulate: bool = True,
     ):
         """
         Args:
@@ -32,5 +33,8 @@ class SyntheticOCDDataset(OCDDataset):
         )
         self.seed = seed
         self.scm = scm_generator.generate_scm()
-        df = self.scm.simulate(observation_size, seed=self.seed)
+        if enable_simulate:
+            df = self.scm.simulate(observation_size, seed=self.seed)
+        else:
+            df = None
         super().__init__(samples=df, dag=self.scm.dag, name=name, explanation=self.scm.get_description())

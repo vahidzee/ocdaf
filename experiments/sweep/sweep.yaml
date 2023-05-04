@@ -1,8 +1,7 @@
 project: my-sweep-project
-run_name: random-name
 checkpoint_interval: 30
 default_root_dir: experiments/sweep
-sweep_id: null
+use_smart_trainer: True
 agent_run_args:
   count: 10
 sweep_configuration:
@@ -11,82 +10,63 @@ sweep_configuration:
     goal: minimize
     name: metrics/best-backward_relative_penalty
   parameters:
-    model:
-      init_args:
-        model_args:
-          permutation_learner_args:
-            gumbel_noise_std:
-              sweep: True
-              values:
-              - >
-                lambda self, training_module, **kwargs: 2 * ((1 - (1.0 * training_module.trainer.current_epoch / training_module.trainer.max_epochs)) ** 3)
-              - >
-                lambda self, training_module, **kwargs: 2 - (2.0 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-              values_display_name:
-              - exponential
-              - linear
-          layers: 
-            sweep: True
-            unique_name: custom_layers
-            values:
-            - [10, 11, 30]
-            - [5, 10, 6]
-          num_transforms:
-            sweep: True
-            values:
-            - 1
-            - 3
-        
+    data:
+      sweep: True
+      sweep_alias:
+      - first-dataset
+      - second-dataset
+      values:
+      - class_path: lightning_toolbox.DataModule
+        init_args:
+          batch_size: 128
+          dataset: ocd.data.SyntheticOCDDataset
+          dataset_args:
+              name: parametric_non_linear_gaussian_3_1000_full_sin_plus_x
+              observation_size: 1000
+              scm_generator: ocd.data.synthetic.InvertibleModulatedGaussianSCMGenerator
+              scm_generator_args:
+                  graph_generator: ocd.data.scm.GraphGenerator
+                  graph_generator_args: {graph_type: full, n: 3, seed: 689}
+                  mean: 0.0
+                  s_function: {function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                          \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func}
+                  s_function_signature: softplus
+                  seed: 870
+                  std: 1.0
+                  t_function: {function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                          \ + x", function_of_interest: func}
+                  t_function_signature: sin_plus_x
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
+              seed: 139
+          val_size: 0.1
+      - class_path: lightning_toolbox.DataModule
+        init_args:
+            batch_size: 128
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+                name: non_parametric_non_linear_gaussian_3_1000_erdos_renyi
+                observation_size: 1000
+                scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                scm_generator_args:
+                    graph_generator: ocd.data.scm.GraphGenerator
+                    graph_generator_args: {graph_type: erdos_renyi, n: 3, p: 0.65, seed: 144}
+                    noise_mean: 0.0
+                    noise_std: 1.0
+                    s_gamma_rbf_kernel: 1.0
+                    s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                            \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                        function_of_interest: func}
+                    s_mean_function_activation_signature: softplus
+                    s_mean_function_weights: [0.01, 0.1]
+                    s_variance_rbf_kernel: 1.0
+                    seed: 182
+                    t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                            \ numpy.sin(x) + x", function_of_interest: func}
+                    t_mean_function_activation_signature: sin_plus_x
+                    t_mean_function_weights: [0.01, 0.1]
+                    t_variance_rbf_kernel: 1.0
+                seed: 183
+            val_size: 0.1
 
-        # the optimizer
-        optimizer: [torch.optim.AdamW, torch.optim.AdamW]
-        optimizer_args:
-        - weight_decay: 
-            sweep: True
-            values:
-            - 100.0
-            - 1
-            - 0.5
-            - 0.25
-            - 0.1
-            - 0.01
-        - weight_decay: 0.5
-        optimizer_parameters:
-          - model.flow
-          - model.permutation_model
-        optimizer_is_active: 
-          - > 
-            lambda training_module: training_module.current_phase == 'maximization'
-          - >
-            lambda training_module: training_module.current_phase == 'expectation'
-        grad_clip_val: 1.0
-        lr: [0.01, 0.01]
-        scheduler: 
-          - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
-          - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
-        scheduler_args:
-          - mode: min
-            factor: 0.5
-            patience: 10
-            min_lr: 0.000005
-            threshold: 0.0001
-          - mode: min
-            factor: 0.5
-            patience: 10
-            min_lr: 0.000005
-            threshold: 0.0001
-        scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
-        scheduler_optimizer: [0, 1]
-        # # # # scheduler_interval: ["epoch", "epoch"]
-        # # # # # scheduler_frequency: [22500, 22500]
-        scheduler_monitor: ["loss", "loss"]
-        # # the loss
-        # # objective_cls: ocd.training.terms.NLLTerm 
-        objective_args:
-          nll:
-            code: >
-              def func(training_module, batch):
-                t = training_module.forward(batch)
-                res = t['log_prob']
-                return -res.mean()
-            function_of_interest: func
+    

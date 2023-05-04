@@ -8,7 +8,7 @@ init_args:
         scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
         scm_generator_args:
             graph_generator: ocd.data.scm.GraphGenerator
-            graph_generator_args: {graph_type: fork, n: 50, seed: 453}
+            graph_generator_args: {graph_type: fork, n: 50, seed: 619}
             noise_mean: 0.0
             noise_std: 1.0
             s_gamma_rbf_kernel: 1.0
@@ -18,11 +18,11 @@ init_args:
             s_mean_function_activation_signature: softplus
             s_mean_function_weights: [0.01, 0.1]
             s_variance_rbf_kernel: 1.0
-            seed: 471
+            seed: 896
             t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
                     \ numpy.sin(x) + x", function_of_interest: func}
             t_mean_function_activation_signature: sin_plus_x
             t_mean_function_weights: [0.01, 0.1]
             t_variance_rbf_kernel: 1.0
-        seed: 194
+        seed: 296
     val_size: 0.1

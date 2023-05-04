@@ -72,7 +72,10 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, 
     )
 
     dataset_args = dataset_args or {}
-    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**dataset_args)
+    construction_args_copy = dataset_args.copy()
+    # Disable simulation for runtime acceleration purposes
+    construction_args_copy['enable_simulate'] = False
+    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**construction_args_copy)
     graph = torch_dataset.dag
     n = graph.number_of_nodes()
 
@@ -149,13 +152,13 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, 
     # Set the max_epoch
     global original_max_epoch
     original_max_epoch = new_config["trainer"]["max_epochs"]
-    new_config["trainer"]["max_epochs"] = min(100000, original_max_epoch * n**2)
+    new_config["trainer"]["max_epochs"] = min(100000, original_max_epoch)
 
     # Change the model in_features and dimensions
     new_config["model"]["init_args"]["model_args"]["in_features"] = n
     layers = new_config["model"]["init_args"]["model_args"]["layers"]
     # multiple the hidden dimensions of the layers by n
-    new_config["model"]["init_args"]["model_args"]["layers"] = [x * n for x in layers]
+    new_config["model"]["init_args"]["model_args"]["layers"] = [x for x in layers]
 
     distr_name = "torch.distributions.normal.Normal"
     distr_args = {"loc": 0.0, "scale": 1.0}
@@ -163,7 +166,7 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, 
         new_config["data"]["init_args"]["dataset_args"] is not None
         and "scm_generator" in new_config["data"]["init_args"]["dataset_args"]
         and new_config["data"]["init_args"]["dataset_args"]["scm_generator"]
-        == "ocd.data.synthetic.LinearNonGaussianSCMGenerator"
+        == "ocd.data.synthetic.ParametricSCMGenerator"
     ):
         if new_config["data"]["init_args"]["dataset_args"]["scm_generator_args"]["noise_type"] == "uniform":
             distr_name = "torch.distributions.normal.Normal"

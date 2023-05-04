@@ -1,0 +1,23 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+        name: parametric_laplace_modulated_3_1000_v_structure_linear
+        observation_size: 1000
+        scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+        scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: {graph_type: v_structure, n: 3, seed: 71}
+            noise_parameters: {loc: 0.0, scale: 1.0}
+            noise_type: laplace
+            s_function: {function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func}
+            s_function_signature: softplus
+            seed: 698
+            t_function: {function_descriptor: "def func(x):\n    return x", function_of_interest: func}
+            t_function_signature: identity
+            weight_s: [0.5, 1.5]
+            weight_t: [0.5, 1.5]
+        seed: 633
+    val_size: 0.1
