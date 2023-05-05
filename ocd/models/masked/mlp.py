@@ -288,7 +288,7 @@ class MaskedMLP(torch.nn.ModuleList):
         return [self.ordering] + [layer.ordering for layer in self]
 
     def extra_repr(self):
-        return "num_masks={}, seed={}".format(
+        return super().extra_repr() + "num_masks={}, seed={}".format(
             self.num_masks or "inf",
             self.seed,
         )
