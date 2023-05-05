@@ -22,7 +22,8 @@ class AffineFlow(torch.nn.ModuleList):
         additive: bool = False,
         share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
-        clamp_val: float = 1e8,
+        scale_transform: bool = True,
+        scale_transform_args: th.Optional[dict] = None,
         # base distribution
         base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
@@ -36,7 +37,6 @@ class AffineFlow(torch.nn.ModuleList):
         super().__init__()
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
         self.in_features = in_features
-        self.clamp_val = clamp_val
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
@@ -50,8 +50,9 @@ class AffineFlow(torch.nn.ModuleList):
                     batch_norm=batch_norm,
                     batch_norm_args=batch_norm_args,
                     additive=additive,
+                    scale_transform=scale_transform,
+                    scale_transform_args=scale_transform_args,
                     share_parameters=share_parameters,
-                    clamp_val=clamp_val,
                     reversed_ordering=reversed_ordering,
                     device=device,
                     dtype=dtype,
