@@ -196,6 +196,21 @@ class AffineFlow(torch.nn.ModuleList):
         for flow in self:
             flow.reorder(ordering, **kwargs)
 
+    def intervene(self, intervention: th.Dict[int, dy.FunctionDescriptor]):
+        intervention = {k: dy.eval(f) for k, f in intervention.items()}
+        device = next(self[0].parameters()).device
+
+        def sampler(num_samples, **kwargs):
+            # Set the noises and set their device
+            z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+            for i, flow in enumerate(reversed(self)):
+                z, _ = flow.inverse(inputs=z, **kwargs)
+                if i in intervention:
+                    z[..., i] = intervention[i](z) if callable(intervention[i]) else intervention[i]
+            return z
+
+        return sampler
+
     @property
     def ordering(self) -> torch.IntTensor:
         return self[0].ordering
