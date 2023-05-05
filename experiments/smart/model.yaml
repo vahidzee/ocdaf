@@ -24,7 +24,6 @@ init_args:
     activation: torch.nn.LeakyReLU
     activation_args:
       negative_slope: 0.1
-    clamp_val: 10000000
   
 
   # the optimizer
