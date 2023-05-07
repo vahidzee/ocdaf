@@ -2,7 +2,7 @@ import typing as th
 import abc
 import networkx as nx
 import torch
-from evaluation import backward_relative_penalty, count_backward
+from evaluation import backward_relative_penalty, count_backward, count_SHD, count_SID
 import dypy
 
 
@@ -14,10 +14,10 @@ class AbstractBaseline(abc.ABC):
     """
 
     def __init__(
-        self,
-        dataset: th.Union["OCDDataset", str],  # type: ignore
-        name: th.Optional[str] = None,
-        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
+            self,
+            dataset: th.Union["OCDDataset", str],  # type: ignore
+            name: th.Optional[str] = None,
+            dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
     ):
         self.name = self.__class__.__name__ if name is None else name
         dataset = dypy.get_value(dataset) if isinstance(dataset, str) else dataset
@@ -51,8 +51,14 @@ class AbstractBaseline(abc.ABC):
         """
         raise NotImplementedError()
 
-    def evaluate(self):
+    @abc.abstractmethod
+    def estimate_dag(self, **kwargs) -> th.Union[nx.DiGraph, torch.Tensor]:
+        raise NotImplementedError()
+
+    def evaluate(self, structure: bool = False):
         """Evaluate the baseline on the dataset.
+        Args:
+            structure: Whether to evaluate the structure of the estimated DAG
 
         Returns:
             A dictionary of evaluation metrics
@@ -62,9 +68,15 @@ class AbstractBaseline(abc.ABC):
         backward_count = count_backward(estimated_order, self.dataset.dag)
         # compute the backward relative penalty
         backward_penalty = backward_relative_penalty(estimated_order, self.dataset.dag)
-        return {
+        result = {
             "backward_count": backward_count,
             "backward_relative_penalty": backward_penalty,
             "true_ordering": self.true_ordering,
             "estimated_ordering": estimated_order,
         }
+        if structure:
+            estimated_dag = self.estimate_dag()
+            result['SID'] = count_SID(self.dataset.dag, estimated_dag)
+            result['SHD'] = count_SHD(self.dataset.dag, estimated_dag)
+
+        return result

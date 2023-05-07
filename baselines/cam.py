@@ -27,3 +27,9 @@ class CAM(AbstractBaseline):
                         pruning=False, njobs=CPU_COUNT - 1, verbose=True).predict(samples)
         orders = list(nx.topological_sort(graph))
         return orders
+
+    def estimate_dag(self):
+        samples = self.get_data(conversion="pandas")
+        graph = CDT_CAM(score="linear" if self.linear else "nonlinear",
+                        pruning=True, njobs=CPU_COUNT - 1, verbose=True).predict(samples)
+        return graph

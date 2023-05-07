@@ -170,7 +170,6 @@ experiments/simple/checkpoints/*
 experiments/simple/my-saves/*
 experiments/smart/smart-trainer-logs/*
 experiments/smart/checkpoints/*
-<<<<<<< HEAD
 experiments/sweep/checkpoints/*
 
 

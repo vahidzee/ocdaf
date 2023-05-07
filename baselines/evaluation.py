@@ -1,6 +1,16 @@
 import typing as th
 import numpy as np
 import networkx as nx
+from cdt.metrics import SID, SHD
+
+
+def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+    return SID(true_dag, estimated_graph)
+
+
+def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+    """ Two mistakes are counted for anti-causal edges"""
+    return SHD(true_dag, estimated_graph, double_for_anticausal=True)
 
 
 def count_backward(perm: th.List[int], dag: np.array):

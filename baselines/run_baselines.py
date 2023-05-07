@@ -15,9 +15,10 @@ sys.path.append("..")
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _REAL_WORLD_DIR = os.path.join(_DIR, '../experiments/data/real-world/')
-_SYNTHETIC_DIR = os.path.join(_DIR, '../experiments/data/synthetic/')
+_SYNTHETIC_DIR = os.path.join(_DIR, '../experiments/data/synthetic-cherry-picked/')
 
 _RESULTS_FILE = 'baseline_results.csv'
+_RESULTS_STRUCTURE_FILE = 'baseline_structure_results.csv'
 
 
 def build_args():
@@ -28,6 +29,7 @@ def build_args():
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--data_type', default='synthetic', type=str)
     parser.add_argument('--data_num', default=0, type=int)
+    parser.add_argument('--DAG', action='store_true')
     parser.add_argument('--default_root_dir', type=str)
     args = parser.parse_args()
 
@@ -50,7 +52,8 @@ def get_data_config(data_type, data_num):
 
 
 def save_results(args, results_dict):
-    csv_file = os.path.join(args.default_root_dir, _RESULTS_FILE)
+    file_path = _RESULTS_STRUCTURE_FILE if args.DAG else _RESULTS_FILE
+    csv_file = os.path.join(args.default_root_dir, file_path)
     if not os.path.exists(csv_file):
         pd.DataFrame([results_dict]).to_csv(csv_file, index=False)
     else:
@@ -77,7 +80,7 @@ def run_baseline(args, wandb_mode=None):
     wandb.log(log)
     dataset_args = data_config['dataset_args'] if 'dataset_args' in data_config else None
     baseline = baseline_cls(dataset=data_config['dataset'], dataset_args=dataset_args, **baseline_args)
-    result = baseline.evaluate()
+    result = baseline.evaluate(args.DAG)
     final_results = {**log, **result}
     wandb.log(final_results)
     save_results(args, final_results)
