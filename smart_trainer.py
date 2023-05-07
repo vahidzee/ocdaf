@@ -102,9 +102,9 @@ def handle_permutation_saving(new_config, graph, logger_name):
     if "save_path" in callback_configs[ind_of_interest]["init_args"]:
         old_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
     if old_save_path is None:
-        callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/{logger_name}"
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/smart-{logger_name}"
     else:
-        callback_configs[ind_of_interest]["init_args"]["save_path"] = os.path.join(old_save_path, logger_name)
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = os.path.join(old_save_path, f"smart-{logger_name}")
     new_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
     if not os.path.exists(new_save_path):
         os.makedirs(new_save_path)
