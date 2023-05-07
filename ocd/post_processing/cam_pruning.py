@@ -4,6 +4,8 @@ import uuid
 from cdt.utils.R import launch_R_script
 import pandas as pd
 import numpy as np
+import typing as th
+import networkx as nx
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -26,7 +28,7 @@ def np_to_csv(array, save_path):
     return output
 
 
-def cam_pruning(adj_matrix: np.ndarray, data: np.ndarray, cutoff):
+def cam_pruning(adj_matrix: np.ndarray, data: np.ndarray, cutoff: float = .001, verbose: bool = True):
     save_path = os.path.join(_DIR, "score_cam_pruning")
 
     data_csv_path = np_to_csv(data, save_path)
@@ -38,7 +40,7 @@ def cam_pruning(adj_matrix: np.ndarray, data: np.ndarray, cutoff):
     arguments['{PATH_RESULTS}'] = os.path.join(save_path, "results.csv")
     arguments['{ADJFULL_RESULTS}'] = os.path.join(save_path, "adjfull.csv")
     arguments['{CUTOFF}'] = str(cutoff)
-    arguments['{VERBOSE}'] = "TRUE"
+    arguments['{VERBOSE}'] = "TRUE" if verbose else "FALSE"
 
     def retrieve_result():
         A = pd.read_csv(arguments['{PATH_RESULTS}']).values
@@ -50,3 +52,30 @@ def cam_pruning(adj_matrix: np.ndarray, data: np.ndarray, cutoff):
     dag = launch_R_script(os.path.join(_DIR, "score_cam_pruning/cam_pruning.R"), arguments,
                           output_function=retrieve_result)
     return dag
+
+def sparse_regression_based_pruning(df: pd.DataFrame, ordering: th.List, verbose=True, cutoff: float = .001):
+    df_np = df.to_numpy()
+    full_graph = np.zeros((df_np.shape[1], df_np.shape[1]))
+    for i, v in enumerate(ordering):
+        for j, u in enumerate(ordering):
+            if i >= j:
+                continue
+            # find the index of u and v in the dataframe columns
+            u_idx = df.columns.get_loc(u)
+            v_idx = df.columns.get_loc(v)
+            full_graph[v_idx, u_idx] = 1
+    
+    if not verbose:
+        import sys
+        out = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+    dag = cam_pruning(full_graph, df_np, cutoff=cutoff, verbose=verbose)
+    if not verbose:
+        sys.stdout = out
+        
+    all_edges = []
+    for i in range(df_np.shape[1]):
+        for j in range(df_np.shape[1]):
+            if dag[i, j] == 1:
+                all_edges.append((df.columns[i], df.columns[j]))
+    return nx.DiGraph(all_edges)
