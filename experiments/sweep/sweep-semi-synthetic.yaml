@@ -1,4 +1,4 @@
-project: sweep-synthetic-small-non-parametric
+project: sweep-semi-synthetic
 checkpoint_interval: 30
 default_root_dir: experiments/sweep
 use_smart_trainer: True

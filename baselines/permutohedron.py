@@ -49,27 +49,39 @@ class Permutohedron(AbstractBaseline):
         self.linear = linear
 
         # parse args
+        # TODO test with tk_sp_max,sp_map
         arg_parser = parse_pipeline_args()
         self.args = arg_parser.parse_args([])
+        self.args.nogpu = False
         self.seed = seed
         self.args.standardize = True
-        self.args.sparsifier = 'none'
         self.args.equations = 'linear' if self.linear else 'nonlinear'
         self.args.wandb = False
-        self.args.num_epochs = 500  # Todo default max epochs is 5000
+        self.args.num_epochs = 5000  # Todo default max epochs is 5000
         self.args.joint = False
+        self.samples = self.get_data(conversion="tensor").double()
 
-    def estimate_order(self):
-        utils.init_seeds(seed=self.seed)
+    @staticmethod
+    def _estimate_order_dat(samples, args, seed):
+        utils.init_seeds(seed=seed)
         torch.set_default_dtype(torch.double)
-        samples = self.get_data(conversion="tensor").double()
-        daguerro = Daguerro.initialize(samples, self.args, self.args.joint)
-        daguerro, samples = utils.maybe_gpu(self.args, daguerro, samples)
-        _ = daguerro(samples, utils.AVAILABLE[self.args.loss], self.args)
+        daguerro = Daguerro.initialize(samples, args, args.joint)
+        daguerro, samples = utils.maybe_gpu(args, daguerro, samples)
+        _ = daguerro(samples, utils.AVAILABLE[args.loss], args)
         daguerro.eval()
-        _, dags = daguerro(samples, utils.AVAILABLE[self.args.loss], self.args)
+        _, dags = daguerro(samples, utils.AVAILABLE[args.loss], args)
 
         estimated_adj = dags[0].detach().cpu().numpy()
         g = nx.DiGraph(estimated_adj)
         orders = list(nx.topological_sort(g))
+        return g, orders
+
+    def estimate_order(self):
+        self.args.sparsifier = 'none'
+        _, orders = self._estimate_order_dat(self.samples, self.args, self.seed)
         return orders
+
+    def estimate_dag(self):
+        self.args.sparsifier = 'l0_ber_ste'
+        graph, _ = self._estimate_order_dat(self.samples, self.args, self.seed)
+        return graph
