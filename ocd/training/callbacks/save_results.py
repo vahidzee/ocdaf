@@ -17,6 +17,7 @@ import warnings
 all_evaluation_metrics = {
     "backward_relative_penalty": eval_metrics.backward_relative_penalty,
     "count_backward": eval_metrics.count_backward,
+    "posterior_parent_ratio": eval_metrics.posterior_parent_ratio,
 }
 
 
