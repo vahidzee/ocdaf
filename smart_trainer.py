@@ -54,113 +54,70 @@ def convert_to_dict(config: th.Union[Namespace, list, dict]) -> th.Union[dict, l
         ret_config = config
     return ret_config
 
+def get_callbacks_with_class_path(callbacks_conf, class_path: str):
+    indices = []
+    for i, callback in enumerate(callbacks_conf):
+        if callback["class_path"] == class_path:
+            indices.append(i)
+    return indices
 
-def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, bypass_birkhoff: bool = False):
-    """
-    This function takes in a base configuration and changes it for the causal discovery phase.
-    In this phase, the ordering will be discovered.
-
-    For better interpretability, we will use the Birkhoff polytope to visualize the
-    exploration if the number of covariates is less than or equal to 4.
-
-    Finally, we end up with a configuration that is ready to be used by the Lightning Trainer.
-    """
-    new_config = convert_to_dict(old_config)
-    # Build the graph and get the graph information
-    dataset_args = (
-        new_config["data"]["init_args"]["dataset_args"] if "dataset_args" in new_config["data"]["init_args"] else {}
-    )
-
-    dataset_args = dataset_args or {}
-    construction_args_copy = dataset_args.copy()
-    # Disable simulation for runtime acceleration purposes
-    if new_config['data']['init_args']['dataset'] == 'ocd.data.SyntheticOCDDataset':
-        construction_args_copy['enable_simulate'] = False
-    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**construction_args_copy)
-    graph = torch_dataset.dag
-    n = graph.number_of_nodes()
-
-    # Handle the logger
-    logger_name = torch_dataset.name
-    mex = 0
-    while os.path.exists(f"experiments/smart/smart-trainer-logs/{logger_name}-{mex}"):
-        mex += 1
-    logger_name = f"{logger_name}-{mex}"
-    # create the directory
-    os.makedirs(f"experiments/smart/smart-trainer-logs/{logger_name}")
-    if not bypass_logger:
-        new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
-
+def handle_birkhoff(new_config, n, graph):
     # Handle Birkhoff Callback, if the number of nodes is less than or equal to 4
     # then edit or add the Birkhoff callback to the callbacks list
     # if not, remove it entirely
     callback_configs = new_config["trainer"]["callbacks"]
-
-    if n <= 4 and not bypass_birkhoff:
-        # Find the Birkhoff config if it exists or add it to the callbacks if it does not
-        birkhoff_config = None
-        ind_of_interest = None
-        for i, callback_config in enumerate(callback_configs):
-            if callback_config["class_path"] == "ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback":
-                birkhoff_config = callback_config
-                ind_of_interest = i
-                break
-        if birkhoff_config is not None:
-            # Change the Birkhoff config to fit the new graph
-            # 1. change the permutation size
-            callback_configs[ind_of_interest]["init_args"]["permutation_size"] = n
-            # 2. change the graph
-            callback_configs[ind_of_interest]["init_args"]["causal_graph"] = {
-                "class_path": "networkx.classes.digraph.DiGraph",
-                "init_args": {"incoming_graph_data": list(graph.edges)},
-            }
-    else:
-        # Remove the Birkhoff visualizer callback
-        indices = []
-        for i, callback_config in enumerate(callback_configs):
-            if callback_config["class_path"] == "ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback":
-                indices.append(i)
-        for i, ind in enumerate(indices):
-            callback_configs.pop(ind - i)
+    birkhoff_callback_indices = get_callbacks_with_class_path(callback_configs, "ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback")
+    
+    if n <= 4 and len(birkhoff_callback_indices) > 0:
+        ind_of_interest = birkhoff_callback_indices[0]
+        # Change the Birkhoff config to fit the new graph
+        # 1. change the permutation size
+        callback_configs[ind_of_interest]["init_args"]["permutation_size"] = n
+        # 2. change the graph
+        callback_configs[ind_of_interest]["init_args"]["causal_graph"] = {
+            "class_path": "networkx.classes.digraph.DiGraph",
+            "init_args": {"incoming_graph_data": list(graph.edges)},
+        }
+        birkhoff_callback_indices.pop(0)
+    for i, ind in enumerate(birkhoff_callback_indices):
+        callback_configs.pop(ind - i)
     new_config["trainer"]["callbacks"] = callback_configs
+    
+    return new_config
 
+def handle_permutation_saving(new_config, graph, logger_name):
     # Handle Permutation Statistics Callback
     # 1. Change the permutation size
     # 2. Change the graph
     callback_configs = new_config["trainer"]["callbacks"]
-    perm_save_callback = None
-    ind_of_interest = None
-    for i, permutation_statistics_callback in enumerate(callback_configs):
-        if (
-            permutation_statistics_callback["class_path"]
-            == "ocd.training.callbacks.save_results.SavePermutationResultsCallback"
-        ):
-            perm_save_callback = permutation_statistics_callback
-            ind_of_interest = i
-            break
-    if perm_save_callback is None:
-        perm_save_callback = {}
-        callback_configs.append(perm_save_callback)
-        ind_of_interest = len(callback_configs) - 1
-
-    callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/{logger_name}"
+    indices = get_callbacks_with_class_path(callback_configs, "ocd.training.callbacks.save_results.SavePermutationResultsCallback")
+    if len(indices) > 1:
+        raise Exception("There are more than one permutation saving callbacks in the configuration.")
+    elif len(indices) == 0:
+        raise Exception("There is no permutation saving callback in the configuration.")
+    else:
+        ind_of_interest = indices[0]
+    
+    old_save_path = None
+    if "save_path" in callback_configs[ind_of_interest]["init_args"]:
+        old_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
+    if old_save_path is None:
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/{logger_name}"
+    else:
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = os.path.join(old_save_path, logger_name)
+    new_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
+    if not os.path.exists(new_save_path):
+        os.makedirs(new_save_path)
+            
     callback_configs[ind_of_interest]["init_args"]["causal_graph"] = {
         "class_path": "networkx.classes.digraph.DiGraph",
         "init_args": {"incoming_graph_data": list(graph.edges)},
     }
     new_config["trainer"]["callbacks"] = callback_configs
+    
+    return new_config
 
-    # Set the max_epoch
-    global original_max_epoch
-    original_max_epoch = new_config["trainer"]["max_epochs"]
-    new_config["trainer"]["max_epochs"] = min(100000, original_max_epoch)
-
-    # Change the model in_features and dimensions
-    new_config["model"]["init_args"]["model_args"]["in_features"] = n
-    layers = new_config["model"]["init_args"]["model_args"]["layers"]
-    # multiple the hidden dimensions of the layers by n
-    new_config["model"]["init_args"]["model_args"]["layers"] = [x for x in layers]
-
+def handle_base_distributions(new_config):
     distr_name = "torch.distributions.normal.Normal"
     distr_args = {"loc": 0.0, "scale": 1.0}
     if (
@@ -176,8 +133,58 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False, 
             distr_name = "torch.distributions.laplace.Laplace"
             distr_args = {"loc": 0.0, "scale": 1.0}
 
-    new_config["model"]["init_args"]["model_args"]["base_distribution"] = distr_name
-    new_config["model"]["init_args"]["model_args"]["base_distribution_args"] = distr_args
+    if "base_distribution" not in new_config["model"]["init_args"]["model_args"]:
+        # If the model args Does not contain the base distribution explicitely then specify it using the values
+        # if not, leave as is.
+        new_config["model"]["init_args"]["model_args"]["base_distribution"] = distr_name
+        new_config["model"]["init_args"]["model_args"]["base_distribution_args"] = distr_args
+        
+    return new_config
+
+def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
+    """
+    This function takes in a base configuration and changes it for the causal discovery phase.
+    In this phase, the ordering will be discovered.
+
+    For better interpretability, we will use the Birkhoff polytope to visualize the
+    exploration if the number of covariates is less than or equal to 4.
+
+    Finally, we end up with a configuration that is ready to be used by the Lightning Trainer.
+    """
+    new_config = convert_to_dict(old_config)
+    
+    # Build the graph and get the graph information
+    dataset_args = (
+        new_config["data"]["init_args"]["dataset_args"] if "dataset_args" in new_config["data"]["init_args"] else {}
+    )
+    dataset_args = dataset_args or {}
+    construction_args_copy = dataset_args.copy()
+    # Disable simulation for runtime acceleration purposes
+    if new_config['data']['init_args']['dataset'] == 'ocd.data.SyntheticOCDDataset':
+        construction_args_copy['enable_simulate'] = False
+        
+    torch_dataset = dy.eval(new_config["data"]["init_args"]["dataset"])(**construction_args_copy)
+    graph = torch_dataset.dag
+    n = graph.number_of_nodes()
+
+    # Handle the logger
+    logger_name = torch_dataset.name
+    mex = 0
+    while os.path.exists(f"experiments/smart/smart-trainer-logs/{logger_name}-{mex}"):
+        mex += 1
+    logger_name = f"{logger_name}-{mex}"
+    
+    # Change the logger name
+    if not bypass_logger:
+        new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
+
+    new_config = handle_birkhoff(new_config, n, graph)
+    new_config = handle_permutation_saving(new_config, graph, logger_name)
+
+    # Change the model in_features and dimensions
+    new_config["model"]["init_args"]["model_args"]["in_features"] = n
+
+    new_config = handle_base_distributions(new_config)
 
     if bypass_logger:
         return new_config, logger_name
@@ -322,13 +329,16 @@ def main():
     if has_discovery:
         # Overwrite the base configuration with the causal discovery configuration
         config_for_discovery, logger_name = change_config_for_causal_discovery(base_config)
-        log_dir = f"experiments/smart/smart-trainer-logs/{logger_name}"
+        saving_callback_ind = get_callbacks_with_class_path(config_for_discovery['trainer']['callbacks'], 
+                                                            "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
+        
+        log_dir = config_for_discovery["trainer"]["callbacks"][saving_callback_ind]["init_args"]["save_path"]
 
         custom_run(config_for_discovery, phase="causal_discovery", log_dir=log_dir)
         wandb.finish()
 
         with open(
-            f"experiments/smart/smart-trainer-logs/{logger_name}/final-results.json",
+            f"{log_dir}/final-results.json",
             "r",
         ) as f:
             results = json.load(f)

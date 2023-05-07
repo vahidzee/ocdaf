@@ -56,8 +56,6 @@ class Sweep:
     run_when_instantiate: bool = False
     use_smart_trainer: bool = False
     resume: bool = False
-    # custom made
-    bypass_birkhoff: bool = False
 
 
 compression_mapping = {}
@@ -338,6 +336,7 @@ def sweep_run(args):
         run_name=args.sweep.run_name,
         resume=args.sweep.resume,
     )
+    
     sweep_config = decompress_parameter_config(sweep_config)
     sweep_config = unflatten_sweep_config(sweep_config)
 
@@ -345,7 +344,7 @@ def sweep_run(args):
 
     if args.sweep.use_smart_trainer:
         new_conf, _ = change_config_for_causal_discovery(
-            args, bypass_logger=True, bypass_birkhoff=args.sweep.bypass_birkhoff
+            args, bypass_logger=True
         )
         args = overwrite_args(args, new_conf)
 
