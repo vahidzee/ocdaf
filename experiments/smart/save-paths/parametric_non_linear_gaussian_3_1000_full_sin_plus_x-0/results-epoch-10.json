@@ -1,0 +1,21 @@
+{
+    "metrics": {
+        "average": {
+            "backward_relative_penalty": 0.44666666666666666,
+            "count_backward": 1.3400000000000003
+        },
+        "best": {
+            "backward_relative_penalty": 0.3333333333333333,
+            "count_backward": 1
+        }
+    },
+    "permutation_map": {
+        "0-1-2": 0.333,
+        "0-2-1": 0.132,
+        "1-0-2": 0.202,
+        "1-2-0": 0.068,
+        "2-0-1": 0.131,
+        "2-1-0": 0.134
+    },
+    "most_common_permutation": "0-1-2"
+}

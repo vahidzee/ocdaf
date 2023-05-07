@@ -1,3 +1,4 @@
+from typing import Any
 from lightning.pytorch.callbacks import Callback
 import typing as th
 import lightning.pytorch as pl
@@ -17,8 +18,9 @@ class PhaseChangerCallback(Callback):
     The phase change occures in different scenarios:
 
     (1) When the training process loss has converged to a certain value
-    (2) When the monitoring value (in this case loss/validation loss) has Plateaued
-
+    (2) When the monitoring value has Plateaued
+    (3) You can set the monitoring value to be either the validation loss or the training loss
+    
     For each of these settings, there are hyperparameters that can be adjusted to control
     the phase change process.
 
@@ -27,6 +29,9 @@ class PhaseChangerCallback(Callback):
     def __init__(
         self,
         starting_phase: th.Literal["maximization", "expectation"] = "maximization",
+        #
+        monitor_validation: bool = True,
+        monitor_training: bool = False,
         # The setting for better performance
         # The settings regarding epoch limit values
         maximization_epoch_limit: int = 10,
@@ -40,9 +45,16 @@ class PhaseChangerCallback(Callback):
         reinitialize_weights_on_maximization: bool = False,
         log_onto_logger: bool = True,
     ):
+        self.monitor_validation = monitor_validation
+        self.monitor_training = monitor_training
+        if not self.monitor_training and not self.monitor_validation:
+            raise Exception("At least one of the training or validation must be monitored")
+        if self.monitor_training and self.monitor_validation:
+            raise Exception("Only one of the training or validation can be monitored not both")
+        
         self.check_every_n_iterations = check_every_n_iterations
         self.training_iteration_counter = 0
-        self.validation_iteration_counter = 0
+        self.iteration_counter = 0
 
         self.starting_phase = starting_phase
 
@@ -55,8 +67,8 @@ class PhaseChangerCallback(Callback):
         self.baseline_patience = patience
         self.patience_remaining = patience
         self.threshold = threshold
-        self.validation_running_avg = 0
-        self.running_minimum_validation_loss = float("inf")
+        self.running_avg = 0
+        self.running_minimum_loss = float("inf")
         self.cooldown = cooldown
         self.num_validation_batches = 0
         self.cooldown_counter = cooldown
@@ -79,7 +91,7 @@ class PhaseChangerCallback(Callback):
         self.epochs_on_maximization = 0
 
         # Change the generalization gap values
-        self.running_minimum_validation_loss = float("inf")
+        self.running_minimum_loss = float("inf")
         self.patience_remaining = self.baseline_patience
 
         if self.reset_optimizers:
@@ -106,35 +118,32 @@ class PhaseChangerCallback(Callback):
 
         return super().on_train_epoch_end(trainer, pl_module)
 
-    def on_validation_batch_end(
+    def monitor_and_take_action(
         self,
-        trainer: pl.Trainer,
+        trainer: Trainer,
         pl_module: TrainingModule,
-        outputs: th.Optional[STEP_OUTPUT],
-        batch: th.Any,
+        outputs: STEP_OUTPUT,
+        batch: Any,
         batch_idx: int,
-        dataloader_idx: th.Optional[int] = None,
     ) -> None:
-        ret = super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
-
         outputs = pl_module.objective.results_latch
 
         if "loss" not in outputs:
             raise Exception(f"The validation step must return a loss value but got the following instead:\n{outputs}")
         # If the current loss is less than (min + eps) then reset the patience
         # otherwise, decrement the patience and if the patience reaches zero, change the phase
-        self.validation_running_avg = (self.validation_running_avg * batch_idx + outputs["loss"]) / (batch_idx + 1)
+        self.running_avg = (self.running_avg * batch_idx + outputs["loss"]) / (batch_idx + 1)
         if self.num_validation_batches < batch_idx + 1:
             self.num_validation_batches = batch_idx + 1
         else:
             if self.num_validation_batches == batch_idx + 1:
                 should_change_phase = False
 
-                current_loss = self.validation_running_avg
+                current_loss = self.running_avg
 
                 self.cooldown_counter = max(0, self.cooldown_counter - 1)
 
-                if current_loss <= self.running_minimum_validation_loss * (1 - self.threshold):
+                if current_loss <= self.running_minimum_loss * (1 - self.threshold):
                     self.patience_remaining = self.baseline_patience
                 else:
                     self.patience_remaining = max(0, self.patience_remaining - 1)
@@ -142,12 +151,12 @@ class PhaseChangerCallback(Callback):
                         should_change_phase = True
 
                 # Take the minimum of current loss and the running minimum
-                self.running_minimum_validation_loss = min(self.running_minimum_validation_loss, current_loss)
+                self.running_minimum_loss = min(self.running_minimum_loss, current_loss)
 
                 if self.log_onto_logger:
-                    pl_module.log("phase-changer/current_validation_loss", current_loss)
+                    pl_module.log("phase-changer/current_phase_changing_loss", current_loss)
                     pl_module.log(
-                        "phase-changer/running_minimum_validation_loss", self.running_minimum_validation_loss
+                        "phase-changer/running_minimum_phase_changing_loss", self.running_minimum_loss
                     )
                     pl_module.log("phase-changer/patience_remaining", float(self.patience_remaining))
                     pl_module.log(
@@ -158,5 +167,32 @@ class PhaseChangerCallback(Callback):
 
                     if should_change_phase:
                         self.change_phase(trainer, pl_module)
+
+    def on_train_batch_end(
+        self, 
+        trainer: Trainer, 
+        pl_module: TrainingModule, 
+        outputs: STEP_OUTPUT, 
+        batch: Any, 
+        batch_idx: int
+    ) -> None:
+        ret = super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
+        if self.monitor_training:
+            self.monitor_and_take_action(trainer, pl_module, outputs, batch, batch_idx)
+        return ret
+            
+    
+    def on_validation_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: TrainingModule,
+        outputs: th.Optional[STEP_OUTPUT],
+        batch: th.Any,
+        batch_idx: int,
+        dataloader_idx: th.Optional[int] = None,
+    ) -> None:
+        ret = super().on_validation_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        if self.monitor_validation:
+            self.monitor_and_take_action(trainer, pl_module, outputs, batch, batch_idx)
 
         return ret

@@ -1,6 +1,6 @@
 class_path: lightning_toolbox.DataModule
 init_args:
-    batch_size: 128
+    batch_size: 32
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
         name: non_parametric_non_linear_gaussian_3_1000_full
@@ -25,4 +25,4 @@ init_args:
             t_mean_function_weights: [0.01, 0.1]
             t_variance_rbf_kernel: 1.0
         seed: 210
-    val_size: 0.1
+    val_size: 0.01
