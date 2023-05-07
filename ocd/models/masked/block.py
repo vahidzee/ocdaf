@@ -65,4 +65,4 @@ class MaskedBlock(MaskedLinear):
         return outputs
 
     def extra_repr(self) -> str:
-        return super().extra_repr() + f", ordering={self.ordering}{'reversed' if self.reversed_ordering else ''}"
+        return super().extra_repr() + f"{', reversed' if self.reversed_ordering else ''}"

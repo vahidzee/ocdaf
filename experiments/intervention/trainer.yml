@@ -1,0 +1,21 @@
+# callbacks
+# callbacks:
+#   - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
+#     init_args:
+#       dirpath: experiments/smart/checkpoints
+#       save_last: true
+#       verbose: true
+#       every_n_epochs: 1
+accelerator: cpu
+devices: 1
+num_nodes: 0
+max_epochs: 600
+log_every_n_steps: 1
+check_val_every_n_epoch: 1
+enable_checkpointing: true
+enable_model_summary: true
+enable_progress_bar: true
+# logger:
+#   class_path: lightning.pytorch.loggers.WandbLogger
+#   init_args:
+#     project: smart-trainer
