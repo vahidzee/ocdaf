@@ -24,8 +24,33 @@ def topological_sort(adj):
     # invert the stack
     return stack[::-1]
 
+def posterior_parent_ratio(perm: th.List, dag: th.Union[np.array, nx.DiGraph]):
+    """
+    Args:
+        perm (list): permutation of the nodes
+        dag (np.array): adjacency matrix of the DAG
 
-def count_backward(perm: th.List[int], dag: np.array):
+    Count the number of disadvantage vertices in a permutation
+
+    This is used as a validation metric
+    """
+    def edge_exists(u: int, v: int) -> bool:
+        return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
+
+    n = len(perm)
+    count = 0
+    for i in range(n):
+        is_disadvantage = False
+        for j in range(n):
+            if edge_exists(perm[j], perm[i]) and perm[j] >= perm[i]:
+                is_disadvantage = True
+                break
+        if is_disadvantage:
+            count += 1
+            
+    return count * 1.0 / n
+
+def count_backward(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph]):
     """
     Args:
         perm (list): permutation of the nodes
@@ -72,11 +97,22 @@ def backward_relative_penalty(perm: th.List[int], dag: th.Union[np.array, nx.DiG
     return 1.0 * backwards / all
 
 
-def shd(dag1: np.array, dag2: np.array):
+def shd(dag1: nx.DiGraph, dag2: nx.DiGraph, with_change_orientation=False):
     """
     Compute the structural hamming distance (SHD) between two DAGs
     """
-    return np.sum(dag1 != dag2)
+    ret = 0
+    for u, v in dag1.edges():
+        if not dag2.has_edge(u, v):
+            ret += 1
+    for u, v in dag2.edges():
+        if not dag1.has_edge(u, v):
+            ret += 1
+    if with_change_orientation:
+        for u, v in dag1.edges():
+            if dag2.has_edge(u, v) and not dag2.has_edge(v, u) and not dag1.has_edge(v, u):
+                ret -= 1
+    return ret
 
 
 def closure_distance(perm: th.List[int], dag: np.array):
