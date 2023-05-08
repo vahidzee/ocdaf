@@ -31,6 +31,8 @@ import json
 from jsonargparse import ArgumentParser, ActionConfigFile
 import lightning.pytorch as pl
 import pprint
+import time
+import datetime
 
 original_max_epoch: int
 checkpoint_path: th.Optional[str] = None
@@ -168,11 +170,7 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     n = graph.number_of_nodes()
 
     # Handle the logger
-    logger_name = torch_dataset.name
-    mex = 0
-    while os.path.exists(f"experiments/smart/smart-trainer-logs/{logger_name}-{mex}"):
-        mex += 1
-    logger_name = f"{logger_name}-{mex}"
+    logger_name = f"{torch_dataset.name}-{datetime.datetime.now().strftime('%Y-%m-%d')}-{time.time()}"
     
     # Change the logger name
     if not bypass_logger:
