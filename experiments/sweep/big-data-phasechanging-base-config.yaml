@@ -1,3 +1,5 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
 trainer:
     # callbacks
     callbacks:
@@ -19,9 +21,9 @@ trainer:
       - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
         init_args:
           save_path: experiments/sweep/phasechanging-save-path
-          num_samples: 1000
+          num_samples: 5000
           log_every_n_epochs: 5
-          save_every_n_epochs: 100
+          save_every_n_epochs: 500
     accelerator: gpu
     devices: 1
     num_nodes: 0
