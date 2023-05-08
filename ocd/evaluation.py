@@ -42,7 +42,7 @@ def posterior_parent_ratio(perm: th.List, dag: th.Union[np.array, nx.DiGraph]):
     for i in range(n):
         is_disadvantage = False
         for j in range(n):
-            if edge_exists(perm[j], perm[i]) and perm[j] >= perm[i]:
+            if edge_exists(perm[j], perm[i]) and j >= i:
                 is_disadvantage = True
                 break
         if is_disadvantage:
