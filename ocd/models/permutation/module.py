@@ -41,9 +41,9 @@ class LearnablePermutation(torch.nn.Module):
         num_samples: int = -1,  # -1 for batch size, 0 for no sampling
         num_hard_samples: int = -1,  # -1 for batch size, 0 for no sampling
         hard_from_softs: bool = False,  # hard samples are generated from the same soft samples
-        buffer_size: int = 0,
-        buffer_replay_prob: float = 1.0,
-        buffer_replace_prob: float = 0.0,
+        buffer_size: int = 0, # 0 for no buffer
+        buffer_replay_prob: float = 1.0,  # out of num_hard_samples portion of samples to be drawn from scratch
+        buffer_replace_prob: float = 0.0, # probability of using a new sample instead of a sample from the buffer
     ):
         """
         Learnable permutation matrices.
@@ -179,7 +179,6 @@ class LearnablePermutation(torch.nn.Module):
     def hybrid_permutation(
         self, soft_permutations: torch.Tensor, num_hard_samples: int, method: th.Callable, return_matrix: bool = True
     ):
-        print("hybrid", num_hard_samples, soft_permutations.shape, method)
         hard_permutations = self.sample_hard_permutations(
             soft_permutations=soft_permutations[:num_hard_samples] if not self.hard_from_softs else soft_permutations,
             num_samples=num_hard_samples,
@@ -477,7 +476,6 @@ class LearnablePermutation(torch.nn.Module):
     ):
         num_samples = num_samples if num_samples is not None else self.num_hard_samples
         num_samples = num_samples if num_samples > 0 else soft_permutations.shape[0]
-        print("sample_hard_permutations", num_samples, soft_permutations.shape)
         # sample directly from soft permutations
         assert len(soft_permutations) >= num_samples
         if not self.buffer_size:
@@ -486,7 +484,6 @@ class LearnablePermutation(torch.nn.Module):
         assert self.buffer_size >= num_samples
         # fill the buffer if it is empty and sample from it
         if self.buffer_commits < self.buffer_size:
-            print("filling buffer")
             self.update_buffer(
                 self.hard_permutation(gamma=soft_permutations, return_matrix=True), apply_unique=apply_unique
             )
@@ -494,12 +491,10 @@ class LearnablePermutation(torch.nn.Module):
         if self.buffer_commits < self.buffer_size or (
             self.buffer_replace_prob and np.random.rand() >= 1 - self.buffer_replace_prob
         ):
-            print("returning from buffer")
             return self.buffer[torch.randperm(self.buffer_commits)[:num_samples]]
 
         # sample from the buffer and the soft permutations
         num_new = np.random.binomial(num_samples, 1 - self.buffer_replay_prob)
-        print("replaying buffer", num_new, num_samples - num_new)
 
         # select num_new indices from soft_permutations and convert them to hard permutations
         new_perms = self.hard_permutation(

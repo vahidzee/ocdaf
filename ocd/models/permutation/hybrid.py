@@ -33,7 +33,6 @@ def dot_similarity(
     return_matrix: bool = True,
 ) -> torch.Tensor:
     results = dict()
-    print(soft_permutations.shape, hard_permutations.shape)
     assert soft_permutations.shape == hard_permutations.shape
     dot_prods = torch.sum(soft_permutations * hard_permutations, dim=-1)
     dot_prods = torch.sum(dot_prods, dim=-1)
