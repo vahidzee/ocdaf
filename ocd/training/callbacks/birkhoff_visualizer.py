@@ -334,7 +334,7 @@ class BirkhoffCallback(LoggingCallback):
 
         # Now get a permutation without noise from the model for representing the current state
         # of the permutation learner
-        permutation_without_noise = pl_module.model.permutation_model.get_permutation_without_noise()
+        permutation_without_noise = pl_module.model.permutation_model.soft_permutation().detach().cpu().numpy()
 
         clusters = None
         cost_values = logged_losses
