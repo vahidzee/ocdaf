@@ -290,7 +290,7 @@ def init_or_resume_wandb_run(
     # check if the checkpoint_dir contains any subdirectories or not
     all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
     # sort all_subdirs by their name lexically
-    all_subdirs = sorted(all_subdirs, key=lambda x: x.name)
+    all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
 
     if len(all_subdirs) > 0 and resume:
         dir_name = all_subdirs[0].name
@@ -340,13 +340,16 @@ def sweep_run(args):
     sweep_config = decompress_parameter_config(sweep_config)
     sweep_config = unflatten_sweep_config(sweep_config)
 
-    args = overwrite_args(args, sweep_config)
+    # make a copy of args
+    args_copy = copy.deepcopy(args)
+    
+    args_copy = overwrite_args(args_copy, sweep_config)
 
-    if args.sweep.use_smart_trainer:
+    if args_copy.sweep.use_smart_trainer:
         new_conf, _ = change_config_for_causal_discovery(
-            args, bypass_logger=True
+            args_copy, bypass_logger=True, 
         )
-        args = overwrite_args(args, new_conf)
+        args_copy = overwrite_args(args_copy, new_conf)
 
     # Add a checkpointing callback to the trainer
     if not checkpoint_dir.exists():
@@ -358,8 +361,8 @@ def sweep_run(args):
             "init_args": {
                 "dirpath": checkpoint_dir,
                 "verbose": True,
-                "train_time_interval": timedelta(seconds=args.sweep.checkpoint_interval),
-                "save_top_k": -1,
+                "train_time_interval": timedelta(seconds=args_copy.sweep.checkpoint_interval),
+                "save_top_k": 1,
             },
         }
     )
@@ -370,21 +373,21 @@ def sweep_run(args):
         new_conf["trainer"]["callbacks"].append(new_callback)
     
     parser = build_parser()
-    args = parser.parse_object(args)
+    args_copy = parser.parse_object(args_copy)
 
     # create a copy of args and drop the sweep configurations
     new_parser = build_parser(with_sweep=False)
-    args_copy = copy.deepcopy(args)
-    delattr(args_copy, "sweep")
+    args_copy_copy = copy.deepcopy(args_copy)
+    delattr(args_copy_copy, "sweep")
     new_parser.save(
-        args_copy,
+        args_copy_copy,
         os.path.join(parent_checkpoint_dir, f"discovery-config-{logger.experiment.id}.yaml"),
         skip_none=False,
         overwrite=True,
         multifile=False,
     )
 
-    config_init = parser.instantiate_classes(args)
+    config_init = parser.instantiate_classes(args_copy)
 
     model = config_init.model
     datamodule = config_init.data

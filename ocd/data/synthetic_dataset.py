@@ -17,6 +17,7 @@ class SyntheticOCDDataset(OCDDataset):
         seed: th.Optional[int] = None,
         name: th.Optional[str] = None,
         enable_simulate: bool = True,
+        standardization: bool = True,
     ):
         """
         Args:
@@ -37,4 +38,4 @@ class SyntheticOCDDataset(OCDDataset):
             df = self.scm.simulate(observation_size, seed=self.seed)
         else:
             df = None
-        super().__init__(samples=df, dag=self.scm.dag, name=name, explanation=self.scm.get_description())
+        super().__init__(samples=df, dag=self.scm.dag, name=name, explanation=self.scm.get_description(), standardization=standardization)

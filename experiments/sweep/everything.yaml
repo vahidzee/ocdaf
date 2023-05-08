@@ -1,0 +1,288 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
+project: sweep-everything
+checkpoint_interval: 30
+default_root_dir: experiments/sweep
+use_smart_trainer: True
+agent_run_args:
+  count: 128
+sweep_configuration:
+  method: random
+  metric:
+    goal: minimize
+    name: metrics/average-backward_relative_penalty
+  parameters:
+    trainer:
+        callbacks:
+        - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+          init_args:
+            sweep: True
+            sweep_alias:
+            - LowPatienceValWithReset
+            - HighPatienceValWithReset
+            - LowPatienceTrainWithReset
+            - HighPatienceTrainWithReset
+            - LowPatienceValNoReset
+            - HighPatienceValNoReset
+            - LowPatienceTrainNoReset
+            - HighPatienceTrainNoReset
+            values:
+            - check_every_n_iterations: 1
+              maximization_epoch_limit: 120
+              expectation_epoch_limit: 120
+              patience: 25
+              cooldown: 50
+              reset_optimizers: True
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              maximization_epoch_limit: 300
+              expectation_epoch_limit: 300
+              patience: 40
+              cooldown: 200
+              reset_optimizers: True
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              monitor_validation: False
+              monitor_training: True
+              maximization_epoch_limit: 120
+              expectation_epoch_limit: 120
+              patience: 25
+              cooldown: 50
+              reset_optimizers: True
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              monitor_validation: False
+              monitor_training: True
+              maximization_epoch_limit: 300
+              expectation_epoch_limit: 300
+              patience: 40
+              cooldown: 200
+              reset_optimizers: True
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              maximization_epoch_limit: 120
+              expectation_epoch_limit: 120
+              patience: 25
+              cooldown: 50
+              reset_optimizers: False
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              maximization_epoch_limit: 300
+              expectation_epoch_limit: 300
+              patience: 40
+              cooldown: 200
+              reset_optimizers: False
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              monitor_validation: False
+              monitor_training: True
+              maximization_epoch_limit: 120
+              expectation_epoch_limit: 120
+              patience: 25
+              cooldown: 50
+              reset_optimizers: False
+              reinitialize_weights_on_maximization: False
+            - check_every_n_iterations: 1
+              monitor_validation: False
+              monitor_training: True
+              maximization_epoch_limit: 300
+              expectation_epoch_limit: 300
+              patience: 40
+              cooldown: 200
+              reset_optimizers: False
+              reinitialize_weights_on_maximization: False
+        - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
+    model:
+      init_args:
+        sweep: True
+        sweep_alias:
+        - VahshiStartFast
+        - VahshiEndFast
+        - AhliStartFast
+        - AhliEndFast
+        values:
+        - lr: [0.01, 0.01]
+          scheduler_args:
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.0001
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.0001
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3
+        - lr: [0.01, 0.01]
+          scheduler_args:
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.0001
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.0001
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+        - lr: [0.005, 0.005]
+          scheduler_args:
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.01
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.01
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3  
+        - lr: [0.005, 0.005]
+          scheduler_args:
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.01
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.01
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+        
+    data:
+        sweep: True
+        sweep_alias:
+        - erdos5
+        - full5
+        - erdos10
+        - erdos25
+        values:
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+              batch_size: 32
+              dataset: ocd.data.SyntheticOCDDataset
+              dataset_args:
+                  name: non_parametric_non_linear_gaussian_5_1000_erdos_renyi
+                  observation_size: 1000
+                  scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                  scm_generator_args:
+                      graph_generator: ocd.data.scm.GraphGenerator
+                      graph_generator_args: {graph_type: erdos_renyi, n: 5, p: 0.65, seed: 606}
+                      noise_mean: 0.0
+                      noise_std: 1.0
+                      s_gamma_rbf_kernel: 1.0
+                      s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                              \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                          function_of_interest: func}
+                      s_mean_function_activation_signature: softplus
+                      s_mean_function_weights: [0.01, 0.1]
+                      s_variance_rbf_kernel: 1.0
+                      seed: 711
+                      t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                              \ numpy.sin(x) + x", function_of_interest: func}
+                      t_mean_function_activation_signature: sin_plus_x
+                      t_mean_function_weights: [0.01, 0.1]
+                      t_variance_rbf_kernel: 1.0
+                  seed: 196
+              val_size: 0.01
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+              batch_size: 32
+              dataset: ocd.data.SyntheticOCDDataset
+              dataset_args:
+                  name: non_parametric_non_linear_gaussian_5_1000_full
+                  observation_size: 1000
+                  scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                  scm_generator_args:
+                      graph_generator: ocd.data.scm.GraphGenerator
+                      graph_generator_args: {graph_type: full, n: 5, seed: 69}
+                      noise_mean: 0.0
+                      noise_std: 1.0
+                      s_gamma_rbf_kernel: 1.0
+                      s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                              \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                          function_of_interest: func}
+                      s_mean_function_activation_signature: softplus
+                      s_mean_function_weights: [0.01, 0.1]
+                      s_variance_rbf_kernel: 1.0
+                      seed: 588
+                      t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                              \ numpy.sin(x) + x", function_of_interest: func}
+                      t_mean_function_activation_signature: sin_plus_x
+                      t_mean_function_weights: [0.01, 0.1]
+                      t_variance_rbf_kernel: 1.0
+                  seed: 356
+              val_size: 0.01
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+                name: non_parametric_non_linear_gaussian_10_1000_erdos_renyi
+                observation_size: 1000
+                scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                scm_generator_args:
+                    graph_generator: ocd.data.scm.GraphGenerator
+                    graph_generator_args: {graph_type: erdos_renyi, n: 10, p: 0.65, seed: 369}
+                    noise_mean: 0.0
+                    noise_std: 1.0
+                    s_gamma_rbf_kernel: 1.0
+                    s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                            \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                        function_of_interest: func}
+                    s_mean_function_activation_signature: softplus
+                    s_mean_function_weights: [0.01, 0.1]
+                    s_variance_rbf_kernel: 1.0
+                    seed: 51
+                    t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                            \ numpy.sin(x) + x", function_of_interest: func}
+                    t_mean_function_activation_signature: sin_plus_x
+                    t_mean_function_weights: [0.01, 0.1]
+                    t_variance_rbf_kernel: 1.0
+                seed: 270
+            val_size: 0.01
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+                name: non_parametric_non_linear_gaussian_25_1000_erdos_renyi
+                observation_size: 1000
+                scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                scm_generator_args:
+                    graph_generator: ocd.data.scm.GraphGenerator
+                    graph_generator_args: {graph_type: erdos_renyi, n: 25, p: 0.65, seed: 25}
+                    noise_mean: 0.0
+                    noise_std: 1.0
+                    s_gamma_rbf_kernel: 1.0
+                    s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                            \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                        function_of_interest: func}
+                    s_mean_function_activation_signature: softplus
+                    s_mean_function_weights: [0.01, 0.1]
+                    s_variance_rbf_kernel: 1.0
+                    seed: 528
+                    t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                            \ numpy.sin(x) + x", function_of_interest: func}
+                    t_mean_function_activation_signature: sin_plus_x
+                    t_mean_function_weights: [0.01, 0.1]
+                    t_variance_rbf_kernel: 1.0
+                seed: 103
+            val_size: 0.01

@@ -31,6 +31,8 @@ import json
 from jsonargparse import ArgumentParser, ActionConfigFile
 import lightning.pytorch as pl
 import pprint
+import time
+import datetime
 
 original_max_epoch: int
 checkpoint_path: th.Optional[str] = None
@@ -102,9 +104,9 @@ def handle_permutation_saving(new_config, graph, logger_name):
     if "save_path" in callback_configs[ind_of_interest]["init_args"]:
         old_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
     if old_save_path is None:
-        callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/{logger_name}"
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = f"experiments/smart/smart-trainer-logs/smart-{logger_name}"
     else:
-        callback_configs[ind_of_interest]["init_args"]["save_path"] = os.path.join(old_save_path, logger_name)
+        callback_configs[ind_of_interest]["init_args"]["save_path"] = os.path.join(old_save_path, f"smart-{logger_name}")
     new_save_path = callback_configs[ind_of_interest]["init_args"]["save_path"]
     if not os.path.exists(new_save_path):
         os.makedirs(new_save_path)
@@ -168,11 +170,7 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     n = graph.number_of_nodes()
 
     # Handle the logger
-    logger_name = torch_dataset.name
-    mex = 0
-    while os.path.exists(f"experiments/smart/smart-trainer-logs/{logger_name}-{mex}"):
-        mex += 1
-    logger_name = f"{logger_name}-{mex}"
+    logger_name = f"{torch_dataset.name}-{datetime.datetime.now().strftime('%Y-%m-%d')}-{time.time()}"
     
     # Change the logger name
     if not bypass_logger:

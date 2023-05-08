@@ -17,6 +17,7 @@ import warnings
 all_evaluation_metrics = {
     "backward_relative_penalty": eval_metrics.backward_relative_penalty,
     "count_backward": eval_metrics.count_backward,
+    "posterior_parent_ratio": eval_metrics.posterior_parent_ratio,
 }
 
 
@@ -58,7 +59,7 @@ class SavePermutationResultsCallback(Callback):
         perm_model = pl_module.model.permutation_model
 
         all_permutations = perm_model(
-            num_samples=self.num_samples, return_matrix=False, permutation_type="hard", training_module=pl_module
+            self.num_samples, return_matrix=False, permutation_type="hard", training_module=pl_module
         )["perm_mat"]
 
         permutation_map = {}

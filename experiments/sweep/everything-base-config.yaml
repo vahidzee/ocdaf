@@ -1,7 +1,8 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
 trainer:
     # callbacks
     callbacks:
-      - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
       - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
         init_args:
           starting_phase: maximization
@@ -19,13 +20,13 @@ trainer:
       - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
         init_args:
           save_path: experiments/sweep/phasechanging-save-path
-          num_samples: 1000
+          num_samples: 5000
           log_every_n_epochs: 5
-          save_every_n_epochs: 100
+          save_every_n_epochs: 500
     accelerator: gpu
     devices: 1
     num_nodes: 0
-    max_epochs: 5000 # SWEEP on this
+    max_epochs: 3000 # SWEEP on this
     log_every_n_steps: 1
     check_val_every_n_epoch: 1
     enable_checkpointing: true
@@ -36,10 +37,34 @@ trainer:
       init_args:
         project: smart-trainer
 data:
-    class_path: lightning_toolbox.DataModule
-    init_args:
-        batch_size: 128
-        dataset: ocd.data.SyntheticOCDDataset
+  class_path: lightning_toolbox.DataModule
+  init_args:
+      batch_size: 32
+      dataset: ocd.data.SyntheticOCDDataset
+      dataset_args:
+          name: non_parametric_non_linear_gaussian_5_1000_erdos_renyi
+          observation_size: 1000
+          scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+          scm_generator_args:
+              graph_generator: ocd.data.scm.GraphGenerator
+              graph_generator_args: {graph_type: erdos_renyi, n: 5, p: 0.65, seed: 606}
+              noise_mean: 0.0
+              noise_std: 1.0
+              s_gamma_rbf_kernel: 1.0
+              s_mean_function_activation: {function_descriptor: "def func(x):\n    x[x\
+                      \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                  function_of_interest: func}
+              s_mean_function_activation_signature: softplus
+              s_mean_function_weights: [0.01, 0.1]
+              s_variance_rbf_kernel: 1.0
+              seed: 711
+              t_mean_function_activation: {function_descriptor: "def func(x):\n    return\
+                      \ numpy.sin(x) + x", function_of_interest: func}
+              t_mean_function_activation_signature: sin_plus_x
+              t_mean_function_weights: [0.01, 0.1]
+              t_variance_rbf_kernel: 1.0
+          seed: 196
+      val_size: 0.01
 model:
     class_path: ocd.training.module.OCDafTrainingModule
     init_args:
@@ -73,8 +98,8 @@ model:
       # the optimizer
       optimizer: [torch.optim.AdamW, torch.optim.AdamW]
       optimizer_args:
-      - weight_decay: 0.25
-      - weight_decay: 0.1   
+      - weight_decay: 0.01
+      - weight_decay: 0.01  
       optimizer_parameters:
         - model.flow
         - model.permutation_model
