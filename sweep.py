@@ -290,7 +290,7 @@ def init_or_resume_wandb_run(
     # check if the checkpoint_dir contains any subdirectories or not
     all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
     # sort all_subdirs by their name lexically
-    all_subdirs = sorted(all_subdirs, key=lambda x: x.name)
+    all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
 
     if len(all_subdirs) > 0 and resume:
         dir_name = all_subdirs[0].name
