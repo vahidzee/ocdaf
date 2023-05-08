@@ -8,31 +8,12 @@ import torch
 import typing as th
 import os
 import numpy as np
-import pandas as pd
-import uuid
 import networkx as nx
-
-from cdt.utils.R import launch_R_script
+import sys
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def np_to_csv(array, save_path):
-    """
-    Convert np array to .csv
-    array: numpy array
-        the numpy array to convert to csv
-    save_path: str
-        where to temporarily save the csv
-    Return the path to the csv file
-    """
-    id = str(uuid.uuid4())
-    output = os.path.join(os.path.dirname(save_path), 'tmp_' + id + '.csv')
-
-    df = pd.DataFrame(array)
-    df.to_csv(output, header=False, index=False)
-
-    return output
+sys.path.append(os.path.join(_DIR, "../../"))
+from ocd.ocd.post_processing.cam_pruning import cam_pruning
 
 
 def full_DAG(top_order):
@@ -109,37 +90,10 @@ class Score(AbstractBaseline):
         order.reverse()
         return order
 
-    @staticmethod
-    def _pruning(A, X, cutoff):
-        save_path = os.path.join(_DIR, "score_cam_pruning")
-
-        data_np = np.array(X.detach().cpu().numpy())
-        data_csv_path = np_to_csv(data_np, save_path)
-        dag_csv_path = np_to_csv(A, save_path)
-
-        arguments = dict()
-        arguments['{PATH_DATA}'] = data_csv_path
-        arguments['{PATH_DAG}'] = dag_csv_path
-        arguments['{PATH_RESULTS}'] = os.path.join(save_path, "results.csv")
-        arguments['{ADJFULL_RESULTS}'] = os.path.join(save_path, "adjfull.csv")
-        arguments['{CUTOFF}'] = str(cutoff)
-        arguments['{VERBOSE}'] = "TRUE"
-
-        def retrieve_result():
-            A = pd.read_csv(arguments['{PATH_RESULTS}']).values
-            os.remove(arguments['{PATH_RESULTS}'])
-            os.remove(arguments['{PATH_DATA}'])
-            os.remove(arguments['{PATH_DAG}'])
-            return A
-
-        dag = launch_R_script(os.path.join(_DIR, "score_cam_pruning/cam_pruning.R"), arguments,
-                              output_function=retrieve_result)
-        return dag
-
     def estimate_order(self):
         return self.order
 
     def estimate_dag(self):
         dag = full_DAG(self.order)
-        dag = self._pruning(dag, self.data, cutoff=0.001)
+        dag = cam_pruning(dag, np.array(self.data.detach().cpu().numpy()), cutoff=0.001)
         return nx.DiGraph(dag)

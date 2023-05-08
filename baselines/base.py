@@ -47,7 +47,7 @@ class AbstractBaseline(abc.ABC):
             dataset: The dataset to fit on
 
         Returns:
-            A list of the estimated orderings, e.g., [2, 0, 1] means X_2 -> X_0 -> X_1
+            adj_matrix list of the estimated orderings, e.g., [2, 0, 1] means X_2 -> X_0 -> X_1
         """
         raise NotImplementedError()
 
@@ -61,7 +61,7 @@ class AbstractBaseline(abc.ABC):
             structure: Whether to evaluate the structure of the estimated DAG
 
         Returns:
-            A dictionary of evaluation metrics
+            adj_matrix dictionary of evaluation metrics
         """
         estimated_order = self.estimate_order()
         # count the number of backward edges
