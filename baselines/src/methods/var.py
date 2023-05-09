@@ -20,7 +20,7 @@ class Var(AbstractBaseline):
         # hyperparameters
         verbose: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Score")
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Var")
         self.verbose = verbose
         self.data = self.get_data(conversion="tensor")
 
