@@ -25,9 +25,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # you should have the main package installed
-from daguerreo.models import Daguerro
-from daguerreo import utils
-from daguerreo.args import parse_pipeline_args
+from daguerreo.models import Daguerro  # type: ignore
+from daguerreo import utils  # type: ignore
+from daguerreo.args import parse_pipeline_args  # type: ignore
 import networkx as nx
 import typing as th
 import torch

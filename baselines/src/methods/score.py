@@ -49,11 +49,11 @@ class Score(AbstractBaseline):
         self.eta_H = eta_H
         self.normalize_var = normalize_var
         self.dispersion = dispersion
-        self.data = self.get_data(conversion="tensor")
-        self.order = self._compute_top_order(self.data)
         self.verbose = verbose
+        self.data = self.get_data(conversion="tensor")
 
-    def _compute_top_order(self, data):
+    def estimate_order(self):
+        data = self.data
         eta_G = self.eta_G
         eta_H = self.eta_H
         normalize_var = self.normalize_var
@@ -78,12 +78,10 @@ class Score(AbstractBaseline):
             data = torch.hstack([data[:, 0:l], data[:, l + 1 :]])
         order.append(active_nodes[0])
         order.reverse()
+        self.order = order
         return order
 
-    def estimate_order(self):
-        return self.order
-
     def estimate_dag(self):
-        dag = full_DAG(self.order)
+        dag = full_DAG(self.order if hasattr(self, "order") else self.estimate_order())
         dag = cam_pruning(dag, np.array(self.data.detach().cpu().numpy()), cutoff=0.001, verbose=self.verbose)
         return nx.DiGraph(dag)
