@@ -13,11 +13,54 @@ import networkx as nx
 import ocd.evaluation as eval_metrics
 import dypy as dy
 import warnings
+from ocd.post_processing import pc_based_pruning
+from causallearn.search.ConstraintBased.PC import pc
+import functools  
+import pandas as pd
+from causallearn.utils.cit import kci, gsq
+import networkx as nx
 
+skeleton = None
+
+def my_optimized_shd(perm, dag, df: pd.DataFrame):
+    """
+    This is a modified version of the shd function that 
+    is optimized for the permutation learning model logs.
+    """
+    global skeleton
+    if skeleton is None:
+        # First time to calculate the skeleton
+        df_np = df.to_numpy()
+        cg = pc(df_np, 0.05, gsq, verbose=False)
+        graph = cg.G.graph
+        skeleton = set()
+        for i, v in enumerate(df.columns):
+            for j, u in enumerate(df.columns):
+                if i >= j:
+                    continue
+                u_idx = df.columns.get_loc(u)
+                v_idx = df.columns.get_loc(v)
+                if graph[u_idx, v_idx] != 0 or graph[v_idx, u_idx] != 0:
+                    skeleton.add((v, u))
+                    skeleton.add((u, v))
+    all_edges = []
+    for i in range(len(perm)):
+        for j in range(i+1, len(perm)):
+            if (perm[i], perm[j]) in skeleton:
+                all_edges.append((perm[i], perm[j]))
+    # Create an nx.Digraph with nodes perm and edges all_edges
+    predicted_graph = nx.DiGraph()
+    predicted_graph.add_nodes_from(perm)
+    predicted_graph.add_edges_from(all_edges)
+    # print("original dag", dag)
+    # print("predicted", predicted_graph)
+    return eval_metrics.shd(predicted_graph, dag)
+            
 all_evaluation_metrics = {
     "backward_relative_penalty": eval_metrics.backward_relative_penalty,
     "count_backward": eval_metrics.count_backward,
     "posterior_parent_ratio": eval_metrics.posterior_parent_ratio,
+    "pc-shd": my_optimized_shd,
 }
 
 
@@ -31,7 +74,8 @@ class SavePermutationResultsCallback(Callback):
         ordering_to_score_mapping: th.Optional[th.Dict[str, th.Union[float, int]]] = None,
         causal_graph: th.Optional[th.Union[str, nx.DiGraph]] = None,
         log_into_logger: bool = True,
-        # causal_graph_args: th.Optional[dict] = None,
+        evaluation_metrics: th.Optional[th.List[str]] = None,
+        ignore_evaluation_metrics: th.Optional[th.List[str]] = ['pc-shd'],
     ):
         if save_path is None:
             # TODO: This can have side-effects
@@ -53,6 +97,18 @@ class SavePermutationResultsCallback(Callback):
         self.causal_graph = causal_graph
 
         self.log_into_logger = log_into_logger
+        
+        self.evaluation_metrics = {}
+        if evaluation_metrics is not None:
+            for metric_name in evaluation_metrics:
+                self.evaluation_metrics[metric_name] = all_evaluation_metrics[metric_name]
+        else:
+            self.evaluation_metrics = all_evaluation_metrics
+        
+        if ignore_evaluation_metrics is not None:
+            for metric_name in ignore_evaluation_metrics:
+                self.evaluation_metrics.pop(metric_name, None)
+            
 
     def _get_res_dict(self, pl_module: TrainingModule):
         # save the results
@@ -77,7 +133,7 @@ class SavePermutationResultsCallback(Callback):
 
         # Calculate all the metrics
         if self.causal_graph is not None:
-            for metric_name, metric_func in all_evaluation_metrics.items():
+            for metric_name, metric_func in self.evaluation_metrics.items():
                 sm = 0
                 running_avg = 0
                 for perm, c in permutation_map.items():
@@ -86,7 +142,7 @@ class SavePermutationResultsCallback(Callback):
                     running_avg = (running_avg * sm + score * c) / (sm + c)
                     sm += c
                 ret["metrics"]["average"][metric_name] = running_avg
-                ret["metrics"]["best"][metric_name] = metric_func(best_permutation, self.causal_graph)
+                ret["metrics"]["best"][metric_name] = metric_func(perm=best_permutation, dag=self.causal_graph)
 
         if self.ordering_to_score_mapping is not None:
             score = 0.0
@@ -122,7 +178,13 @@ class SavePermutationResultsCallback(Callback):
     def on_fit_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
         self._save_results(pl_module, filename="final-results")
         return super().on_fit_end(trainer, pl_module)
-
+    
+    def on_fit_start(self, trainer: Trainer, pl_module: TrainingModule) -> None:
+        # Setup the skeleton
+        if 'pc-shd' in self.evaluation_metrics:
+            self.evaluation_metrics['pc-shd'] = functools.partial(self.evaluation_metrics['pc-shd'], df=trainer.datamodule.data.samples)
+        return super().on_fit_start(trainer, pl_module)
+    
     def on_train_epoch_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
         self.epoch_counter += 1
         if self.save_every_n_epochs is not None and self.epoch_counter % self.save_every_n_epochs == 0:
