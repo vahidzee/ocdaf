@@ -2,6 +2,7 @@ import typing as th
 import numpy as np
 import random
 import networkx as nx
+from cdt.metrics import SID, SHD
 
 
 def dfs(node, adj, stack, visited):
@@ -24,6 +25,7 @@ def topological_sort(adj):
     # invert the stack
     return stack[::-1]
 
+
 def posterior_parent_ratio(perm: th.List, dag: th.Union[np.array, nx.DiGraph]):
     """
     Args:
@@ -34,6 +36,7 @@ def posterior_parent_ratio(perm: th.List, dag: th.Union[np.array, nx.DiGraph]):
 
     This is used as a validation metric
     """
+
     def edge_exists(u: int, v: int) -> bool:
         return dag[u, v] if isinstance(dag, np.ndarray) else dag.has_edge(u, v)
 
@@ -47,8 +50,9 @@ def posterior_parent_ratio(perm: th.List, dag: th.Union[np.array, nx.DiGraph]):
                 break
         if is_disadvantage:
             count += 1
-            
+
     return count * 1.0 / n
+
 
 def count_backward(perm: th.List[int], dag: th.Union[np.array, nx.DiGraph]):
     """
@@ -134,3 +138,13 @@ def closure(dag: np.array):
             for j in range(len(dag)):
                 dag[i, j] = dag[i, j] or (dag[i, k] and dag[k, j])
     return dag
+
+
+def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+    return SID(true_dag, estimated_graph)
+
+
+def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+    """Two mistakes are counted for anti-causal edges"""
+    # TODO fix this double for anticausal
+    return SHD(true_dag, estimated_graph, double_for_anticausal=False)

@@ -2,8 +2,13 @@ import typing as th
 import abc
 import networkx as nx
 import torch
-from evaluation import backward_relative_penalty, count_backward, count_SHD, count_SID
+import os
+import sys
 import dypy
+
+_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(_DIR, "../../"))
+from ocd.evaluation import backward_relative_penalty, count_backward, count_SHD, count_SID
 
 
 class AbstractBaseline(abc.ABC):

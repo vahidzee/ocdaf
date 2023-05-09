@@ -12,24 +12,28 @@ class CAM(AbstractBaseline):
     """CAM baseline from CDT"""
 
     def __init__(
-            self,
-            dataset: th.Union["OCDDataset", str],  # type: ignore
-            dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
-            # hyperparameters
-            linear: bool = False,
+        self,
+        dataset: th.Union["OCDDataset", str],  # type: ignore
+        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
+        # hyperparameters
+        linear: bool = False,
+        verbose: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name='CAM')
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="CAM")
         self.linear = linear
+        self.verbose = verbose
 
     def estimate_order(self):
         samples = self.get_data(conversion="pandas")
-        graph = CDT_CAM(score="linear" if self.linear else "nonlinear",
-                        pruning=False, njobs=CPU_COUNT - 1, verbose=True).predict(samples)
+        graph = CDT_CAM(
+            score="linear" if self.linear else "nonlinear", pruning=False, njobs=CPU_COUNT - 1, verbose=self.verbose
+        ).predict(samples)
         orders = list(nx.topological_sort(graph))
         return orders
 
     def estimate_dag(self):
         samples = self.get_data(conversion="pandas")
-        graph = CDT_CAM(score="linear" if self.linear else "nonlinear",
-                        pruning=True, njobs=CPU_COUNT - 1, verbose=True).predict(samples)
+        graph = CDT_CAM(
+            score="linear" if self.linear else "nonlinear", pruning=True, njobs=CPU_COUNT - 1, verbose=self.verbose
+        ).predict(samples)
         return graph
