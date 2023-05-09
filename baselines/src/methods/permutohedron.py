@@ -39,14 +39,14 @@ class Permutohedron(AbstractBaseline):
     """DAG Learning on the Permutohedron baseline. https://arxiv.org/pdf/2301.11898.pdf"""
 
     def __init__(
-            self,
-            dataset: th.Union["OCDDataset", str],  # type: ignore
-            dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
-            # hyperparameters
-            linear: bool = False,
-            seed: int = 42,
+        self,
+        dataset: th.Union["OCDDataset", str],  # type: ignore
+        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
+        # hyperparameters
+        linear: bool = False,
+        seed: int = 42,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name='Permutohedron')
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Permutohedron")
         self.linear = linear
 
         # parse args
@@ -56,7 +56,7 @@ class Permutohedron(AbstractBaseline):
         self.args.nogpu = False
         self.seed = seed
         self.args.standardize = True
-        self.args.equations = 'linear' if self.linear else 'nonlinear'
+        self.args.equations = "linear" if self.linear else "nonlinear"
         self.args.wandb = False
         self.args.num_epochs = 5000  # Todo default max epochs is 5000
         self.args.joint = False
@@ -78,11 +78,11 @@ class Permutohedron(AbstractBaseline):
         return g, orders
 
     def estimate_order(self):
-        self.args.sparsifier = 'none'
+        self.args.sparsifier = "none"
         _, orders = self._estimate_order_dat(self.samples, self.args, self.seed)
         return orders
 
     def estimate_dag(self):
-        self.args.sparsifier = 'l0_ber_ste'
+        self.args.sparsifier = "l0_ber_ste"
         graph, _ = self._estimate_order_dat(self.samples, self.args, self.seed)
         return graph
