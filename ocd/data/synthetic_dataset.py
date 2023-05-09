@@ -18,6 +18,7 @@ class SyntheticOCDDataset(OCDDataset):
         name: th.Optional[str] = None,
         enable_simulate: bool = True,
         standardization: bool = True,
+        reject_outliers_n_far_from_mean: th.Optional[float] = 5,
     ):
         """
         Args:
@@ -38,4 +39,11 @@ class SyntheticOCDDataset(OCDDataset):
             df = self.scm.simulate(observation_size, seed=self.seed)
         else:
             df = None
-        super().__init__(samples=df, dag=self.scm.dag, name=name, explanation=self.scm.get_description(), standardization=standardization)
+        super().__init__(
+            samples=df, 
+            dag=self.scm.dag, 
+            name=name, 
+            explanation=self.scm.get_description(), 
+            standardization=standardization, 
+            reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
+        )
