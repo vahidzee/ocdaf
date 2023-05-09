@@ -7,7 +7,7 @@ use_smart_trainer: True
 agent_run_args:
   count: 128
 sweep_configuration:
-  method: random
+  method: grid
   metric:
     goal: minimize
     name: metrics/average-backward_relative_penalty
@@ -100,6 +100,9 @@ sweep_configuration:
         - VahshiEndFast
         - AhliStartFast
         - AhliEndFast
+        - VahshiLinear
+        - AhliLinear
+        - AhliFixed
         values:
         - lr: [0.01, 0.01]
           scheduler_args:
@@ -116,7 +119,7 @@ sweep_configuration:
           model_args:
             permutation_learner_args:
               gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3 + 0.25
         - lr: [0.01, 0.01]
           scheduler_args:
             - mode: min
@@ -132,39 +135,89 @@ sweep_configuration:
           model_args:
             permutation_learner_args:
               gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3) + 0.25
         - lr: [0.005, 0.005]
           scheduler_args:
             - mode: min
               factor: 0.8
               patience: 100
               min_lr: 0.000005
-              threshold: 0.01
+              threshold: 0.001
             - mode: min
-              factor: 0.5
-              patience: 10
+              factor: 0.8
+              patience: 100
               min_lr: 0.000005
-              threshold: 0.01
+              threshold: 0.001
           model_args:
             permutation_learner_args:
               gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3  
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3 + 0.25
         - lr: [0.005, 0.005]
           scheduler_args:
             - mode: min
               factor: 0.8
               patience: 100
               min_lr: 0.000005
-              threshold: 0.01
+              threshold: 0.001
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.001
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3) + 0.25
+        - lr: [ 0.01, 0.01 ]
+          scheduler_args:
             - mode: min
               factor: 0.5
               patience: 10
               min_lr: 0.000005
-              threshold: 0.01
+              threshold: 0.0001
+            - mode: min
+              factor: 0.5
+              patience: 10
+              min_lr: 0.000005
+              threshold: 0.0001
           model_args:
             permutation_learner_args:
               gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs) + 0.25
+
+        - lr: [ 0.005, 0.005 ]
+          scheduler_args:
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.001
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.001
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs) + 0.25
+
+        - lr: [ 0.005, 0.005 ]
+          scheduler_args:
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.001
+            - mode: min
+              factor: 0.8
+              patience: 100
+              min_lr: 0.000005
+              threshold: 0.001
+          model_args:
+            permutation_learner_args:
+              gumbel_noise_std: >
+                lambda self, training_module, **kwargs: 1
         
     data:
         sweep: True
@@ -201,7 +254,7 @@ sweep_configuration:
                       t_mean_function_weights: [0.01, 0.1]
                       t_variance_rbf_kernel: 1.0
                   seed: 196
-              val_size: 0.01
+              val_size: 0.05
         - class_path: lightning_toolbox.DataModule
           init_args:
               batch_size: 32
@@ -229,7 +282,7 @@ sweep_configuration:
                       t_mean_function_weights: [0.01, 0.1]
                       t_variance_rbf_kernel: 1.0
                   seed: 356
-              val_size: 0.01
+              val_size: 0.05
         - class_path: lightning_toolbox.DataModule
           init_args:
             batch_size: 32
@@ -257,7 +310,7 @@ sweep_configuration:
                     t_mean_function_weights: [0.01, 0.1]
                     t_variance_rbf_kernel: 1.0
                 seed: 270
-            val_size: 0.01
+            val_size: 0.05
         - class_path: lightning_toolbox.DataModule
           init_args:
             batch_size: 32
@@ -285,4 +338,4 @@ sweep_configuration:
                     t_mean_function_weights: [0.01, 0.1]
                     t_variance_rbf_kernel: 1.0
                 seed: 103
-            val_size: 0.01
+            val_size: 0.05
