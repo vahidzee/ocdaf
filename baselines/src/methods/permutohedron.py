@@ -24,6 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# you should have the main package installed
 from daguerreo.models import Daguerro
 from daguerreo import utils
 from daguerreo.args import parse_pipeline_args
@@ -31,7 +32,7 @@ import networkx as nx
 import typing as th
 import torch
 
-from base import AbstractBaseline
+from src.base import AbstractBaseline
 
 
 class Permutohedron(AbstractBaseline):

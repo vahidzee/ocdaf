@@ -14,15 +14,17 @@ class AbstractBaseline(abc.ABC):
     """
 
     def __init__(
-            self,
-            dataset: th.Union["OCDDataset", str],  # type: ignore
-            name: th.Optional[str] = None,
-            dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
+        self,
+        dataset: th.Union["OCDDataset", str],  # type: ignore
+        name: th.Optional[str] = None,
+        dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
+        structure: bool = True,
     ):
         self.name = self.__class__.__name__ if name is None else name
         dataset = dypy.get_value(dataset) if isinstance(dataset, str) else dataset
         dataset_args = dict() if dataset_args is None else dataset_args
         self.dataset = dataset if isinstance(dataset, torch.utils.data.Dataset) else dataset(**dataset_args)
+        self.structure: bool = structure
 
     @property
     def true_ordering(self) -> th.List[int]:
@@ -55,7 +57,7 @@ class AbstractBaseline(abc.ABC):
     def estimate_dag(self, **kwargs) -> th.Union[nx.DiGraph, torch.Tensor]:
         raise NotImplementedError()
 
-    def evaluate(self, structure: bool = False):
+    def evaluate(self, structure: th.Optional[bool] = None):
         """Evaluate the baseline on the dataset.
         Args:
             structure: Whether to evaluate the structure of the estimated DAG
@@ -74,9 +76,10 @@ class AbstractBaseline(abc.ABC):
             "true_ordering": self.true_ordering,
             "estimated_ordering": estimated_order,
         }
+        structure = self.structure if structure is None else structure
         if structure:
             estimated_dag = self.estimate_dag()
-            result['SID'] = count_SID(self.dataset.dag, estimated_dag)
-            result['SHD'] = count_SHD(self.dataset.dag, estimated_dag)
+            result["SID"] = count_SID(self.dataset.dag, estimated_dag)
+            result["SHD"] = count_SHD(self.dataset.dag, estimated_dag)
 
         return result

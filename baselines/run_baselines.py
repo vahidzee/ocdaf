@@ -7,9 +7,9 @@ import pandas as pd
 import wandb
 import yaml
 
-from cam import CAM
-from score import Score
-from permutohedron import Permutohedron
+from src.methods.cam import CAM
+from src.methods.score import Score
+from src.methods.permutohedron import Permutohedron
 
 sys.path.append("..")
 
