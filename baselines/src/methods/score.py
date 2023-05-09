@@ -3,25 +3,13 @@
 # under the GNU Affero General Public License v3.0
 # Copy right belongs to the original author https://github.com/paulrolland1307
 
-from src.base import AbstractBaseline
+from src.base import AbstractBaseline  # also adds ocd to sys.path
+from src.utils import full_DAG
 import torch
 import typing as th
-import os
 import numpy as np
 import networkx as nx
-import sys
-
-_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(_DIR, "../../"))
 from ocd.post_processing.cam_pruning import cam_pruning
-
-
-def full_DAG(top_order):
-    d = len(top_order)
-    A = np.zeros((d, d))
-    for i, var in enumerate(top_order):
-        A[var, top_order[i + 1 :]] = 1
-    return A
 
 
 def estimate_hessian(X, eta_G, eta_H, s=None):
@@ -54,6 +42,7 @@ class Score(AbstractBaseline):
         eta_H: float = 0.001,
         normalize_var: float = False,
         dispersion: th.Literal["var", "median"] = "var",
+        verbose: bool = False,
     ):
         super().__init__(dataset=dataset, dataset_args=dataset_args, name="Score")
         self.eta_G = eta_G
@@ -62,6 +51,7 @@ class Score(AbstractBaseline):
         self.dispersion = dispersion
         self.data = self.get_data(conversion="tensor")
         self.order = self._compute_top_order(self.data)
+        self.verbose = verbose
 
     def _compute_top_order(self, data):
         eta_G = self.eta_G
@@ -95,5 +85,5 @@ class Score(AbstractBaseline):
 
     def estimate_dag(self):
         dag = full_DAG(self.order)
-        dag = cam_pruning(dag, np.array(self.data.detach().cpu().numpy()), cutoff=0.001)
+        dag = cam_pruning(dag, np.array(self.data.detach().cpu().numpy()), cutoff=0.001, verbose=self.verbose)
         return nx.DiGraph(dag)
