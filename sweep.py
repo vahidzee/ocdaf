@@ -188,8 +188,16 @@ def flatten_sweep_config(tree_conf: dict):
     global compression_mapping
     global value_compression_mapping
 
+    def postprocess_inner_sweep(inner_conf: dict):
+        t = inner_conf.copy()
+        t.pop(SWEEP_INDICATION)
+        return t
+    
     # Define a flattening method for the tree
-    def flatten_tree(tree_dict: th.Union[dict, th.List]) -> dict:
+    def flatten_tree(
+        tree_dict: th.Union[dict, th.List],
+        sweep_seen: bool = False
+    ) -> dict:
         ret = {}
         has_something_to_iterate_over = False
         if isinstance(tree_dict, list):
@@ -197,13 +205,11 @@ def flatten_sweep_config(tree_conf: dict):
                 if isinstance(val, dict) or isinstance(val, list):
                     if isinstance(val, dict) and SWEEP_INDICATION in val:
                         # pass a version of val without the sweep indication
-                        t = val.copy()
-                        t.pop(SWEEP_INDICATION)
-                        ret[IDX_INDICATOR + str(idx)] = t
+                        ret[IDX_INDICATOR + str(idx)] = postprocess_inner_sweep(val)
                         has_something_to_iterate_over = True
                     else:
                         flattened, has_something = flatten_tree(val)
-                        if has_something:
+                        if has_something or sweep_seen:
                             has_something_to_iterate_over = True
                             for subkey, subval in flattened.items():
                                 ret[SEPARATOR.join([IDX_INDICATOR + str(idx), subkey])] = subval
@@ -216,13 +222,11 @@ def flatten_sweep_config(tree_conf: dict):
                 for key, val in tree_dict.items():
                     if isinstance(val, dict) or isinstance(val, list):
                         if SWEEP_INDICATION in val:
-                            t = val.copy()
-                            t.pop(SWEEP_INDICATION)
-                            ret[key] = t
+                            ret[key] = postprocess_inner_sweep(val)
                             has_something_to_iterate_over = True
                         else:
                             flattened, has_something = flatten_tree(val)
-                            if has_something:
+                            if has_something or sweep_seen:
                                 has_something_to_iterate_over = True
                                 for subkey, subval in flattened.items():
                                     ret[SEPARATOR.join([key, subkey])] = subval
@@ -245,28 +249,36 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 args[args_key] = new_args
             else:
                 args[args_key] = val
-    elif isinstance(args, Namespace):
-        for key, val in sweep_config.items():
-            if key == SWEEP_GROUP:
-                args = overwrite_args(args, val)
-            elif isinstance(val, dict):
-                new_args = overwrite_args(getattr(args, key), val)
-                setattr(args, key, new_args)
-            else:
-                setattr(args, key, val)
-    elif isinstance(args, dict):
-        for key, val in sweep_config.items():
-            if key == SWEEP_GROUP:
-                args = overwrite_args(args, val)
-            elif isinstance(val, dict):
-                new_args = overwrite_args(args[key] if key in args else None, val)
-                args[key] = new_args
-            else:
-                args[key] = val
-    elif args is None:
-        return sweep_config
     else:
-        raise ValueError("args must be a Namespace or a list in the overwrite_args")
+        all_sweep_group_keys = []
+        if isinstance(args, Namespace):
+            for key, val in sweep_config.items():
+                if key.startswith(SWEEP_GROUP):
+                    all_sweep_group_keys.append(key)
+                elif isinstance(val, dict):
+                    new_args = overwrite_args(getattr(args, key), val)
+                    setattr(args, key, new_args)
+                else:
+                    setattr(args, key, val)
+        elif isinstance(args, dict):
+            for key, val in sweep_config.items():
+                if key.startswith(SWEEP_GROUP):
+                    all_sweep_group_keys.append(key)
+                elif isinstance(val, dict):
+                    new_args = overwrite_args(args[key] if key in args else None, val)
+                    args[key] = new_args
+                else:
+                    args[key] = val
+        elif args is None:
+            return sweep_config
+        else:
+            raise ValueError("args must be a Namespace or a list in the overwrite_args")
+        # sort all_sweep_group_keys 
+        all_sweep_group_keys.sort()
+        for key in all_sweep_group_keys:
+            val = sweep_config[key]
+            new_args = overwrite_args(args, val)
+            args = new_args
 
     return args
 

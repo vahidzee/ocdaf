@@ -14,9 +14,10 @@ sweep_configuration:
   parameters:
     trainer:
         callbacks:
+        - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
         - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
           init_args:
-            sweep_group:
+            sweep_group0:
               sweep: True
               sweep_alias:
               - LowPatience
@@ -32,7 +33,7 @@ sweep_configuration:
                 expectation_epoch_limit: 300
                 patience: 40
                 cooldown: 200
-            sweep_group:
+            sweep_group1:
               sweep: True
               sweep_alias:
               - WithReset
@@ -40,7 +41,7 @@ sweep_configuration:
               values:
               - reset_optimizers: True
               - reset_optimizers: False
-            sweep_group:
+            sweep_group2:
               sweep: True
               sweep_alias:
               - MonitorTrain
@@ -53,7 +54,7 @@ sweep_configuration:
         - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     model:
       init_args:
-        sweep_group:
+        sweep_group0:
           sweep: True
           sweep_alias:
           - Vahshi
@@ -95,6 +96,31 @@ sweep_configuration:
                 lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3
               - >
                 lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+    sweep_group_seed:
+      sweep: True
+      sweep_alias:
+      - GraphSeed100
+      - GraphSeed200
+      - GraphSeed300
+      values:
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 100
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 200
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 300
     data:
         sweep: True
         sweep_alias:
