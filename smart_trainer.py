@@ -170,7 +170,8 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
     n = graph.number_of_nodes()
 
     # Handle the logger
-    logger_name = f"{torch_dataset.name}-{datetime.datetime.now().strftime('%Y-%m-%d')}-{time.time()}"
+    current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    logger_name = f"{torch_dataset.name}-{current_timestamp}"
     
     # Change the logger name
     if not bypass_logger:
