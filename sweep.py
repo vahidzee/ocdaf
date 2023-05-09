@@ -26,7 +26,7 @@ IDX_INDICATOR = "__IDX__"
 SWEEP_INDICATION = "sweep"
 UNIQUE_NAME_IDENT = "sweep_identifier"
 VALUES_DISPLAY_NAME = "sweep_alias"
-SWEEP_BLOCK = "sweep_block"
+SWEEP_GROUP = "sweep_group"
 SPLIT = "-"
 
 # Create a sweep dataclass to store the sweep configuration
@@ -148,10 +148,9 @@ def build_parser(with_sweep: bool = True):
         )
     # parser.add_argument("--sweep", action=ActionConfigFile, help="Path to sweep configuration file")
 
-    parser.add_lightning_class_args(pl.Trainer, "trainer")
-
-    parser.add_lightning_class_args(LightningModule, "model", subclass_mode=True)
-    parser.add_lightning_class_args(LightningDataModule, "data", subclass_mode=True)
+    parser.add_lightning_class_args(pl.Trainer, "trainer", required=False)
+    parser.add_lightning_class_args(LightningModule, "model", subclass_mode=True, required=False)
+    parser.add_lightning_class_args(LightningDataModule, "data", subclass_mode=True, required=False)
 
     parser.add_argument(
         "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
@@ -248,14 +247,18 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 args[args_key] = val
     elif isinstance(args, Namespace):
         for key, val in sweep_config.items():
-            if isinstance(val, dict):
+            if key == SWEEP_GROUP:
+                args = overwrite_args(args, val)
+            elif isinstance(val, dict):
                 new_args = overwrite_args(getattr(args, key), val)
                 setattr(args, key, new_args)
             else:
                 setattr(args, key, val)
     elif isinstance(args, dict):
         for key, val in sweep_config.items():
-            if isinstance(val, dict):
+            if key == SWEEP_GROUP:
+                args = overwrite_args(args, val)
+            elif isinstance(val, dict):
                 new_args = overwrite_args(args[key] if key in args else None, val)
                 args[key] = new_args
             else:
