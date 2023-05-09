@@ -10,7 +10,8 @@ def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
 
 def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
     """ Two mistakes are counted for anti-causal edges"""
-    return SHD(true_dag, estimated_graph, double_for_anticausal=True)
+    # TODO fix this double for anticausal
+    return SHD(true_dag, estimated_graph, double_for_anticausal=False)
 
 
 def count_backward(perm: th.List[int], dag: np.array):

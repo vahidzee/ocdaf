@@ -224,7 +224,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The resulting permutation matrix or list of ordered indices.
         """
-        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
+        perm_type = permutation_type if permutation_type is not None else self.permutation_type
         # force permutation if given (used for debugging purposes only)
         if force_permutation is not None or self.force_permutation is not None:
             force_permutation = force_permutation if force_permutation is not None else self.force_permutation
@@ -240,7 +240,7 @@ class LearnablePermutation(torch.nn.Module):
         num_samples = self.num_samples if self.num_samples >= 0 else batch_size
         num_hard_samples = self.num_hard_samples if self.num_hard_samples >= 0 else batch_size
 
-        if not self.hard_from_softs and permutation_type.startswith("hybrid"):
+        if not self.hard_from_softs and perm_type.startswith("hybrid"):
             # hybrid methods use both soft and hard samples
             # thus, if hard_from_softs is False, we don't want to create hard samples from the same soft samples
             # and we need to create more soft samples
