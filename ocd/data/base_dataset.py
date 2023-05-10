@@ -14,6 +14,7 @@ class OCDDataset(torch.utils.data.Dataset):
         name: th.Optional[str] = None,
         explanation: th.Optional[str] = None,
         standardization: bool = True,
+        reject_outliers_n_far_from_mean: th.Optional[float] = 5,
     ):
         """
         Args:
@@ -51,6 +52,15 @@ class OCDDataset(torch.utils.data.Dataset):
                 self.samples_statistics[col] = {'mean': avg, 'std': std}
                 if standardization:
                     self.samples[col] = (self.samples[col] - avg) / std
+                    # replace all the samples that are less than avg - reject_outliers_factor
+                    # or greater than avg + reject_outliers_factor with avg
+                    median = self.samples[col].median()
+                    if reject_outliers_n_far_from_mean is not None:
+                        self.samples[col] = np.where(
+                            np.abs(self.samples[col] - median) > reject_outliers_n_far_from_mean,
+                            median,
+                            self.samples[col],
+                        )
         elif isinstance(self.samples, np.array):
             for col in range(self.samples.shape[1]):
                 avg = np.mean(self.samples[:, col])
@@ -58,6 +68,15 @@ class OCDDataset(torch.utils.data.Dataset):
                 self.samples_statistics[col] = {'mean': avg, 'std': std}
                 if standardization:
                     self.samples[:, col] = (self.samples[:, col] - avg) / std
+                    # replace all the samples that are less than avg - reject_outliers_factor
+                    # or greater than avg + reject_outliers_factor with avg
+                    median = np.median(self.samples[:, col])
+                    if reject_outliers_n_far_from_mean is not None:
+                        self.samples[:, col] = np.where(
+                            np.abs(self.samples[:, col] - median) > reject_outliers_n_far_from_mean,
+                            median,
+                            self.samples[:, col],
+                        )
         else:
             raise ValueError("samples must be either a pd.DataFrame or a np.array")
         

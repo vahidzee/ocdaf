@@ -14,211 +14,113 @@ sweep_configuration:
   parameters:
     trainer:
         callbacks:
+        - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
         - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
           init_args:
-            sweep: True
-            sweep_alias:
-            - LowPatienceValWithReset
-            - HighPatienceValWithReset
-            - LowPatienceTrainWithReset
-            - HighPatienceTrainWithReset
-            - LowPatienceValNoReset
-            - HighPatienceValNoReset
-            - LowPatienceTrainNoReset
-            - HighPatienceTrainNoReset
-            values:
-            - check_every_n_iterations: 1
-              maximization_epoch_limit: 120
-              expectation_epoch_limit: 120
-              patience: 25
-              cooldown: 50
-              reset_optimizers: True
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              maximization_epoch_limit: 300
-              expectation_epoch_limit: 300
-              patience: 40
-              cooldown: 200
-              reset_optimizers: True
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              monitor_validation: False
-              monitor_training: True
-              maximization_epoch_limit: 120
-              expectation_epoch_limit: 120
-              patience: 25
-              cooldown: 50
-              reset_optimizers: True
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              monitor_validation: False
-              monitor_training: True
-              maximization_epoch_limit: 300
-              expectation_epoch_limit: 300
-              patience: 40
-              cooldown: 200
-              reset_optimizers: True
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              maximization_epoch_limit: 120
-              expectation_epoch_limit: 120
-              patience: 25
-              cooldown: 50
-              reset_optimizers: False
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              maximization_epoch_limit: 300
-              expectation_epoch_limit: 300
-              patience: 40
-              cooldown: 200
-              reset_optimizers: False
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              monitor_validation: False
-              monitor_training: True
-              maximization_epoch_limit: 120
-              expectation_epoch_limit: 120
-              patience: 25
-              cooldown: 50
-              reset_optimizers: False
-              reinitialize_weights_on_maximization: False
-            - check_every_n_iterations: 1
-              monitor_validation: False
-              monitor_training: True
-              maximization_epoch_limit: 300
-              expectation_epoch_limit: 300
-              patience: 40
-              cooldown: 200
-              reset_optimizers: False
-              reinitialize_weights_on_maximization: False
+            sweep_group0:
+              sweep: True
+              sweep_alias:
+              - LowPatience
+              - HighPatience
+              values:
+              - check_every_n_iterations: 1
+                maximization_epoch_limit: 120
+                expectation_epoch_limit: 120
+                patience: 25
+                cooldown: 50
+              - check_every_n_iterations: 1
+                maximization_epoch_limit: 300
+                expectation_epoch_limit: 300
+                patience: 40
+                cooldown: 200
+            sweep_group1:
+              sweep: True
+              sweep_alias:
+              - WithReset
+              - NoReset
+              values:
+              - reset_optimizers: True
+              - reset_optimizers: False
+            sweep_group2:
+              sweep: True
+              sweep_alias:
+              - MonitorTrain
+              - MonitorVal
+              values:
+              - monitor_validation: False
+                monitor_training: True
+              - monitor_validation: True
+                monitor_training: False
         - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     model:
       init_args:
-        sweep: True
-        sweep_alias:
-        - VahshiStartFast
-        - VahshiEndFast
-        - AhliStartFast
-        - AhliEndFast
-        - VahshiLinear
-        - AhliLinear
-        - AhliFixed
-        values:
-        - lr: [0.01, 0.01]
-          scheduler_args:
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3 + 0.25
-        - lr: [0.01, 0.01]
-          scheduler_args:
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3) + 0.25
-        - lr: [0.005, 0.005]
-          scheduler_args:
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3 + 0.25
-        - lr: [0.005, 0.005]
-          scheduler_args:
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3) + 0.25
-        - lr: [ 0.01, 0.01 ]
-          scheduler_args:
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-            - mode: min
-              factor: 0.5
-              patience: 10
-              min_lr: 0.000005
-              threshold: 0.0001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs) + 0.25
-
-        - lr: [ 0.005, 0.005 ]
-          scheduler_args:
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs) + 0.25
-
-        - lr: [ 0.005, 0.005 ]
-          scheduler_args:
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-            - mode: min
-              factor: 0.8
-              patience: 100
-              min_lr: 0.000005
-              threshold: 0.001
-          model_args:
-            permutation_learner_args:
-              gumbel_noise_std: >
-                lambda self, training_module, **kwargs: 1
-        
+        sweep_group0:
+          sweep: True
+          sweep_alias:
+          - Vahshi
+          - Ahli
+          values:
+          - lr: [0.01, 0.01]
+            scheduler_args:
+              - mode: min
+                factor: 0.5
+                patience: 10
+                min_lr: 0.000005
+                threshold: 0.0001
+              - mode: min
+                factor: 0.5
+                patience: 10
+                min_lr: 0.000005
+                threshold: 0.0001
+          - lr: [0.005, 0.005]
+            scheduler_args:
+              - mode: min
+                factor: 0.8
+                patience: 100
+                min_lr: 0.000005
+                threshold: 0.01
+              - mode: min
+                factor: 0.8
+                patience: 100
+                min_lr: 0.000005
+                threshold: 0.01
+        model_args:
+          permutation_learner_args:
+            gumbel_noise_std:
+              sweep: True
+              sweep_alias:
+              - StartFast
+              - EndFast
+              values:
+              - >
+                lambda self, training_module, **kwargs: 2 * (1 - training_module.current_epoch / training_module.trainer.max_epochs)**3
+              - >
+                lambda self, training_module, **kwargs: 2 * (1 - (training_module.current_epoch / training_module.trainer.max_epochs)**3)
+    sweep_group_seed:
+      sweep: True
+      sweep_alias:
+      - GraphSeed100
+      - GraphSeed200
+      - GraphSeed300
+      values:
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 100
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 200
+      - data:
+          init_args:
+            dataset_args:
+              scm_generator_args:
+                graph_generator_args:
+                  seed: 300
     data:
         sweep: True
         sweep_alias:
@@ -254,7 +156,7 @@ sweep_configuration:
                       t_mean_function_weights: [0.01, 0.1]
                       t_variance_rbf_kernel: 1.0
                   seed: 196
-              val_size: 0.05
+              val_size: 0.01
         - class_path: lightning_toolbox.DataModule
           init_args:
               batch_size: 32
@@ -282,7 +184,7 @@ sweep_configuration:
                       t_mean_function_weights: [0.01, 0.1]
                       t_variance_rbf_kernel: 1.0
                   seed: 356
-              val_size: 0.05
+              val_size: 0.01
         - class_path: lightning_toolbox.DataModule
           init_args:
             batch_size: 32
@@ -310,7 +212,7 @@ sweep_configuration:
                     t_mean_function_weights: [0.01, 0.1]
                     t_variance_rbf_kernel: 1.0
                 seed: 270
-            val_size: 0.05
+            val_size: 0.01
         - class_path: lightning_toolbox.DataModule
           init_args:
             batch_size: 32
@@ -338,4 +240,4 @@ sweep_configuration:
                     t_mean_function_weights: [0.01, 0.1]
                     t_variance_rbf_kernel: 1.0
                 seed: 103
-            val_size: 0.05
+            val_size: 0.01
