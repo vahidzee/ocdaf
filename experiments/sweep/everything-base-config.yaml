@@ -3,6 +3,7 @@
 trainer:
     # callbacks
     callbacks:
+      - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
       - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
         init_args:
           starting_phase: maximization
