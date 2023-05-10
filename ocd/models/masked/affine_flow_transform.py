@@ -16,9 +16,9 @@ class ScaleTransform(torch.nn.Module):
         activation: th.Optional[str] = "torch.nn.Tanh",
         activation_args: th.Optional[dict] = None,
         pre_act_shift: float = 0.0,
-        pre_act_scale: float = 1.0,
-        post_act_scale: float = 2.5,
-        post_act_shift: float = 0.0,
+        pre_act_scale: float = 1./10,
+        post_act_scale: float = 10,
+        post_act_shift: float = 0.0
     ):
         super().__init__()
         self.pre_act_scale, self.post_act_scale = pre_act_scale, post_act_scale
@@ -55,7 +55,8 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         scale_transform: bool = True,
-        scale_transform_args: th.Optional[dict] = None,
+        scale_transform_s_args: th.Optional[dict] = None,  # TODO different scale transforms for t, s
+        scale_transform_t_args: th.Optional[dict] = None,
         # transform args
         additive: bool = False,
         share_parameters: bool = False,  # share parameters between scale and shift
@@ -92,9 +93,11 @@ class MaskedAffineFlowTransform(torch.nn.Module):
                 **args, out_features=in_features * 2 if isinstance(in_features, int) else [f * 2 for f in in_features]
             )
 
-        self.scale_transform = None
+        self.scale_transform_t = None
+        self.scale_transform_s = None
         if scale_transform is not None:
-            self.scale_transform = ScaleTransform(in_features, **(scale_transform_args or {}))
+            self.scale_transform_t = ScaleTransform(in_features, **(scale_transform_t_args or {}))
+            self.scale_transform_s = ScaleTransform(in_features, **(scale_transform_s_args or {}))
 
     def reorder(
         self,
@@ -117,7 +120,8 @@ class MaskedAffineFlowTransform(torch.nn.Module):
             s: torch.Tensor = self.masked_mlp_shift(inputs, **kwargs)
             t: torch.Tensor = self.masked_mlp_scale(inputs, **kwargs) if not self.additive else torch.zeros_like(s)
         if self.scale_transform is not None:
-            s = self.scale_transform(s) if not self.additive else s
+            s = self.scale_transform_s(s) if not self.additive else s
+            t = self.scale_transform_t(t)
         return s, t
 
     def forward(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:

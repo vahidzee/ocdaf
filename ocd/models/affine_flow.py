@@ -8,31 +8,32 @@ import functools
 
 class AffineFlow(torch.nn.ModuleList):
     def __init__(
-        self,
-        # architecture
-        in_features: th.Union[th.List[int], int],
-        layers: th.List[th.Union[th.List[int], int]] = None,
-        residual: bool = False,
-        bias: bool = True,
-        activation: th.Optional[str] = "torch.nn.LeakyReLU",
-        activation_args: th.Optional[dict] = None,
-        batch_norm: bool = False,
-        batch_norm_args: th.Optional[dict] = None,
-        # additional flow args
-        additive: bool = False,
-        share_parameters: bool = False,  # share parameters between scale and shift
-        num_transforms: int = 1,
-        scale_transform: bool = True,
-        scale_transform_args: th.Optional[dict] = None,
-        # base distribution
-        base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
-        base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
-        # ordering
-        ordering: th.Optional[torch.IntTensor] = None,
-        reversed_ordering: bool = False,
-        # general args
-        device: th.Optional[torch.device] = None,
-        dtype: th.Optional[torch.dtype] = None,
+            self,
+            # architecture
+            in_features: th.Union[th.List[int], int],
+            layers: th.List[th.Union[th.List[int], int]] = None,
+            residual: bool = False,
+            bias: bool = True,
+            activation: th.Optional[str] = "torch.nn.LeakyReLU",
+            activation_args: th.Optional[dict] = None,
+            batch_norm: bool = False,
+            batch_norm_args: th.Optional[dict] = None,
+            # additional flow args
+            additive: bool = False,
+            share_parameters: bool = False,  # share parameters between scale and shift
+            num_transforms: int = 1,
+            scale_transform: bool = True,
+            scale_transform_s_args: th.Optional[dict] = None,
+            scale_transform_t_args: th.Optional[dict] = None,
+            # base distribution
+            base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
+            base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
+            # ordering
+            ordering: th.Optional[torch.IntTensor] = None,
+            reversed_ordering: bool = False,
+            # general args
+            device: th.Optional[torch.device] = None,
+            dtype: th.Optional[torch.dtype] = None,
     ):
         super().__init__()
         self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
@@ -51,7 +52,8 @@ class AffineFlow(torch.nn.ModuleList):
                     batch_norm_args=batch_norm_args,
                     additive=additive,
                     scale_transform=scale_transform,
-                    scale_transform_args=scale_transform_args,
+                    scale_transform_s_args=scale_transform_s_args,
+                    scale_transform_t_args=scale_transform_t_args,
                     share_parameters=share_parameters,
                     reversed_ordering=reversed_ordering,
                     device=device,
@@ -87,12 +89,12 @@ class AffineFlow(torch.nn.ModuleList):
         return z, log_dets
 
     def compute_dependencies(
-        self,
-        inputs: torch.Tensor,
-        perm_mat: th.Optional[torch.Tensor] = None,
-        forward: bool = True,
-        vectorize: bool = True,
-        **kwargs
+            self,
+            inputs: torch.Tensor,
+            perm_mat: th.Optional[torch.Tensor] = None,
+            forward: bool = True,
+            vectorize: bool = True,
+            **kwargs
     ) -> torch.Tensor:
         # force evaluation mode
         model_training = self.training  # save training mode to restore later

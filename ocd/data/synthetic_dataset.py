@@ -18,7 +18,7 @@ class SyntheticOCDDataset(OCDDataset):
         name: th.Optional[str] = None,
         enable_simulate: bool = True,
         standardization: bool = True,
-        reject_outliers_n_far_from_mean: th.Optional[float] = 5,
+        reject_outliers_n_far_from_mean: th.Optional[float] = None,
     ):
         """
         Args:
