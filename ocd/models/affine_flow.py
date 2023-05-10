@@ -23,7 +23,8 @@ class AffineFlow(torch.nn.ModuleList):
         share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
         scale_transform: bool = True,
-        scale_transform_args: th.Optional[dict] = None,
+        scale_transform_s_args: th.Optional[dict] = None,
+        scale_transform_t_args: th.Optional[dict] = None,
         # base distribution
         base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
@@ -51,7 +52,8 @@ class AffineFlow(torch.nn.ModuleList):
                     batch_norm_args=batch_norm_args,
                     additive=additive,
                     scale_transform=scale_transform,
-                    scale_transform_args=scale_transform_args,
+                    scale_transform_s_args=scale_transform_s_args,
+                    scale_transform_t_args=scale_transform_t_args,
                     share_parameters=share_parameters,
                     reversed_ordering=reversed_ordering,
                     device=device,
