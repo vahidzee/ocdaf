@@ -1,7 +1,7 @@
 import torch
 from ocd.models.affine_flow import AffineFlow
 import typing as th
-from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
+from ocd.models.permutation import LearnablePermutation, gumbel_log_prob, LegacyLearnablePermutation
 import dypy as dy
 from lightning_toolbox import TrainingModule
 from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
@@ -35,7 +35,7 @@ class OCDAF(torch.nn.Module):
         ordering: th.Optional[torch.IntTensor] = None,
         reversed_ordering: bool = False,
         use_permutation: bool = True,
-        permutation_learner_cls: th.Optional[str] = "ocd.models.permutation.LearnablePermutation",
+        permutation_learner_cls: th.Optional[str] = "ocd.models.permutation.LegacyLearnablePermutation",
         permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
@@ -110,8 +110,20 @@ class OCDAF(torch.nn.Module):
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
+            if isinstance(self.permutation_model, LearnablePermutation):
+                num_samples = dict(
+                    batch_size=inputs.shape[0],
+                )
+            else:
+                num_samples = dict(
+                    num_samples=inputs.shape[0],
+                )
+                if self.permutation_model.permutation_type == "hybrid-sparse-map-simulator":
+                    num_samples = dict(
+                        num_hard_samples=inputs.shape[0], num_soft_samples=inputs.shape[0], num_samples=0
+                    )
             permutation_results, gumbel_noise = self.permutation_model(
-                batch_size=inputs.shape[0],
+                **num_samples,
                 device=inputs.device,
                 permutation_type=permutation_type,
                 return_noise=True,
