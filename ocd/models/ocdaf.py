@@ -23,7 +23,7 @@ class OCDAF(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
         additive: bool = False,
-        scale_transform: bool = True,
+        scale_transform: bool = False,
         scale_transform_args: th.Optional[dict] = None,
         share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,

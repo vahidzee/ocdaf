@@ -16,8 +16,8 @@ class ScaleTransform(torch.nn.Module):
         activation: th.Optional[str] = "torch.nn.Tanh",
         activation_args: th.Optional[dict] = None,
         pre_act_shift: float = 0.0,
-        pre_act_scale: float = 1.0,
-        post_act_scale: float = 2.5,
+        pre_act_scale: float = 1./50,
+        post_act_scale: float = 50.,
         post_act_shift: float = 0.0,
     ):
         super().__init__()
