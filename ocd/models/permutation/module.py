@@ -295,7 +295,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 10
+        return 50
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
