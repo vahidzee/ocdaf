@@ -91,6 +91,13 @@ model:
       additive: False
       residual: False
       bias: true
+      scale_transform: true
+      scale_transform_s_args:
+        pre_act_scale: 0.2
+        post_act_scale: 10.
+      scale_transform_t_args:
+        pre_act_scale: 0.002
+        post_act_scale: 1000.
       activation: torch.nn.LeakyReLU
       activation_args:
         negative_slope: 0.1
