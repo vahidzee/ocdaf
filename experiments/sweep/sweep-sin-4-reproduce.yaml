@@ -27,22 +27,22 @@ sweep_configuration:
                 - HighPatience
               values:
                 
-                  maximization_epoch_limit: 50
+                - maximization_epoch_limit: 50
                   expectation_epoch_limit: 50
                   patience: 10
                   cooldown: 25
                 
-                  maximization_epoch_limit: 100
+                - maximization_epoch_limit: 100
                   expectation_epoch_limit: 100
                   patience: 20
                   cooldown: 50
                 
-                  maximization_epoch_limit: 200
+                - maximization_epoch_limit: 200
                   expectation_epoch_limit: 200
                   patience: 30
                   cooldown: 100
                 
-                  maximization_epoch_limit: 300
+                - maximization_epoch_limit: 300
                   expectation_epoch_limit: 300
                   patience: 40
                   cooldown: 200
@@ -62,10 +62,6 @@ sweep_configuration:
             - lr: [ 0.05, 0.05 ]
             - lr: [ 0.01, 0.01 ]
             - lr: [ 0.005, 0.005 ]
-            - lr: [ 0.05, 0.01 ]
-            - lr: [ 0.01, 0.05 ]
-            - lr: [ 0.005, 0.01 ]
-            - lr: [ 0.01, 0.005 ]
             - lr: [ 0.05, 0.005 ]
             - lr: [ 0.005, 0.05 ]
         sweep_group4:
@@ -122,13 +118,10 @@ sweep_configuration:
           values:
             - optimizer_args:
                 - weight_decay: 0.01
-                - weight_decay: 0.05
             - optimizer_args:
-                - weight_decay: 0.1
                 - weight_decay: 0.1
             - optimizer_args:
                 - weight_decay: 0.5
-                - weight_decay: 0.1
 
     sweep_group_batch:
       sweep_identifier: Batch

@@ -73,7 +73,15 @@ model:
         loc: 0.0
         scale: 1.0
       # The flow model arguments
-      layers: [5, 15, 5]
+      scale_transform: true
+      scale_transform_s_args:
+            pre_act_scale: 0.2
+            post_act_scale: 10.
+      scale_transform_t_args:
+            pre_act_scale: 0.002
+            post_act_scale: 1000.
+
+      layers: [10, 30, 10]
       populate_features: True
       num_transforms: 1
       additive: False
@@ -86,7 +94,6 @@ model:
     # the optimizer
     optimizer: [torch.optim.AdamW, torch.optim.AdamW]
     optimizer_args:
-      - weight_decay: 0.01
       - weight_decay: 0.01
     optimizer_parameters:
       - model.flow

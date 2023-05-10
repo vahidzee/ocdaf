@@ -119,8 +119,9 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         else:
             s: torch.Tensor = self.masked_mlp_shift(inputs, **kwargs)
             t: torch.Tensor = self.masked_mlp_scale(inputs, **kwargs) if not self.additive else torch.zeros_like(s)
-        if self.scale_transform is not None:
-            s = self.scale_transform_s(s) if not self.additive else s
+        if self.scale_transform_s is not None:
+            s = self.scale_transform_s(s) if not self.additive else s    
+        if self.scale_transform_t is not None:
             t = self.scale_transform_t(t)
         return s, t
 

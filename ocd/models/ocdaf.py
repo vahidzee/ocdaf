@@ -5,14 +5,15 @@ from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
 import dypy as dy
 from lightning_toolbox import TrainingModule
 from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
-
+import warnings
 
 class OCDAF(torch.nn.Module):
     def __init__(
         self,
         # architecture
-        in_features: th.Union[th.List[int], int],
+        in_features: th.Union[th.List[int], int] = None,
         layers: th.List[th.Union[th.List[int], int]] = None,
+        populate_features: bool = False,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -39,6 +40,19 @@ class OCDAF(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
+        if in_features is None:
+            warnings.warn("in_features is None, this might cause issues")
+            in_features = 3
+        
+        # populate features if necessary
+        in_features = in_features if isinstance(in_features, int) else len(in_features)
+        if populate_features:
+            for i in range(len(layers)):
+                if isinstance(layers[i], int):
+                    layers[i] *= in_features
+                else:
+                    for j in range(len(layers[i])):
+                        layers[i][j] *= in_features
         # get an IntTensor of 1 to N
         self.flow = AffineFlow(
             base_distribution=base_distribution,

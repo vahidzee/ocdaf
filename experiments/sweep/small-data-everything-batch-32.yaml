@@ -22,7 +22,7 @@ sweep_configuration:
               - MediumPatienceTrainNoReset
               - HighPatienceTrainNoReset
             values:
-              
+              - check_every_n_iterations: 1
                 monitor_validation: False
                 monitor_training: True
                 maximization_epoch_limit: 100
@@ -31,7 +31,7 @@ sweep_configuration:
                 cooldown: 50
                 reset_optimizers: False
                 reinitialize_weights_on_maximization: False
-              
+              - check_every_n_iterations: 1
                 monitor_validation: False
                 monitor_training: True
                 maximization_epoch_limit: 200
@@ -40,7 +40,7 @@ sweep_configuration:
                 cooldown: 100
                 reset_optimizers: False
                 reinitialize_weights_on_maximization: False
-              
+              - check_every_n_iterations: 1
                 monitor_validation: False
                 monitor_training: True
                 maximization_epoch_limit: 300
@@ -199,36 +199,97 @@ sweep_configuration:
               permutation_learner_args:
                 gumbel_noise_std: >
                   lambda self, training_module, **kwargs: 1
+    sweep_group_batch:
+      sweep_identifier: Batch
+      sweep: True
+      sweep_alias:
+        - Batch32
+        - Batch128
+      values:
+        - data:
+            init_args:
+              batch_size: 32
+        - data:
+            init_args:
+              batch_size: 128
     data:
       sweep: True
       sweep_alias:
-        - erdos-nonparam-5-seed0
-        - erdos-sin-5-seed0
-        - erdos-cube-5-seed0
-        - erdos-sin-5-seed1
-        - erdos-cube-5-seed1
-        - erdos-nonparam-5-seed1
-        - full-sin-5
-        - full-cube-5
-        - full-nonparam-5
-        - chain-sin-4
-        - chain-cube-4
-        - chain-nonparam-4
         - full-sin-3
         - full-cube-3
         - full-nonparam-3
+        - chain-sin-4
+        - chain-cube-4
+        - chain-nonparam-4
+        - erdos-nonparam-5
+        - erdos-sin-5
+        - erdos-cube-5
+        - full-sin-5
+        - full-cube-5
+        - full-nonparam-5
       values:
         - class_path: lightning_toolbox.DataModule
           init_args:
             batch_size: 32
             dataset: ocd.data.SyntheticOCDDataset
             dataset_args:
-              name: non_parametric_non_linear_gaussian_5_1000_erdos_renyi
+              name: parametric_normal_modulated_3_5000_full_sin_plus_x
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: full, n: 3, seed: 582 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 780
+                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                                    \ + x", function_of_interest: func }
+                t_function_signature: sin_plus_x
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 64
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: parametric_normal_modulated_3_5000_full_cube_dislocate
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: full, n: 3, seed: 847 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 519
+                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
+                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
+                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
+                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret",
+                              function_of_interest: func }
+                t_function_signature: cube_and_dislocate
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 997
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: non_parametric_non_linear_gaussian_3_1000_full
               observation_size: 1000
               scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
               scm_generator_args:
                 graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 606 }
+                graph_generator_args: { graph_type: full, n: 3, seed: 847 }
                 s_gamma_rbf_kernel: 1.0
                 s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
                                     \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
@@ -236,218 +297,13 @@ sweep_configuration:
                 s_mean_function_activation_signature: softplus
                 s_mean_function_weights: [ 0.01, 0.1 ]
                 s_variance_rbf_kernel: 1.0
-                seed: 711
+                seed: 95
                 t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
                                     \ numpy.sin(x) + x", function_of_interest: func }
                 t_mean_function_activation_signature: sin_plus_x
                 t_mean_function_weights: [ 0.01, 0.1 ]
                 t_variance_rbf_kernel: 1.0
-              seed: 196
-            val_size: 0.05
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_erdos_renyi_sin_plus_x
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 492 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 422
-                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                                    \ + x", function_of_interest: func }
-                t_function_signature: sin_plus_x
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 698
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_erdos_renyi_cube_dislocate
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 714 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 820
-                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 1\n    return ret",
-                              function_of_interest: func }
-                t_function_signature: cube_and_dislocate
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 20
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_erdos_renyi_sin_plus_x
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 754 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 422
-                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                                    \ + x", function_of_interest: func }
-                t_function_signature: sin_plus_x
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 698
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_erdos_renyi_cube_dislocate
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 1933 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 820
-                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 1\n    return ret",
-                              function_of_interest: func }
-                t_function_signature: cube_and_dislocate
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 20
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: non_parametric_non_linear_gaussian_5_1000_erdos_renyi
-              observation_size: 1000
-              scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 12500 }
-                s_gamma_rbf_kernel: 1.0
-                s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
-                                    \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
-                                              function_of_interest: func }
-                s_mean_function_activation_signature: softplus
-                s_mean_function_weights: [ 0.01, 0.1 ]
-                s_variance_rbf_kernel: 1.0
-                seed: 711
-                t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
-                                    \ numpy.sin(x) + x", function_of_interest: func }
-                t_mean_function_activation_signature: sin_plus_x
-                t_mean_function_weights: [ 0.01, 0.1 ]
-                t_variance_rbf_kernel: 1.0
-              seed: 196
-            val_size: 0.05
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_full_sin_plus_x
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 5, seed: 639 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 422
-                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                                    \ + x", function_of_interest: func }
-                t_function_signature: sin_plus_x
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 698
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_5_5000_full_cube_dislocate
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 5, seed: 6399 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 820
-                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 1\n    return ret",
-                              function_of_interest: func }
-                t_function_signature: cube_and_dislocate
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 20
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: non_parametric_non_linear_gaussian_5_1000_full
-              observation_size: 1000
-              scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 5, seed: 1539 }
-                s_gamma_rbf_kernel: 1.0
-                s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
-                                    \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
-                                              function_of_interest: func }
-                s_mean_function_activation_signature: softplus
-                s_mean_function_weights: [ 0.01, 0.1 ]
-                s_variance_rbf_kernel: 1.0
-                seed: 711
-                t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
-                                    \ numpy.sin(x) + x", function_of_interest: func }
-                t_mean_function_activation_signature: sin_plus_x
-                t_mean_function_weights: [ 0.01, 0.1 ]
-                t_variance_rbf_kernel: 1.0
-              seed: 196
+              seed: 210
             val_size: 0.05
         - class_path: lightning_toolbox.DataModule
           init_args:
@@ -531,63 +387,12 @@ sweep_configuration:
             batch_size: 32
             dataset: ocd.data.SyntheticOCDDataset
             dataset_args:
-              name: parametric_normal_modulated_3_5000_full_sin_plus_x
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 3, seed: 582 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 780
-                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                                    \ + x", function_of_interest: func }
-                t_function_signature: sin_plus_x
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 64
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: parametric_normal_modulated_3_5000_full_cube_dislocate
-              observation_size: 5000
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 3, seed: 847 }
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-                s_function_signature: softplus
-                seed: 519
-                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret",
-                              function_of_interest: func }
-                t_function_signature: cube_and_dislocate
-                weight_s: [ 0.5, 1.5 ]
-                weight_t: [ 0.5, 1.5 ]
-              seed: 997
-            val_size: 0.1
-        - class_path: lightning_toolbox.DataModule
-          init_args:
-            batch_size: 32
-            dataset: ocd.data.SyntheticOCDDataset
-            dataset_args:
-              name: non_parametric_non_linear_gaussian_3_1000_full
+              name: non_parametric_non_linear_gaussian_5_1000_erdos_renyi
               observation_size: 1000
               scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
               scm_generator_args:
                 graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args: { graph_type: full, n: 3, seed: 847 }
+                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 606 }
                 s_gamma_rbf_kernel: 1.0
                 s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
                                     \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
@@ -595,14 +400,144 @@ sweep_configuration:
                 s_mean_function_activation_signature: softplus
                 s_mean_function_weights: [ 0.01, 0.1 ]
                 s_variance_rbf_kernel: 1.0
-                seed: 95
+                seed: 711
                 t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
                                     \ numpy.sin(x) + x", function_of_interest: func }
                 t_mean_function_activation_signature: sin_plus_x
                 t_mean_function_weights: [ 0.01, 0.1 ]
                 t_variance_rbf_kernel: 1.0
-              seed: 210
+              seed: 196
             val_size: 0.05
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: parametric_normal_modulated_5_5000_erdos_renyi_sin_plus_x
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 492 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 422
+                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                                    \ + x", function_of_interest: func }
+                t_function_signature: sin_plus_x
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 698
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: parametric_normal_modulated_5_5000_erdos_renyi_cube_dislocate
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: erdos_renyi, n: 5, p: 0.65, seed: 714 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 820
+                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
+                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
+                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
+                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 1\n    return ret",
+                              function_of_interest: func }
+                t_function_signature: cube_and_dislocate
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 20
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: parametric_normal_modulated_5_5000_full_sin_plus_x
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: full, n: 5, seed: 639 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 422
+                t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                                    \ + x", function_of_interest: func }
+                t_function_signature: sin_plus_x
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 698
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: parametric_normal_modulated_5_5000_full_cube_dislocate
+              observation_size: 5000
+              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: full, n: 5, seed: 6399 }
+                noise_parameters: { loc: 0.0, scale: 1.0 }
+                noise_type: normal
+                s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                                    \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                s_function_signature: softplus
+                seed: 820
+                t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
+                                    \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
+                                    \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
+                                    \ = (x - x_mean) / x_std\n    ret = x**3 + 1\n    return ret",
+                              function_of_interest: func }
+                t_function_signature: cube_and_dislocate
+                weight_s: [ 0.5, 1.5 ]
+                weight_t: [ 0.5, 1.5 ]
+              seed: 20
+            val_size: 0.1
+        - class_path: lightning_toolbox.DataModule
+          init_args:
+            batch_size: 32
+            dataset: ocd.data.SyntheticOCDDataset
+            dataset_args:
+              name: non_parametric_non_linear_gaussian_5_1000_full
+              observation_size: 1000
+              scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+              scm_generator_args:
+                graph_generator: ocd.data.scm.GraphGenerator
+                graph_generator_args: { graph_type: full, n: 5, seed: 1539 }
+                s_gamma_rbf_kernel: 1.0
+                s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
+                                    \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
+                                              function_of_interest: func }
+                s_mean_function_activation_signature: softplus
+                s_mean_function_weights: [ 0.01, 0.1 ]
+                s_variance_rbf_kernel: 1.0
+                seed: 711
+                t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
+                                    \ numpy.sin(x) + x", function_of_interest: func }
+                t_mean_function_activation_signature: sin_plus_x
+                t_mean_function_weights: [ 0.01, 0.1 ]
+                t_variance_rbf_kernel: 1.0
+              seed: 196
+            val_size: 0.05
+
+
 
 
 
