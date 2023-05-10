@@ -68,9 +68,7 @@ class LegacyLearnablePermutation(torch.nn.Module):
 
     def forward(
         self,
-        num_samples: int = 1,
-        num_hard_samples: int = 0,
-        num_soft_samples: int = 0,
+        batch_size: int = 1,
         # gamma
         gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
         # force permutation
@@ -114,9 +112,17 @@ class LegacyLearnablePermutation(torch.nn.Module):
         gumbel_noise = None
         gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
 
-        # If num_samples is None then set num_samples to the sum of num_hard_samples and num_soft_samples
-        if num_samples is None or num_samples == 0:
-            num_samples = num_hard_samples + num_soft_samples
+        # depending on the method, num_samples might be different
+        num_samples = batch_size
+        num_hard_samples = 0
+        num_soft_samples = 0
+        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
+
+        if permutation_type == "hybrid-sparse-map-simulator":
+            num_soft_samples = batch_size
+            num_hard_samples = batch_size
+            num_samples = num_samples + num_hard_samples
+
         # Generate Gumbel noise values
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
@@ -126,8 +132,6 @@ class LegacyLearnablePermutation(torch.nn.Module):
                 else self.gumbel_noise_std(training_module=training_module, **kwargs)
             )
             gumbel_noise = gumbel_noise * gumbel_noise_std
-
-        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
 
         # Set up an empty dictionary results
         results = {}
