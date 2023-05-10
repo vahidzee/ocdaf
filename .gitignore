@@ -180,3 +180,7 @@ launch_job.slrm
 baselines/results/
 experiments/sweep/checkpoints-*
 experiments/sweep/phase-changing-save-path/*
+results/*
+*.json
+*.slrm 
+

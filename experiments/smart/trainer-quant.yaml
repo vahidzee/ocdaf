@@ -4,8 +4,6 @@ callbacks:
   - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
     init_args:
       starting_phase: maximization
-      # Set to higher value for faster results
-
       # The settings regarding epoch limit values
       maximization_epoch_limit: 120
       expectation_epoch_limit: 120
@@ -13,7 +11,7 @@ callbacks:
       patience: 25
       threshold: 0.0001
       cooldown: 50
-      reset_optimizers: True
+      reset_optimizers: False
       reinitialize_weights_on_maximization: False
   - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
     init_args:
@@ -29,13 +27,13 @@ callbacks:
       add_permutation_to_name: True
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
-      save_path: experiments/smart/smart-trainer-logs
+      save_path: results/quant/
       num_samples: 1000
       log_every_n_epochs: 5
       save_every_n_epochs: 5
   - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
     init_args:
-      dirpath: experiments/smart/checkpoints
+      dirpath: results/quant/
       verbose: true
       every_n_epochs: 1
 accelerator: gpu
@@ -50,4 +48,5 @@ enable_progress_bar: true
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: smart-trainer
+    project: small-ns
+

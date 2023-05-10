@@ -23,12 +23,12 @@ sweep_configuration:
               - LowPatience
               - HighPatience
               values:
-              - check_every_n_iterations: 1
+              
                 maximization_epoch_limit: 120
                 expectation_epoch_limit: 120
                 patience: 25
                 cooldown: 50
-              - check_every_n_iterations: 1
+              
                 maximization_epoch_limit: 300
                 expectation_epoch_limit: 300
                 patience: 40

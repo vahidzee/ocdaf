@@ -25,22 +25,22 @@ sweep_configuration:
                 - MediumPatience
                 - HighPatience
               values:
-                - check_every_n_iterations: 1
+                
                   maximization_epoch_limit: 50
                   expectation_epoch_limit: 50
                   patience: 10
                   cooldown: 25
-                - check_every_n_iterations: 1
+                
                   maximization_epoch_limit: 100
                   expectation_epoch_limit: 100
                   patience: 20
                   cooldown: 50
-                - check_every_n_iterations: 1
+                
                   maximization_epoch_limit: 200
                   expectation_epoch_limit: 200
                   patience: 30
                   cooldown: 100
-                - check_every_n_iterations: 1
+                
                   maximization_epoch_limit: 300
                   expectation_epoch_limit: 300
                   patience: 40

@@ -5,7 +5,7 @@ callbacks:
     init_args:
       starting_phase: maximization
       # Set to higher value for faster results
-      check_every_n_iterations: 1
+
       # The settings regarding epoch limit values
       maximization_epoch_limit: 120
       expectation_epoch_limit: 120
@@ -30,11 +30,11 @@ callbacks:
       add_permutation_to_name: True
       causal_graph:
         class_path: networkx.classes.digraph.DiGraph
-        init_args: 
+        init_args:
           incoming_graph_data:
-          - [0, 2]
-          - [0, 1]
-          - [2, 1]
+            - [0, 2]
+            - [0, 1]
+            - [2, 1]
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
       save_path: experiments/simple/my-saves
@@ -42,11 +42,11 @@ callbacks:
       log_every_n_epochs: 5
       causal_graph:
         class_path: networkx.classes.digraph.DiGraph
-        init_args: 
+        init_args:
           incoming_graph_data:
-          - [0, 2]
-          - [0, 1]
-          - [2, 1]
+            - [0, 2]
+            - [0, 1]
+            - [2, 1]
   - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
     init_args:
       dirpath: experiments/simple/checkpoints
@@ -66,4 +66,3 @@ logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
     project: simple-trainer
-

@@ -41,9 +41,9 @@ class LearnablePermutation(torch.nn.Module):
         num_samples: int = -1,  # -1 for batch size, 0 for no sampling
         num_hard_samples: int = -1,  # -1 for batch size, 0 for no sampling
         hard_from_softs: bool = False,  # hard samples are generated from the same soft samples
-        buffer_size: int = 0, # 0 for no buffer
+        buffer_size: int = 0,  # 0 for no buffer
         buffer_replay_prob: float = 1.0,  # out of num_hard_samples portion of samples to be drawn from scratch
-        buffer_replace_prob: float = 0.0, # probability of using a new sample instead of a sample from the buffer
+        buffer_replace_prob: float = 0.0,  # probability of using a new sample instead of a sample from the buffer
     ):
         """
         Learnable permutation matrices.
@@ -180,11 +180,15 @@ class LearnablePermutation(torch.nn.Module):
         self, soft_permutations: torch.Tensor, num_hard_samples: int, method: th.Callable, return_matrix: bool = True
     ):
         hard_permutations = self.sample_hard_permutations(
-            soft_permutations=soft_permutations[:num_hard_samples] if not self.hard_from_softs else soft_permutations,
+            soft_permutations=soft_permutations[len(soft_permutations) - num_hard_samples :]
+            if not self.hard_from_softs
+            else soft_permutations,
             num_samples=num_hard_samples,
         )
         return method(
-            soft_permutations=soft_permutations[num_hard_samples:] if not self.hard_from_softs else soft_permutations,
+            soft_permutations=soft_permutations[: len(soft_permutations) - num_hard_samples]
+            if not self.hard_from_softs
+            else soft_permutations,
             hard_permutations=hard_permutations,
             return_matrix=return_matrix,
         )
