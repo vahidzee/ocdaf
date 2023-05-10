@@ -96,7 +96,9 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         self.scale_transform_s = None
         self.scale_transform_t = None
         if scale_transform is not None:
-            self.scale_transform_s = ScaleTransform(in_features, **(scale_transform_s_args or {}))
+            self.scale_transform_s = (
+                ScaleTransform(in_features, **(scale_transform_s_args or {})) if not additive else None
+            )
             self.scale_transform_t = ScaleTransform(in_features, **(scale_transform_t_args or {}))
 
     def reorder(
