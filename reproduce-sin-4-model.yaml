@@ -11,7 +11,14 @@ init_args:
         lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
       permutation_type: hybrid-sparse-map-simulator
     # The flow model arguments
-    layers: [33, 99, 33]
+    layers: [5, 15, 5]
+    populate_features: True
+    scale_transform_s_args:
+      pre_act_scale: 0.2
+      post_act_scale: 10.
+    scale_transform_t_args:
+      pre_act_scale: 0.002
+      post_act_scale: 1000.
     num_transforms: 1
     additive: False
     residual: False

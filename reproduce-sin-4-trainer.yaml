@@ -5,7 +5,6 @@ callbacks:
     init_args:
       starting_phase: maximization
       # Set to higher value for faster results
-      check_every_n_iterations: 1
       # The settings regarding epoch limit values
       maximization_epoch_limit: 120
       expectation_epoch_limit: 120
