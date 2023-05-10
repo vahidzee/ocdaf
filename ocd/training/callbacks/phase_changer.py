@@ -20,7 +20,7 @@ class PhaseChangerCallback(Callback):
     (1) When the training process loss has converged to a certain value
     (2) When the monitoring value has Plateaued
     (3) You can set the monitoring value to be either the validation loss or the training loss
-    
+
     For each of these settings, there are hyperparameters that can be adjusted to control
     the phase change process.
 
@@ -37,7 +37,6 @@ class PhaseChangerCallback(Callback):
         maximization_epoch_limit: int = 10,
         expectation_epoch_limit: int = 10,
         # The settings regarding the loss convergence values
-        check_every_n_iterations: int = 1,  # for performance reasons
         patience: int = 5,
         threshold: float = 0.0001,
         cooldown: int = 0,
@@ -51,8 +50,7 @@ class PhaseChangerCallback(Callback):
             raise Exception("At least one of the training or validation must be monitored")
         if self.monitor_training and self.monitor_validation:
             raise Exception("Only one of the training or validation can be monitored not both")
-        
-        self.check_every_n_iterations = check_every_n_iterations
+
         self.training_iteration_counter = 0
         self.iteration_counter = 0
 
@@ -155,9 +153,7 @@ class PhaseChangerCallback(Callback):
 
                 if self.log_onto_logger:
                     pl_module.log("phase-changer/current_phase_changing_loss", current_loss)
-                    pl_module.log(
-                        "phase-changer/running_minimum_phase_changing_loss", self.running_minimum_loss
-                    )
+                    pl_module.log("phase-changer/running_minimum_phase_changing_loss", self.running_minimum_loss)
                     pl_module.log("phase-changer/patience_remaining", float(self.patience_remaining))
                     pl_module.log(
                         "phase-changer/current_phase-0-maximization-1-expectation",
@@ -169,19 +165,13 @@ class PhaseChangerCallback(Callback):
                         self.change_phase(trainer, pl_module)
 
     def on_train_batch_end(
-        self, 
-        trainer: Trainer, 
-        pl_module: TrainingModule, 
-        outputs: STEP_OUTPUT, 
-        batch: Any, 
-        batch_idx: int
+        self, trainer: Trainer, pl_module: TrainingModule, outputs: STEP_OUTPUT, batch: Any, batch_idx: int
     ) -> None:
         ret = super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
         if self.monitor_training:
             self.monitor_and_take_action(trainer, pl_module, outputs, batch, batch_idx)
         return ret
-            
-    
+
     def on_validation_batch_end(
         self,
         trainer: pl.Trainer,

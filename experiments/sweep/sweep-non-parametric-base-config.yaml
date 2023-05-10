@@ -1,112 +1,110 @@
 trainer:
-    # callbacks
-    callbacks:
-      - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
-      - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
-        init_args:
-          starting_phase: maximization
-          # Set to higher value for faster results
-          check_every_n_iterations: 1
-          # The settings regarding epoch limit values
-          maximization_epoch_limit: 120
-          expectation_epoch_limit: 120
-          # The settings regarding the generalization gap
-          patience: 25
-          threshold: 0.0001
-          cooldown: 50
-          reset_optimizers: True
-          reinitialize_weights_on_maximization: False
-      - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
-        init_args:
-          num_samples: 1000
-          log_every_n_epochs: 5
-          save_path: experiments/sweep/non-parametric-save-files
-    accelerator: gpu
-    devices: 1
-    num_nodes: 0
-    max_epochs: 5000 # SWEEP on this
-    log_every_n_steps: 1
-    check_val_every_n_epoch: 1
-    enable_checkpointing: true
-    enable_model_summary: true
-    enable_progress_bar: false
-    logger:
-      class_path: lightning.pytorch.loggers.WandbLogger
+  # callbacks
+  callbacks:
+    - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+    - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
       init_args:
-        project: smart-trainer
+        starting_phase: maximization
+        # Set to higher value for faster results
+
+        # The settings regarding epoch limit values
+        maximization_epoch_limit: 120
+        expectation_epoch_limit: 120
+        # The settings regarding the generalization gap
+        patience: 25
+        threshold: 0.0001
+        cooldown: 50
+        reset_optimizers: True
+        reinitialize_weights_on_maximization: False
+    - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
+      init_args:
+        num_samples: 1000
+        log_every_n_epochs: 5
+        save_path: experiments/sweep/non-parametric-save-files
+  accelerator: gpu
+  devices: 1
+  num_nodes: 0
+  max_epochs: 5000 # SWEEP on this
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: false
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: smart-trainer
 data:
-    class_path: lightning_toolbox.DataModule
-    init_args:
-        batch_size: 128
-        dataset: ocd.data.SyntheticOCDDataset
+  class_path: lightning_toolbox.DataModule
+  init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
 model:
-    class_path: ocd.training.module.OCDafTrainingModule
-    init_args:
-      # the model
-      model_cls: ocd.models.ocdaf.OCDAF
-      model_args:
-        # Permutation learner arguments
-        use_permutation: True
-        permutation_learner_cls: ocd.models.permutation.LearnablePermutation
-        permutation_learner_args:
-          gumbel_noise_std: >
-            lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) 
-          permutation_type: hybrid-sparse-map-simulator
-        # Base distribution arguments
-        base_distribution: torch.distributions.Normal
-        base_distribution_args:
-          loc: 0.0
-          scale: 1.0
-        # The flow model arguments
-        layers: [5, 15, 5]
-        populate_features: True
-        num_transforms: 1
-        additive: False
-        residual: False
-        bias: true
-        activation: torch.nn.LeakyReLU
-        activation_args:
-          negative_slope: 0.1
-      
+  class_path: ocd.training.module.OCDafTrainingModule
+  init_args:
+    # the model
+    model_cls: ocd.models.ocdaf.OCDAF
+    model_args:
+      # Permutation learner arguments
+      use_permutation: True
+      permutation_learner_cls: ocd.models.permutation.LearnablePermutation
+      permutation_learner_args:
+        gumbel_noise_std: >
+          lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+        permutation_type: hybrid-sparse-map-simulator
+      # Base distribution arguments
+      base_distribution: torch.distributions.Normal
+      base_distribution_args:
+        loc: 0.0
+        scale: 1.0
+      # The flow model arguments
+      layers: [5, 15, 5]
+      populate_features: True
+      num_transforms: 1
+      additive: False
+      residual: False
+      bias: true
+      activation: torch.nn.LeakyReLU
+      activation_args:
+        negative_slope: 0.1
 
-      # the optimizer
-      optimizer: [torch.optim.AdamW, torch.optim.AdamW]
-      optimizer_args:
+    # the optimizer
+    optimizer: [torch.optim.AdamW, torch.optim.AdamW]
+    optimizer_args:
       - weight_decay: 0.25
-      - weight_decay: 0.1   
-      optimizer_parameters:
-        - model.flow
-        - model.permutation_model
-      optimizer_is_active: 
-        - > 
-          lambda training_module: training_module.current_phase == 'maximization' if hasattr(training_module, 'current_phase') else True
-        - >
-          lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True
-      grad_clip_val: 1.0
-      lr: [0.01, 0.01]
-      scheduler: 
-        - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
-        - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
-      scheduler_args:
-        - mode: min
-          factor: 0.5
-          patience: 10
-          min_lr: 0.000005
-          threshold: 0.0001
-        - mode: min
-          factor: 0.5
-          patience: 10
-          min_lr: 0.000005
-          threshold: 0.0001
-      scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
-      scheduler_optimizer: [0, 1]
-      scheduler_monitor: ["loss", "loss"]
-      objective_args:
-        nll:
-          code: >
-            def func(training_module, batch):
-              t = training_module.forward(batch)
-              res = t['log_prob']
-              return -res.mean()
-          function_of_interest: func
-
+      - weight_decay: 0.1
+    optimizer_parameters:
+      - model.flow
+      - model.permutation_model
+    optimizer_is_active:
+      - >
+        lambda training_module: training_module.current_phase == 'maximization' if hasattr(training_module, 'current_phase') else True
+      - >
+        lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True
+    grad_clip_val: 1.0
+    lr: [0.01, 0.01]
+    scheduler:
+      - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+      - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+    scheduler_args:
+      - mode: min
+        factor: 0.5
+        patience: 10
+        min_lr: 0.000005
+        threshold: 0.0001
+      - mode: min
+        factor: 0.5
+        patience: 10
+        min_lr: 0.000005
+        threshold: 0.0001
+    scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
+    scheduler_optimizer: [0, 1]
+    scheduler_monitor: ["loss", "loss"]
+    objective_args:
+      nll:
+        code: >
+          def func(training_module, batch):
+            t = training_module.forward(batch)
+            res = t['log_prob']
+            return -res.mean()
+        function_of_interest: func
