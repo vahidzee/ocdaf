@@ -146,7 +146,15 @@ class LearnablePermutation(torch.nn.Module):
         else:
             raise Exception(f"Unknown permutation type: {permutation_type}.")
 
-    def _soft_permutations_results(self, soft_permutations: torch.Tensor, return_matrix: bool = True, **kwargs):
+    def _soft_permutations_results(
+        self,
+        gumbel_noise: torch.Tensor,
+        gamma: th.Optional[torch.Tensor] = None,
+        return_matrix: bool = True,
+        sinkhorn_num_iters: th.Optional[int] = None,
+        sinkhorn_temp: th.Optional[float] = None,
+        **kwargs,
+    ):
         """
         Utility function for returning the results of soft permutations.
 
@@ -159,9 +167,22 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             A dictionary with the resulting permutations (perm_mat).
         """
+        soft_permutations = self.soft_permutation(
+            gamma=gamma,
+            gumbel_noise=gumbel_noise,
+            sinkhorn_temp=sinkhorn_temp,
+            sinkhorn_num_iters=sinkhorn_num_iters,
+            return_matrix=return_matrix,
+        )
         return dict(perm_mat=soft_permutations if return_matrix else soft_permutations.argmax(dim=-2))
 
-    def _hard_permutations_results(self, soft_permutations: torch.Tensor, return_matrix: bool = True, **kwargs):
+    def _hard_permutations_results(
+        self,
+        gumbel_noise: torch.Tensor,
+        gamma: th.Optional[torch.Tensor] = None,
+        return_matrix: bool = True,
+        **kwargs,
+    ):
         """
         Utility function for returning the results of hard permutations.
 
@@ -174,21 +195,43 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             A dictionary with the resulting permutations (perm_mat).
         """
-        return dict(perm_mat=self.hard_permutation(gamma=soft_permutations, return_matrix=return_matrix))
+        return dict(
+            perm_mat=self.hard_permutation(gamma=gamma, gumbel_noise=gumbel_noise, return_matrix=return_matrix)
+        )
 
     def hybrid_permutation(
-        self, soft_permutations: torch.Tensor, num_hard_samples: int, method: th.Callable, return_matrix: bool = True
+        self,
+        num_hard_samples: int,
+        gumbel_noise: torch.Tensor,
+        method: th.Callable,
+        return_matrix: bool = True,
+        # sampling parameters
+        gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
+        # sinkhorn parameters
+        sinkhorn_num_iters: th.Optional[int] = None,
+        sinkhorn_temp: th.Optional[float] = None,
+        # general parameters
+        **kwargs,
     ):
+        soft_permutations = self.soft_permutation(
+            gamma=gamma,
+            gumbel_noise=(
+                gumbel_noise[: len(gumbel_noise) - num_hard_samples] if not self.hard_from_softs else gumbel_noise
+            ),
+            sinkhorn_temp=sinkhorn_temp,
+            sinkhorn_num_iters=sinkhorn_num_iters,
+            return_matrix=True,
+        )
+
         hard_permutations = self.sample_hard_permutations(
-            soft_permutations=soft_permutations[len(soft_permutations) - num_hard_samples :]
-            if not self.hard_from_softs
-            else soft_permutations,
             num_samples=num_hard_samples,
+            gumbel_noise=(
+                gumbel_noise[len(gumbel_noise) - num_hard_samples :] if not self.hard_from_softs else gumbel_noise
+            ),
+            gamma=gamma,
         )
         return method(
-            soft_permutations=soft_permutations[: len(soft_permutations) - num_hard_samples]
-            if not self.hard_from_softs
-            else soft_permutations,
+            soft_permutations=soft_permutations if not self.hard_from_softs else soft_permutations,
             hard_permutations=hard_permutations,
             return_matrix=return_matrix,
         )
@@ -261,20 +304,16 @@ class LearnablePermutation(torch.nn.Module):
                 else self.gumbel_noise_std(training_module=training_module, **kwargs)
             )
             gumbel_noise = gumbel_noise * gumbel_noise_std
-            soft_mats = self.soft_permutation(
-                gamma=gamma,
-                gumbel_noise=gumbel_noise,
-                sinkhorn_temp=sinkhorn_temp,
-                sinkhorn_num_iters=sinkhorn_num_iters,
-                training_module=training_module,
-                return_matrix=True,
-                **kwargs,
-            )
 
         results = self.get_permutation_method(permutation_type)(
-            soft_permutations=soft_mats,
+            gamma=gamma,
+            gumbel_noise=gumbel_noise,
+            sinkhorn_temp=sinkhorn_temp,
+            sinkhorn_num_iters=sinkhorn_num_iters,
+            training_module=training_module,
             return_matrix=return_matrix,
             num_hard_samples=num_hard_samples,
+            **kwargs,
         )
         return (results, gumbel_noise) if return_noise else results
 
@@ -295,7 +334,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 50
+        return 10
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
@@ -473,11 +512,13 @@ class LearnablePermutation(torch.nn.Module):
 
     def sample_hard_permutations(
         self,
-        soft_permutations: torch.Tensor,
+        gamma: torch.Tensor,
+        gumbel_noise: torch.Tensor,
         num_samples: th.Optional[int] = None,
         apply_unique: bool = True,
         **kwargs,
     ):
+        soft_permutations = gamma + gumbel_noise
         num_samples = num_samples if num_samples is not None else self.num_hard_samples
         num_samples = num_samples if num_samples > 0 else soft_permutations.shape[0]
         # sample directly from soft permutations
