@@ -19,8 +19,7 @@ class LSNM(AbstractBaseline):
         # hyperparameters
         verbose: bool = False,
         independence_test: bool = True,
-        neural_network: bool = False,
-        return_function: bool = False,
+        neural_network: bool = True,
         n_steps: int = 1000,
         independence_eps: float = 0.01,
     ):
@@ -28,7 +27,6 @@ class LSNM(AbstractBaseline):
         self.verbose = verbose
         self.independence_test = independence_test
         self.neural_network = neural_network
-        self.return_function = return_function
         self.n_steps = n_steps
         self.independence_eps = independence_eps
         self.data = self.get_data(conversion="numpy")
@@ -37,14 +35,15 @@ class LSNM(AbstractBaseline):
         data = self.data
         dag = np.zeros((data.shape[1], data.shape[1]))
         for i in range(data.shape[1]):
+            print(f"Estimating order for variable {i}")
             for j in range(i, data.shape[1]):
                 score = loci(
-                    data[:, i],
-                    data[:, j],
-                    self.independence_test,
-                    self.neural_network,
-                    self.return_function,
-                    self.n_steps,
+                    x=data[:, i],
+                    y=data[:, j],
+                    independence_test=self.independence_test,
+                    neural_network=self.neural_network,
+                    return_function=False,
+                    n_steps=self.n_steps,
                 )
                 if self.independence_eps and abs(score) < self.independence_eps:
                     continue
