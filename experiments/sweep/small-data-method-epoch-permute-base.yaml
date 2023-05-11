@@ -5,17 +5,13 @@ trainer:
   callbacks:
     - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
       init_args:
-        starting_phase: maximization
-        # Set to higher value for faster results
-
-        # The settings regarding epoch limit values
-        maximization_epoch_limit: 120
-        expectation_epoch_limit: 120
-        # The settings regarding the generalization gap
-        patience: 25
-        threshold: 0.0001
-        cooldown: 50
-        reset_optimizers: True
+        monitor_validation: False
+        monitor_training: True
+        maximization_epoch_limit: 200
+        expectation_epoch_limit: 200
+        patience: 30
+        cooldown: 100
+        reset_optimizers: False
         reinitialize_weights_on_maximization: False
     - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
       init_args:
@@ -41,15 +37,11 @@ trainer:
 data:
   class_path: lightning_toolbox.DataModule
   init_args:
-    batch_size: 32
+    batch_size: 128
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
-      name: parametric_normal_modulated_5_5000_erdos_renyi_sin_plus_x
-      observation_size: 5000
-      scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-      scm_generator_args:
-        graph_generator: ocd.data.scm.GraphGenerator
-      seed: 698
+      name: i_cant_do_this_anymore
+      observation_size: 2048
     val_size: 0.1
 
 model:
@@ -58,12 +50,12 @@ model:
     # the model
     model_cls: ocd.models.ocdaf.OCDAF
     model_args:
-      # Permutation learner arguments
       use_permutation: True
+      # Permutation learner arguments
       permutation_learner_cls: ocd.models.permutation.LearnablePermutation
       permutation_learner_args:
         gumbel_noise_std: >
-          lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+          lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
         permutation_type: hybrid-sparse-map-simulator
       # Base distribution arguments
       base_distribution: torch.distributions.Normal
@@ -73,6 +65,13 @@ model:
       # The flow model arguments
       layers: [5, 15, 5]
       populate_features: True
+      scale_transform: true
+      scale_transform_s_args:
+        pre_act_scale: 0.2
+        post_act_scale: 10.
+      scale_transform_t_args:
+        pre_act_scale: 0.002
+        post_act_scale: 1000.
       num_transforms: 1
       additive: False
       residual: False
@@ -95,7 +94,7 @@ model:
       - >
         lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True
     grad_clip_val: 1.0
-    lr: [0.01, 0.01]
+    lr: [0.005, 0.05]
     scheduler:
       - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
       - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
@@ -103,13 +102,13 @@ model:
       - mode: min
         factor: 0.5
         patience: 10
-        min_lr: 0.000005
-        threshold: 0.0001
+        min_lr: 0.00005
+        threshold: 0.001
       - mode: min
         factor: 0.5
         patience: 10
-        min_lr: 0.000005
-        threshold: 0.0001
+        min_lr: 0.0005
+        threshold: 0.001
     scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
     scheduler_optimizer: [0, 1]
     scheduler_monitor: ["loss", "loss"]
