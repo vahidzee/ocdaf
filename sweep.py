@@ -19,6 +19,7 @@ import copy
 import shutil
 from wandb.sdk.wandb_config import Config
 import json
+from random_word import RandomWords
 
 SEPARATOR = "__CUSTOM_SEPERATOR__"
 IDX_INDICATOR = "__IDX__"
@@ -306,6 +307,11 @@ def init_or_resume_wandb_run(
     all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
     # sort all_subdirs by their name lexically
     all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
+
+    if run_name is not None:
+        r = RandomWords()
+        w = r.get_random_word()
+        run_name = run_name + '-' + w 
 
     if len(all_subdirs) > 0 and resume:
         dir_name = all_subdirs[0].name
