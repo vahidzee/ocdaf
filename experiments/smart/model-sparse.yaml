@@ -9,9 +9,13 @@ init_args:
     permutation_learner_args:
       gumbel_noise_std: >
         lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) 
-      permutation_type: hybrid-quantization
-      buffer_size: 0
-      hard_from_softs: true
+      permutation_type: hybrid-sparse-map-simulator
+      buffer_size: 6
+      hard_from_softs: false
+      num_hard_samples: 4
+      num_samples: 25
+      buffer_replace_prob: 0.25
+      buffer_replay_prob: 0.9
 
     # The flow model arguments
     layers: [10, 10, 10]

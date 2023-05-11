@@ -1,6 +1,6 @@
 class_path: lightning_toolbox.DataModule
 init_args:
-    batch_size: 128
+    batch_size: 100
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
         name: parametric_normal_modulated_3_1000_full_sin_plus_x

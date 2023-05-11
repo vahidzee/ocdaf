@@ -13,18 +13,18 @@ callbacks:
       cooldown: 50
       reset_optimizers: False
       reinitialize_weights_on_maximization: False
-  - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
-    init_args:
-      epoch_buffer_size: 1
-      evaluate_every_n_epochs: 5
-      seed: 666
-      write_cost_values: True
-      write_permutation_names: True
-      core_points_has_birkhoff_vertices: True
-      core_points_has_birkhoff_edges: False
-      reject_outlier_factor: 0.1
-      # Include permutation names
-      add_permutation_to_name: True
+  # - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+  #   init_args:
+  #     epoch_buffer_size: 1
+  #     evaluate_every_n_epochs: 5
+  #     seed: 666
+  #     write_cost_values: True
+  #     write_permutation_names: True
+  #     core_points_has_birkhoff_vertices: True
+  #     core_points_has_birkhoff_edges: False
+  #     reject_outlier_factor: 0.1
+  #     # Include permutation names
+  #     add_permutation_to_name: True
   - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
     init_args:
       save_path: results/quant/
