@@ -35,7 +35,7 @@ class OCDAF(torch.nn.Module):
         ordering: th.Optional[torch.IntTensor] = None,
         reversed_ordering: bool = False,
         use_permutation: bool = True,
-        permutation_learner_cls: th.Optional[str] = "ocd.models.permutation.LegacyLearnablePermutation",
+        permutation_learner_cls: th.Optional[str] = "ocd.models.permutation.LearnablePermutation",
         permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
