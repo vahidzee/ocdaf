@@ -91,11 +91,12 @@ class OCDafTrainingModule(TrainingModule):
             opt.step()
 
             self.log(f"lr/{optimizer_idx}", opt.param_groups[0]["lr"], on_step=True, on_epoch=True, prog_bar=True)
-            self.log(f"Gumbel-std", 
-                     self.model.permutation_model.gumbel_noise_std(training_module=self), 
-                     on_step=True, 
-                     on_epoch=True, 
-                     prog_bar=True)
+            if self.model.permutation_model is not None:
+                self.log(f"Gumbel-std", 
+                        self.model.permutation_model.gumbel_noise_std(training_module=self), 
+                        on_step=True, 
+                        on_epoch=True, 
+                        prog_bar=True)
             return loss.mean() if isinstance(loss, torch.Tensor) else loss
         elif self._schedulers is not None:
             for i, sched in enumerate(self._schedulers):
