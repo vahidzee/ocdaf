@@ -264,3 +264,28 @@ def abbriviate_permutation(permutation_list: th.Iterable[int]) -> str:
     else:
         results.append(f"{start}")
     return f'[{",".join(results)}]'
+
+
+def generate_permutations(n: int, num_samples: int = 1, return_matrix: bool = True):
+    """
+    Generates num_samples random permutation (matrices)
+
+    Args:
+        n (int): the number of elements to permute
+        num_samples (int): the number of permutations to generate
+        return_matrix (bool): whether to return the permutations as a matrix or as a list of orders
+
+    Returns:
+        a 3D tensor of shape [num_samples, n, n] or a list of lists of length num_samples
+    """
+
+    results = torch.empty(num_samples, n).long()
+    num_unique = 0
+    while num_unique < num_samples:
+        all_perms = torch.cat([results[:num_unique], torch.randperm(n).reshape(1, -1)], dim=0).unique(dim=0)
+        results[: len(all_perms)] = all_perms
+        num_unique = len(all_perms)
+
+    if return_matrix:
+        return listperm2matperm(results)
+    return results
