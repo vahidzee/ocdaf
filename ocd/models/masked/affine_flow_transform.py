@@ -16,9 +16,9 @@ class ScaleTransform(torch.nn.Module):
         activation: th.Optional[str] = "torch.nn.Tanh",
         activation_args: th.Optional[dict] = None,
         pre_act_shift: float = 0.0,
-        pre_act_scale: float = 1./10,
+        pre_act_scale: float = 1.0 / 10,
         post_act_scale: float = 10,
-        post_act_shift: float = 0.0
+        post_act_shift: float = 0.0,
     ):
         super().__init__()
         self.pre_act_scale, self.post_act_scale = pre_act_scale, post_act_scale
@@ -40,6 +40,23 @@ class ScaleTransform(torch.nn.Module):
         outputs = self.activation(outputs) if self.activation is not None else outputs
         outputs = outputs * self.post_act_scale + self.post_act_shift
         return outputs
+
+    def extra_repr(self) -> str:
+        pre_act = "x" if self.normalization is None else f"{self.normalization.__class__.__name__.lower()}(x)"
+        pre_act = f"{pre_act} * {self.pre_act_scale}" if self.pre_act_scale != 1 else f"{pre_act}"
+        pre_act = f"({pre_act} + {self.pre_act_shift})" if self.pre_act_shift != 0 else pre_act
+        if self.activation is not None:
+            act_name = (
+                str(self.activation.__class__.__name__).lower()
+                if isinstance(self.activation, torch.nn.Module)
+                else str(self.activation)
+            )
+            act = f"{act_name}({pre_act})"
+        else:
+            act = pre_act
+        post_act = f"{act} * {self.post_act_scale}" if self.post_act_scale != 1 else f"{act}"
+        post_act = f"({post_act} + {self.post_act_shift})" if self.post_act_shift != 0 else post_act
+        return super().extra_repr() + f"forward: {post_act}"
 
 
 class MaskedAffineFlowTransform(torch.nn.Module):
