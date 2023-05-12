@@ -18,8 +18,8 @@ callbacks:
     init_args:
       dirpath: experiments/intervention/checkpoints
       verbose: true
-      every_n_epochs: 1
-      save_last: true
+      save_top_k: -1 # save all models
+      every_n_epochs: 1 # save on phase change
   - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
 accelerator: gpu
 devices: 1
@@ -33,4 +33,4 @@ enable_progress_bar: false
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: interventions
+    project: interventions-v2
