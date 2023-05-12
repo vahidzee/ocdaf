@@ -1,7 +1,7 @@
 import torch
 from ocd.models.affine_flow import AffineFlow
 import typing as th
-from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
+from ocd.models.permutation import LearnablePermutation, gumbel_log_prob, LegacyLearnablePermutation
 import dypy as dy
 from lightning_toolbox import TrainingModule
 from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
@@ -23,8 +23,9 @@ class OCDAF(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
         additive: bool = False,
-        scale_transform: bool = True,
-        scale_transform_args: th.Optional[dict] = None,
+        scale_transform: bool = False,
+        scale_transform_s_args: th.Optional[dict] = None,
+        scale_transform_t_args: th.Optional[dict] = None,
         share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
         # base distribution
@@ -69,7 +70,8 @@ class OCDAF(torch.nn.Module):
             batch_norm_args=batch_norm_args,
             additive=additive,
             scale_transform=scale_transform,
-            scale_transform_args=scale_transform_args,
+            scale_transform_s_args=scale_transform_s_args,
+            scale_transform_t_args=scale_transform_t_args,
             share_parameters=share_parameters,
             num_transforms=num_transforms,
             ordering=ordering,

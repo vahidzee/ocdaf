@@ -14,7 +14,7 @@ class OCDDataset(torch.utils.data.Dataset):
         name: th.Optional[str] = None,
         explanation: th.Optional[str] = None,
         standardization: bool = True,
-        reject_outliers_n_far_from_mean: th.Optional[float] = 5,
+        reject_outliers_n_far_from_mean: th.Optional[float] = None,
     ):
         """
         Args:
