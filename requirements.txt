@@ -16,4 +16,4 @@ cdt
 ruamel.yaml
 wandb
 causal-learn
-random-wordc
+random-word
