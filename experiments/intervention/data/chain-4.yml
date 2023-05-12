@@ -8,25 +8,25 @@ init_args:
     observatoin_size: 2048
     name: parametric_normal_modulated_4_2048_chain_cube
     scm_generator_args:
-        seed: 5923
-        graph_generator: ocd.data.scm.GraphGenerator
-            seed: 781
-            graph_generator_args:
-              graph_type: chain
-              n: 4
-              enforce_ordering: [0, 1, 2, 3]
-        noise_parameters:
-          loc: 0.0
-          scale: 1.0
-        noise_type: normal
-        s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                      \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-        s_function_signature: softplus
-        t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                            \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                            \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                            \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret",
-                      function_of_interest: func }
-        t_function_signature: cube_and_dislocate
-        weight_s: [ 0.5, 1.5 ]
-        weight_t: [ 0.5, 1.5 ]
+      seed: 5923
+      graph_generator: ocd.data.scm.GraphGenerator
+      graph_generator_args:
+        seed: 781
+        graph_type: chain
+        n: 4
+        enforce_ordering: [0, 1, 2, 3]
+      noise_parameters:
+        loc: 0.0
+        scale: 1.0
+      noise_type: normal
+      s_function:
+        { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+            \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+      s_function_signature: softplus
+      t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
+            \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
+            \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
+            \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret", function_of_interest: func }
+      t_function_signature: cube_and_dislocate
+      weight_s: [0.5, 1.5]
+      weight_t: [0.5, 1.5]
