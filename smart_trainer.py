@@ -301,7 +301,7 @@ def main():
         sys.argv.remove("--discovery")
     if "--inference" in sys.argv:
         has_inference = True
-        sys.argv.remove("--inferece")
+        sys.argv.remove("--inference")
     if "fit" not in sys.argv:
         raise Exception("Please specify the fit command, the smart trainer only works on fit mode of lightningCLI")
     else:
