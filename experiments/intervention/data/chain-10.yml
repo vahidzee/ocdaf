@@ -2,17 +2,17 @@ class_path: lightning_toolbox.DataModule
 init_args:
   batch_size: 128
   val_size: 0.1
-  seed: 3589
+  seed: 6406
   dataset: ocd.data.SyntheticOCDDataset
   dataset_args:
     scm_generator: ocd.data.synthetic.ParametricSCMGenerator
     observation_size: 2048
     name: parametric_normal_modulated_10_2048_chain_cube
     scm_generator_args:
-      seed: 1415
+      seed: 5923
       graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:
-        seed: 9265
+        seed: 781
         graph_type: chain
         n: 10
         enforce_ordering: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]

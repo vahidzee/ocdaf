@@ -1,0 +1,10 @@
+seed_everything: 4944
+# seed_everything: 4944
+#           data:
+#             init_args:
+#               dataset_args:
+#                 scm_generator_args:
+#                   seed: 5923
+#                   graph_generator_args:
+#                     seed: 781
+#               seed: 6406
