@@ -15,7 +15,7 @@ class DebuggedModelCheckpoint(ModelCheckpoint):
 
     def on_train_epoch_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
         ret = super().on_train_epoch_end(trainer, pl_module)
-        if self.last_pl_module_phase != pl_module.current_phase:
+        if hasattr(pl_module, "current_phase") and self.last_pl_module_phase != pl_module.current_phase:
             self.last_pl_module_phase = pl_module.current_phase
             self.edge_detected = True
         else:

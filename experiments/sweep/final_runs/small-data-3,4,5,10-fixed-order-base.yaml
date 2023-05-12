@@ -1,0 +1,84 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
+trainer:
+  # callbacks
+  callbacks:
+    - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+  accelerator: gpu
+  devices: 1
+  num_nodes: 0
+  max_epochs: 3000 
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: false
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: smart-trainer
+
+data:
+  class_path: lightning_toolbox.DataModule
+  init_args:
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+      name: i_cant_do_this_anymore
+      observation_size: 2048
+    val_size: 0.1
+
+model:
+  class_path: ocd.training.module.OCDafTrainingModule
+  init_args:
+    # the model
+    model_cls: ocd.models.ocdaf.OCDAF
+    model_args:
+      use_permutation: false
+      base_distribution: torch.distributions.Normal
+      base_distribution_args:
+        loc: 0.0
+        scale: 1.0
+      # The flow model arguments
+      layers: [5, 15, 5]
+      populate_features: True
+      scale_transform: true
+      scale_transform_s_args:
+        pre_act_scale: 0.2
+        post_act_scale: 10.
+      scale_transform_t_args:
+        pre_act_scale: 0.002
+        post_act_scale: 1000.
+      num_transforms: 1
+      additive: False
+      residual: False
+      bias: true
+      activation: torch.nn.LeakyReLU
+      activation_args:
+        negative_slope: 0.1
+
+    # the optimizer
+    optimizer: torch.optim.AdamW
+    optimizer_args:
+      weight_decay: 0.5
+    optimizer_parameters: model.flow
+    grad_clip_val: 1.0
+    lr: 0.005
+    scheduler: ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+    scheduler_args:
+      mode: min
+      factor: 0.5
+      patience: 50
+      min_lr: 0.00005
+      threshold: 0.001
+    scheduler_name: "fixed_order_scheduler"
+    scheduler_optimizer: 0
+    scheduler_monitor: "loss"
+    objective_args:
+      nll:
+        code: >
+          def func(training_module, batch):
+            t = training_module.forward(batch)
+            res = t['log_prob']
+            return -res.mean()
+        function_of_interest: func

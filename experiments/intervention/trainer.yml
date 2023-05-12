@@ -27,4 +27,4 @@ enable_progress_bar: false
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: interventions
+    project: smart-trainer

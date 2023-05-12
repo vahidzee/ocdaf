@@ -1,7 +1,7 @@
 import torch
 from ocd.models.affine_flow import AffineFlow
 import typing as th
-from ocd.models.permutation import LearnablePermutation, gumbel_log_prob, LegacyLearnablePermutation
+from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
 import dypy as dy
 from lightning_toolbox import TrainingModule
 from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
@@ -23,11 +23,11 @@ class OCDAF(torch.nn.Module):
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
         additive: bool = False,
-        scale_transform: bool = False,
-        scale_transform_s_args: th.Optional[dict] = None,
-        scale_transform_t_args: th.Optional[dict] = None,
         share_parameters: bool = False,  # share parameters between scale and shift
         num_transforms: int = 1,
+        scale_transform: bool = True,
+        scale_transform_s_args: th.Optional[dict] = None,
+        scale_transform_t_args: th.Optional[dict] = None,
         # base distribution
         base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
@@ -45,7 +45,7 @@ class OCDAF(torch.nn.Module):
         if in_features is None:
             warnings.warn("in_features is None, this might cause issues")
             in_features = 3
-
+        
         # populate features if necessary
         in_features = in_features if isinstance(in_features, int) else len(in_features)
         if populate_features:
@@ -157,7 +157,7 @@ class OCDAF(torch.nn.Module):
                 score_grid = score_grid.repeat(inputs.shape[0] // score_grid.shape[0], 1)
             inputs_repeated = torch.repeat_interleave(inputs, repeats=hard_perm_mat.shape[0], dim=0)
             hard_perm_mat_repeated = hard_perm_mat.repeat(inputs.shape[0], 1, 1)
-            all_log_probs = self.flow.log_prob(inputs_repeated, perm_mat=hard_perm_mat)
+            all_log_probs = self.flow.log_prob(inputs_repeated, perm_mat=hard_perm_mat_repeated)
             log_prob_grid = all_log_probs.reshape(inputs.shape[0], hard_perm_mat.shape[0])
             log_prob = torch.sum(log_prob_grid * score_grid, dim=1)
 
@@ -166,7 +166,7 @@ class OCDAF(torch.nn.Module):
                     elementwise=False,
                     log_prob_to_display=log_prob,
                     permutation_to_display=soft_perm_mat,
-                    elementwise_input=inputs,
+                    elementwise_input=inputs_repeated,
                     elementwise_perm_mat=hard_perm_mat_repeated,
                 )
 

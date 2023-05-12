@@ -25,22 +25,21 @@ sweep_configuration:
                 - MediumPatience
                 - HighPatience
               values:
-                
-                  maximization_epoch_limit: 50
+                - maximization_epoch_limit: 50
                   expectation_epoch_limit: 50
                   patience: 10
                   cooldown: 25
-                
+                -
                   maximization_epoch_limit: 100
                   expectation_epoch_limit: 100
                   patience: 20
                   cooldown: 50
-                
+                -
                   maximization_epoch_limit: 200
                   expectation_epoch_limit: 200
                   patience: 30
                   cooldown: 100
-                
+                -
                   maximization_epoch_limit: 300
                   expectation_epoch_limit: 300
                   patience: 40
@@ -116,13 +115,13 @@ sweep_configuration:
           values:
             - optimizer_args:
                 - weight_decay: 0.01
+                - weight_decay: 0.01
+            - optimizer_args:
+                - weight_decay: 0.1
                 - weight_decay: 0.05
             - optimizer_args:
-                - weight_decay: 0.1
-                - weight_decay: 0.1
-            - optimizer_args:
                 - weight_decay: 0.5
-                - weight_decay: 0.1
+                - weight_decay: 0.05
 
     sweep_group_batch:
       sweep_identifier: Batch
@@ -137,3 +136,31 @@ sweep_configuration:
         - data:
             init_args:
               batch_size: 128
+
+    data:
+      class_path: lightning_toolbox.DataModule
+      init_args:
+        batch_size: 128
+        dataset: ocd.data.SyntheticOCDDataset
+        dataset_args:
+          name: parametric_normal_modulated_4_5000_full_sin_plus_x
+          observation_size: 5000
+          scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+          scm_generator_args:
+            graph_generator: ocd.data.scm.GraphGenerator
+            graph_generator_args: { graph_type: full, n: 4, seed: 867 }
+            noise_parameters: { loc: 0.0, scale: 1.0 }
+            noise_type: normal
+            s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+                          \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+            s_function_signature: softplus
+            seed: 573
+            t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
+                          \ + x", function_of_interest: func }
+            t_function_signature: sin_plus_x
+            weight_s: [ 0.5, 1.5 ]
+            weight_t: [ 0.5, 1.5 ]
+          seed: 828
+        val_size: 0.1
+
+

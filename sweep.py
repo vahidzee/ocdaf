@@ -9,7 +9,7 @@ from jsonargparse import ActionConfigFile
 from lightning.pytorch import LightningModule, LightningDataModule
 import functools
 from dataclasses import dataclass
-from smart_trainer import convert_to_dict
+from smart_trainer import convert_to_dict, get_callbacks_with_class_path
 from pprint import pprint
 import os
 from jsonargparse import Namespace
@@ -19,6 +19,7 @@ import copy
 import shutil
 from wandb.sdk.wandb_config import Config
 import json
+from random_word import RandomWords
 
 SEPARATOR = "__CUSTOM_SEPERATOR__"
 IDX_INDICATOR = "__IDX__"
@@ -307,6 +308,11 @@ def init_or_resume_wandb_run(
     # sort all_subdirs by their name lexically
     all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
 
+    if run_name is not None:
+        r = RandomWords()
+        w = r.get_random_word()
+        run_name = run_name + '-' + w 
+
     if len(all_subdirs) > 0 and resume:
         dir_name = all_subdirs[0].name
         resume_id = SPLIT.join(dir_name.split(SPLIT)[1:])
@@ -364,6 +370,11 @@ def sweep_run(args):
         new_conf, _ = change_config_for_causal_discovery(
             args_copy, bypass_logger=True, 
         )
+        ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
+        subdir = f"saves-{args.sweep.sweep_id}"
+        if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
+            os.makedirs(args_copy.sweep.default_root_dir / subdir)
+        new_conf["trainer"]["callbacks"][ind]["init_args"]["save_dir"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
         args_copy = overwrite_args(args_copy, new_conf)
 
     # Add a checkpointing callback to the trainer

@@ -177,6 +177,7 @@ experiments/sweep/phasechanging-save-path/
 launch_job.slrm
 slurm-*.out
 slurm-*.err
+
 # Baseline results
 baselines/results/
 experiments/sweep/checkpoints-*

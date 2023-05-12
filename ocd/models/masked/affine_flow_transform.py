@@ -16,9 +16,9 @@ class ScaleTransform(torch.nn.Module):
         activation: th.Optional[str] = "torch.nn.Tanh",
         activation_args: th.Optional[dict] = None,
         pre_act_shift: float = 0.0,
-        pre_act_scale: float = 1.0,
-        post_act_scale: float = 2.5,
-        post_act_shift: float = 0.0,
+        pre_act_scale: float = 1./10,
+        post_act_scale: float = 10,
+        post_act_shift: float = 0.0
     ):
         super().__init__()
         self.pre_act_scale, self.post_act_scale = pre_act_scale, post_act_scale
@@ -55,7 +55,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         scale_transform: bool = True,
-        scale_transform_s_args: th.Optional[dict] = None,
+        scale_transform_s_args: th.Optional[dict] = None,  # TODO different scale transforms for t, s
         scale_transform_t_args: th.Optional[dict] = None,
         # transform args
         additive: bool = False,

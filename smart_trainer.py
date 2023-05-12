@@ -178,7 +178,8 @@ def change_config_for_causal_discovery(old_config, bypass_logger: bool = False):
         new_config["trainer"]["logger"]["init_args"]["name"] = f"discovery-{logger_name}"
 
     new_config = handle_birkhoff(new_config, n, graph)
-    new_config = handle_permutation_saving(new_config, graph, logger_name)
+    if new_config["model"]["init_args"]["model_args"]["use_permutation"]:
+        new_config = handle_permutation_saving(new_config, graph, logger_name)
 
     # Change the model in_features and dimensions
     new_config["model"]["init_args"]["model_args"]["in_features"] = n
