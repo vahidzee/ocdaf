@@ -3,13 +3,14 @@ init_args:
   batch_size: 128
   val_size: 0.1
   seed: 6406
+  dataset: ocd.data.SyntheticOCDDataset
   dataset_args:
     scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-    observatoin_size: 2048
+    observation_size: 2048
     name: parametric_normal_modulated_3_2048_chain_cube
     scm_generator_args:
       seed: 5923
-      graph_generator: ocd.data.scm.GraphGenerator ocd.data.scm.GraphGenerator
+      graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:
         seed: 781
         graph_type: chain
