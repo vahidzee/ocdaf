@@ -204,12 +204,14 @@ class AffineFlow(torch.nn.ModuleList):
 
         def sampler(num_samples, **kwargs):
             # Set the noises and set their device
-            z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-            for i, flow in enumerate(reversed(self)):
-                z, _ = flow.inverse(inputs=z, **kwargs)
-                if i in intervention:
-                    z[..., i] = intervention[i](z) if callable(intervention[i]) else intervention[i]
-            return z
+            base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+            x = self.inverse(base_z, **kwargs)[0]
+            for idx in intervention:
+                x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
+                z = self(x, **kwargs)[0]
+                z[:, idx + 1 :] = base_z[:, idx + 1 :]
+                x = self.inverse(z, **kwargs)[0]
+            return x
 
         return sampler
 
