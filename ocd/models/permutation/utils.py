@@ -1,6 +1,7 @@
 import torch
 import typing as th
 import numpy as np
+import functools
 
 # most of the codes are humbly borrowed/adapted from
 # https://github.com/sharpenb/Differentiable-DAG-Sampling/tree/44f96769a729efc99bdd16c9b00deee4077a76b2
@@ -13,6 +14,7 @@ def translate_idx_ordering(idx: th.Union[th.List[int], th.List[th.List[int]], np
         return [j for i, j in sorted(zip(idx, range(len(idx))))]
 
 
+@functools.wraps(torch.rand)
 def sample_gumbel_noise(*args, eps=1e-20, **kwargs):
     """Samples arbitrary-shaped standard gumbel variables.
     Args:
