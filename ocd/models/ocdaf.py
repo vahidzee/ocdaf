@@ -147,25 +147,24 @@ class OCDAF(torch.nn.Module):
         ):
             # This is the case where it is not Elementwise, for example,
             # this might happen for the hybrid-sparse-map-simulation
-            soft_perm_mat = permutation_results["soft_perm_mat"]
+            # soft_perm_mat = permutation_results["soft_perm_mat"]
             hard_perm_mat = permutation_results["hard_perm_mat"]
-            score_grid = permutation_results["score_grid"]
-            if score_grid.shape[0] != inputs.shape[0]:
-                assert (
-                    inputs.shape[0] % score_grid.shape[0] == 0
-                ), "batch_size must be divisible by score_grid.shape[0]"
-                score_grid = score_grid.repeat(inputs.shape[0] // score_grid.shape[0], 1)
+            scores = permutation_results["scores"]
+            
+            # Calculate all the log prob values
             inputs_repeated = torch.repeat_interleave(inputs, repeats=hard_perm_mat.shape[0], dim=0)
             hard_perm_mat_repeated = hard_perm_mat.repeat(inputs.shape[0], 1, 1)
             all_log_probs = self.flow.log_prob(inputs_repeated, perm_mat=hard_perm_mat_repeated)
+            
             log_prob_grid = all_log_probs.reshape(inputs.shape[0], hard_perm_mat.shape[0])
-            log_prob = torch.sum(log_prob_grid * score_grid, dim=1)
+            # log_prob_for_permutations = torch.mean(log_prob_grid, dim=0)
+            log_prob = torch.sum(log_prob_grid * scores, dim=-1)
 
             if training_module is not None:
                 training_module.remember(
                     elementwise=False,
                     log_prob_to_display=log_prob,
-                    permutation_to_display=soft_perm_mat,
+                    permutation_to_display=self.permutation_model.soft_permutation().repeat(inputs.shape[0], 1, 1),
                     elementwise_input=inputs_repeated,
                     elementwise_perm_mat=hard_perm_mat_repeated,
                 )

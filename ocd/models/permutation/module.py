@@ -195,28 +195,33 @@ class LearnablePermutation(torch.nn.Module):
                 results["scores"] = dot_prods
                 results["soft_perm_mats"] = soft_perm_mats
             elif permutation_type == "hybrid-sparse-map-simulator":
-                soft_perm_mats = self.soft_permutation(
-                    gamma=gamma,
-                    gumbel_noise=gumbel_noise[:num_soft_samples],
-                    sinkhorn_temp=sinkhorn_temp,
-                    sinkhorn_num_iters=sinkhorn_num_iters,
-                    training_module=training_module,
-                    **kwargs,
-                )
+                # soft_perm_mats = self.soft_permutation(
+                #     gamma=gamma,
+                #     gumbel_noise=gumbel_noise[:num_soft_samples],
+                #     sinkhorn_temp=sinkhorn_temp,
+                #     sinkhorn_num_iters=sinkhorn_num_iters,
+                #     training_module=training_module,
+                #     **kwargs,
+                # )
+                # soft_perm_mats = self.parameterized_gamma().repeat(num_hard_samples, 1, 1)
+                
                 hard_perm_mats = self.hard_permutation(
                     gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise[num_soft_samples:]
                 )
                 # make all the hard_perm_mats unique
                 hard_perm_mats = torch.unique(hard_perm_mats, dim=0)
-                vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
+                # vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
                 vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
-                score_grid = vectorized_soft_mats @ vectorized_hard_mats.T
+                vectorized_gamma = self.parameterized_gamma().reshape(-1)
+                # vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
+                scores = torch.sum(vectorized_gamma * vectorized_hard_mats, dim=-1)
+                scores = torch.nn.functional.softmax(scores)
                 # normalize the rows of the score grid
                 # score_grid = score_grid / torch.sum(score_grid, dim=-1, keepdim=True)
-                score_grid = torch.nn.functional.softmax(score_grid, dim=-1)
-                results["soft_perm_mat"] = soft_perm_mats
+                # score_grid = torch.nn.functional.softmax(score_grid, dim=-1)
+                # results["soft_perm_mat"] = soft_perm_mats
                 results["hard_perm_mat"] = hard_perm_mats
-                results["score_grid"] = score_grid
+                results["scores"] = scores
             else:
                 raise Exception(f"Unknown hybrid permutation type: {permutation_type}")
         else:
@@ -234,7 +239,10 @@ class LearnablePermutation(torch.nn.Module):
     # todo: does not work with the current version of dypy (make it a property later)
     @dyw.method
     def parameterized_gamma(self):
-        return -torch.nn.functional.logsigmoid(self.gamma)
+        if self.permutation_type == "hybrid-sparse-map-simulator":
+            return torch.nn.functional.sigmoid(self.gamma)
+        else:
+            return -torch.nn.functional.logsigmoid(self.gamma)
 
     @dyw.method
     def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
