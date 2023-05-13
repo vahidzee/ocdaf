@@ -1,8 +1,6 @@
 import torch
-import torch.nn.functional as F
 import typing as th
 import dypy.wrappers as dyw
-import math
 from ocd.models.permutation.utils import (
     hungarian,
     sinkhorn,
@@ -70,9 +68,7 @@ class LearnablePermutation(torch.nn.Module):
 
     def forward(
         self,
-        num_samples: int = 1,
-        num_hard_samples: int = 0,
-        num_soft_samples: int = 0,
+        batch_size: int = 1,
         # gamma
         gamma: th.Optional[torch.Tensor] = None,  # to override the current gamma parameter
         # force permutation
@@ -116,9 +112,17 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise = None
         gamma = (gamma if gamma is not None else self.parameterized_gamma()).to(device)
 
-        # If num_samples is None then set num_samples to the sum of num_hard_samples and num_soft_samples
-        if num_samples is None or num_samples == 0:
-            num_samples = num_hard_samples + num_soft_samples
+        # depending on the method, num_samples might be different
+        num_samples = batch_size
+        num_hard_samples = 0
+        num_soft_samples = 0
+        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
+
+        if permutation_type == "hybrid-sparse-map-simulator":
+            num_soft_samples = batch_size
+            num_hard_samples = batch_size
+            num_samples = num_samples + num_hard_samples
+
         # Generate Gumbel noise values
         if num_samples:
             gumbel_noise = sample_gumbel_noise(num_samples, self.num_features, self.num_features, device=device)
@@ -128,8 +132,6 @@ class LearnablePermutation(torch.nn.Module):
                 else self.gumbel_noise_std(training_module=training_module, **kwargs)
             )
             gumbel_noise = gumbel_noise * gumbel_noise_std
-
-        permutation_type = permutation_type if permutation_type is not None else self.permutation_type
 
         # Set up an empty dictionary results
         results = {}
@@ -193,28 +195,33 @@ class LearnablePermutation(torch.nn.Module):
                 results["scores"] = dot_prods
                 results["soft_perm_mats"] = soft_perm_mats
             elif permutation_type == "hybrid-sparse-map-simulator":
-                soft_perm_mats = self.soft_permutation(
-                    gamma=gamma,
-                    gumbel_noise=gumbel_noise[:num_soft_samples], # Don't pass gumbel noise in the soft permutations
-                    sinkhorn_temp=sinkhorn_temp,
-                    sinkhorn_num_iters=sinkhorn_num_iters,
-                    training_module=training_module,
-                    **kwargs,
-                )
+                # soft_perm_mats = self.soft_permutation(
+                #     gamma=gamma,
+                #     gumbel_noise=gumbel_noise[:num_soft_samples],
+                #     sinkhorn_temp=sinkhorn_temp,
+                #     sinkhorn_num_iters=sinkhorn_num_iters,
+                #     training_module=training_module,
+                #     **kwargs,
+                # )
+                # soft_perm_mats = self.parameterized_gamma().repeat(num_hard_samples, 1, 1)
+                
                 hard_perm_mats = self.hard_permutation(
                     gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise[num_soft_samples:]
                 )
                 # make all the hard_perm_mats unique
                 hard_perm_mats = torch.unique(hard_perm_mats, dim=0)
-                vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
+                # vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
                 vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
-                score_grid = vectorized_soft_mats @ vectorized_hard_mats.T
+                vectorized_gamma = self.parameterized_gamma().reshape(-1)
+                # vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
+                scores = torch.sum(vectorized_gamma * vectorized_hard_mats, dim=-1)
+                scores = torch.nn.functional.softmax(scores)
                 # normalize the rows of the score grid
                 # score_grid = score_grid / torch.sum(score_grid, dim=-1, keepdim=True)
-                score_grid = F.softmax(score_grid, dim=-1)
-                results["soft_perm_mat"] = soft_perm_mats
+                # score_grid = torch.nn.functional.softmax(score_grid, dim=-1)
+                # results["soft_perm_mat"] = soft_perm_mats
                 results["hard_perm_mat"] = hard_perm_mats
-                results["score_grid"] = score_grid
+                results["scores"] = scores
             else:
                 raise Exception(f"Unknown hybrid permutation type: {permutation_type}")
         else:
@@ -232,7 +239,10 @@ class LearnablePermutation(torch.nn.Module):
     # todo: does not work with the current version of dypy (make it a property later)
     @dyw.method
     def parameterized_gamma(self):
-        return self.gamma
+        if self.permutation_type == "hybrid-sparse-map-simulator":
+            return torch.nn.functional.sigmoid(self.gamma)
+        else:
+            return -torch.nn.functional.logsigmoid(self.gamma)
 
     @dyw.method
     def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
@@ -246,7 +256,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 50
+        return 10
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
@@ -310,7 +320,7 @@ class LearnablePermutation(torch.nn.Module):
             sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(**kwargs)
         )
         # transform gamma with log-sigmoid and temperature
-        gamma = torch.nn.functional.logsigmoid(gamma)
+        # gamma = torch.nn.functional.logsigmoid(gamma)
         noise = gumbel_noise if gumbel_noise is not None else 0.0
         all_mats = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
@@ -408,17 +418,3 @@ class LearnablePermutation(torch.nn.Module):
             else ""
         )
         return f"num_features={self.num_features}" + forced
-
-
-if __name__ == "__main__":
-    theta1 = torch.nn.Parameter(torch.randn(1, 1))
-    theta2 = torch.nn.Parameter(torch.randn(1, 1))
-    x = torch.tensor([1.0])
-
-    a = theta1 * x
-    b = theta2 * x
-    fn = HybridJoin.apply
-    y = fn(a, b)
-    y.backward()
-    print(theta1.grad)
-    print(theta2.grad)

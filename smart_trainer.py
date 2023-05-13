@@ -34,7 +34,6 @@ import pprint
 import time
 import datetime
 
-original_max_epoch: int
 checkpoint_path: th.Optional[str] = None
 
 
@@ -263,8 +262,6 @@ def change_config_for_causal_inference(old_config, logger_name, correct_ordering
         }
     )
 
-    global original_max_epoch
-    new_config["trainer"]["max_epochs"] = original_max_epoch
     return Namespace(new_config), logger_name
 
 
@@ -330,9 +327,6 @@ def main():
         # Overwrite the base configuration with the causal discovery configuration
         config_for_discovery, logger_name = change_config_for_causal_discovery(base_config)
         # remember original max epoch for later use
-        global original_max_epoch
-        if original_max_epoch is None:
-            original_max_epoch = config_for_discovery.get('trainer').get('max_epochs')
         saving_callback_ind = get_callbacks_with_class_path(config_for_discovery['trainer']['callbacks'], 
                                                             "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
         
