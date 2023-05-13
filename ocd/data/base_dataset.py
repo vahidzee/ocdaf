@@ -9,8 +9,7 @@ class OCDDataset(torch.utils.data.Dataset):
         self,
         samples: th.Optional[th.Union[pd.DataFrame, np.array]],
         dag: nx.DiGraph,
-        intervention_column: th.Optional[int] = None,
-        intervention_values: th.Optional[th.List[th.Any]] = None,
+        intervention_columns: th.Optional[int] = None,
         name: th.Optional[str] = None,
         explanation: th.Optional[str] = None,
         standardization: bool = True,
@@ -29,10 +28,8 @@ class OCDDataset(torch.utils.data.Dataset):
         self.name = name
         self.explanation = explanation
         
-        # set the intervention column
-        self.intervention_column = intervention_column
-        # intervention_values is the value that we intervened on
-        self.intervention_values = intervention_values
+        # set the intervention columns
+        self.intervention_columns = intervention_columns
         # set the dag
         self.dag = dag
         
