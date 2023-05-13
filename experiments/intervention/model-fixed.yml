@@ -10,7 +10,7 @@ init_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    in_features: 3
+    in_features: 5
     layers: [5, 15, 5]
     populate_features: True
     scale_transform: true
@@ -43,6 +43,7 @@ init_args:
       patience: 50
       min_lr: 0.00005
       threshold: 0.001
+  scheduler_interval: ['epoch']
   scheduler_name: ["lr_scheduler"]
   scheduler_monitor: ["loss/train"]
   scheduler_optimizer: [0]

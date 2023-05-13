@@ -11,9 +11,9 @@ init_args:
       graph_generator: ocd.data.scm.GraphGenerator
       graph_generator_args:
         graph_type: chain
-        n: 3
+        n: 10
         seed: 2097
-        enforce_ordering: [0, 1, 2]
+        enforce_ordering: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
       noise_parameters: { loc: 0.0, scale: 1.0 }
       noise_type: laplace
       s_function:
