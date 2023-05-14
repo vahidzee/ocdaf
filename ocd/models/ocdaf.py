@@ -7,6 +7,8 @@ from lightning_toolbox import TrainingModule
 from ocd.models.permutation.module import PERMUTATION_TYPE_OPTIONS
 import warnings
 
+MIN_POPULATE_FEATURES  = 8
+
 
 class OCDAF(torch.nn.Module):
     def __init__(
@@ -39,7 +41,7 @@ class OCDAF(torch.nn.Module):
         permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
-        dtype: th.Optional[torch.dtype] = None,
+        dtype: th.Optional[torch.dtype] = None
     ) -> None:
         super().__init__()
         if in_features is None:
@@ -51,10 +53,10 @@ class OCDAF(torch.nn.Module):
         if populate_features:
             for i in range(len(layers)):
                 if isinstance(layers[i], int):
-                    layers[i] *= in_features
+                    layers[i] *= min(in_features, MIN_POPULATE_FEATURES)
                 else:
                     for j in range(len(layers[i])):
-                        layers[i][j] *= in_features
+                        layers[i][j] *= min(in_features, MIN_POPULATE_FEATURES)
 
         # get an IntTensor of 1 to N
         self.flow = AffineFlow(

@@ -370,11 +370,11 @@ def sweep_run(args):
         new_conf, _ = change_config_for_causal_discovery(
             args_copy, bypass_logger=True, 
         )
-        ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
-        subdir = f"saves-{args.sweep.sweep_id}"
-        if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
-            os.makedirs(args_copy.sweep.default_root_dir / subdir)
-        new_conf["trainer"]["callbacks"][ind]["init_args"]["save_dir"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
+        # ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
+        # subdir = f"saves-{args.sweep.sweep_id}"
+        # if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
+        #     os.makedirs(args_copy.sweep.default_root_dir / subdir)
+        # new_conf["trainer"]["callbacks"][ind]["init_args"]["save_path"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
         args_copy = overwrite_args(args_copy, new_conf)
 
     # Add a checkpointing callback to the trainer
