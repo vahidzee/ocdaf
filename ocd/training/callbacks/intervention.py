@@ -5,7 +5,7 @@ import lightning.pytorch as pl
 import torch
 import numpy as np
 import dypy as dy
-
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 class InterventionCallback(pl.Callback):
     def __init__(
@@ -44,14 +44,15 @@ class InterventionCallback(pl.Callback):
 
         with torch.no_grad():
             values = torch.linspace(-self.k, self.k, self.num_interventions)
-            model_samples = self.flow.do(idx=0, values=0, target=-1, num_samples=self.num_samples).detach().cpu()
+            model_samples = self.flow.do(idx=0, values=values, target=-1, num_samples=self.num_samples).detach().cpu()
             model_means = model_samples.mean(-1)
             model_stds = model_samples.std(-1)
-            data_samples = self.data.do(idx=0, values=0, target=-1, num_samples=self.num_samples).detach().cpu()
+            data_samples = self.data.do(idx=0, values=values, target=-1, num_samples=self.num_samples).detach().cpu()
             data_means = data_samples.mean(-1)
             data_stds = data_samples.std(-1)
             fig = plt.figure(figsize=(10, 10))
             # plot ate vs values of do with std as confidence interval
+            plt.xlim(-self.k -1, self.k + 1)
             plt.plot(values, model_means, label="Model", color="red")
             plt.fill_between(
                 values, (model_means - 3 * model_stds), (model_means + 3 * model_stds), alpha=0.2, color="red"
@@ -60,9 +61,12 @@ class InterventionCallback(pl.Callback):
             plt.fill_between(
                 values, (data_means - 3 * data_stds), (data_means + 3 * data_stds), alpha=0.2, color="blue"
             )
-            # fig.show()
-            plot = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-            plot = plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-        trainer.logger.log_image("Data", images=[plot], caption=["intervention"])
+            canvas = FigureCanvas(fig)
+            canvas.draw()       # draw the canvas, cache the renderer
+
+            image_flat = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')  # (H * W * 3,)
+            plot = image_flat.reshape(*fig.canvas.get_width_height(), 3)  # (H, W, 3)
+
+        trainer.logger.log_image("Data Fit", images=[plot], caption=["intervention"])
         return return_value
