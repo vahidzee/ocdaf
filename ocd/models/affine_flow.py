@@ -198,22 +198,25 @@ class AffineFlow(torch.nn.ModuleList):
         for flow in self:
             flow.reorder(ordering, **kwargs)
 
-    def intervene(self, intervention: th.Dict[int, dy.FunctionDescriptor]):
+    def intervene(self, num_samples, intervention: th.Dict[int, dy.FunctionDescriptor], **kwargs):
         intervention = {k: dy.eval(f) for k, f in intervention.items()}
         device = next(self[0].parameters()).device
 
-        def sampler(num_samples, **kwargs):
-            # Set the noises and set their device
-            base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-            x = self.inverse(base_z, **kwargs)[0]
-            for idx in intervention:
-                x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
-                z = self(x, **kwargs)[0]
-                z[:, idx + 1 :] = base_z[:, idx + 1 :]
-                x = self.inverse(z, **kwargs)[0]
-            return x
+        # Set the noises and set their device
+        base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+        x = self.inverse(base_z, **kwargs)[0]
 
-        return sampler
+        for idx in intervention:
+            x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
+            z = self(x, **kwargs)[0]
+            z[:, idx + 1 :] = base_z[:, idx + 1 :]
+            x = self.inverse(z, **kwargs)[0]
+        return x
+
+    def do(self, idx, values: th.Union[torch.Tensor, list], target: th.Optional[int] = None, num_samples=50):
+        values = values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
+        results = torch.stack([self.intervene(num_samples, {idx: value}) for value in values], dim=0)
+        return results[:, :, target] if target is not None else results
 
     @property
     def ordering(self) -> torch.IntTensor:

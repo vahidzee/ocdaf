@@ -1,0 +1,185 @@
+project: sweep-hamid-different-methods
+checkpoint_interval: 30
+default_root_dir: experiments/sweep
+use_smart_trainer: True
+agent_run_args:
+  count: 1
+sweep_configuration:
+  method: grid
+  metric:
+    goal: minimize
+    name: metrics/average-backward_relative_penalty
+  parameters:
+    model:
+      init_args:
+        model_args:
+          permutation_learner_args: # Switch between the two different methods
+            sweep_identifier: method
+            sweep: True
+            sweep_alias:
+              - boltzmann_estimator
+              - straight_through
+            values:
+              - gumbel_noise_std: >
+                  lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+                permutation_type: hybrid-sparse-map-simulator
+              - gumbel_noise_std: >
+                  lambda self, training_module, **kwargs: 1.9 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) + 0.1
+                permutation_type: hybrid-quantization
+    sweep_group_standardization:
+      sweep: True
+      sweep_identifier: toggle_standardization
+      sweep_alias:
+        - withStandardization
+        - withoutStandardization
+      values:
+        - data:
+            class_path: lightning_toolbox.DataModule
+            init_args:
+              dataset_args:
+                standardization: True
+                reject_outliers_n_far_from_mean: 5
+        - data:
+            class_path: lightning_toolbox.DataModule
+            init_args:
+              dataset_args:
+                standardization: False
+                reject_outliers_n_far_from_mean: null
+
+    sweep_group_epochs:
+      sweep_identifier: epoch_scheduling
+      sweep: True
+      sweep_alias:
+        - fast
+        - slow
+      values:
+        - trainer:
+            max_epochs: 500
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+              init_args:
+                maximization_epoch_limit: 50
+                expectation_epoch_limit: 50
+        - trainer:
+            max_epochs: 1500
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+              init_args:
+                maximization_epoch_limit: 120
+                expectation_epoch_limit: 120
+
+    sweep_group_sinkhorn_temp:
+      sweep_identifier: temperature
+      sweep: True
+      sweep_alias:
+        - hot
+        - cold
+      values:
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  sinkhorn_temp: >
+                    lambda self, training_module, **kwargs: 0.2
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  sinkhorn_temp: >
+                    lambda self, training_module, **kwargs: 0.05
+    sweep_group_sinkhorn_n_iters:
+      sweep_identifier: sinkhorn_n_iters
+      sweep: True
+      sweep_alias:
+        - large
+        - small
+      values:
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  sinkhorn_num_iters: >
+                    lambda self, training_module, **kwargs: 50
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  sinkhorn_num_iters: >
+                    lambda self, training_module, **kwargs: 10
+    sweep_group_graph_seed:
+      sweep: True
+      sweep_identifier: GraphSeed
+      sweep_alias:
+        - seed0
+        - seed1
+        - seed2
+      values:
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    graph_type: erdos_renyi
+                    p: 0.65
+                    seed: 10
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    graph_type: erdos_renyi
+                    p: 0.65
+                    seed: 20
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    graph_type: erdos_renyi
+                    p: 0.65
+                    seed: 30
+    sweep_group_n_features:
+      sweep: True
+      sweep_identifier: n_features
+      sweep_alias:
+        - size4
+        - size5
+        - size6
+      values:
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    n: 4
+          trainer:
+            callbacks:
+              sweep_list_operations:
+                - sweep_insert: -1
+              class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
+              init_args:
+                epoch_buffer_size: 1
+                evaluate_every_n_epochs: 5
+                seed: 666
+                write_cost_values: True
+                write_permutation_names: True
+                core_points_has_birkhoff_vertices: True
+                core_points_has_birkhoff_edges: False
+                reject_outlier_factor: 0.1
+                add_permutation_to_name: True
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    n: 5
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  graph_generator_args:
+                    n: 6

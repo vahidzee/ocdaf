@@ -17,11 +17,16 @@ init_args:
       noise_parameters: { loc: 0.0, scale: 1.0 }
       noise_type: laplace
       s_function:
-        { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-            \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+        function_descriptor: |
+          def func(x):
+            results = torch.nn.functional.softplus(torch.from_numpy(x)).numpy()
+            avg = 5.0
+            std = 40.0
+            return (results - avg) / std
+        function_of_interest: func
       s_function_signature: softplus
-      t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-            \ + x", function_of_interest: func }
+      t_function: >
+        lambda x: numpy.sin(x) + x
       t_function_signature: sin_plus_x
       weight_s: 1.1
       weight_t: 2.5

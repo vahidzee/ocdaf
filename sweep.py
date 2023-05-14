@@ -28,6 +28,10 @@ SWEEP_INDICATION = "sweep"
 UNIQUE_NAME_IDENT = "sweep_identifier"
 VALUES_DISPLAY_NAME = "sweep_alias"
 SWEEP_GROUP = "sweep_group"
+SWEEP_LIST_OPERATIONS = "sweep_list_operations"
+SWEEP_LIST_INSERT = "sweep_insert"
+SWEEP_LIST_REMOVE = "sweep_remove"
+SWEEP_LIST_OVERWRITE = "sweep_overwrite"
 SPLIT = "-"
 
 # Create a sweep dataclass to store the sweep configuration
@@ -243,13 +247,40 @@ def flatten_sweep_config(tree_conf: dict):
 # overwrite args recursively
 def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
     if isinstance(args, list):
-        for key, val in sweep_config.items():
-            args_key = int(key[len(IDX_INDICATOR) :])
-            if isinstance(val, dict):
-                new_args = overwrite_args(args[args_key], val)
-                args[args_key] = new_args
-            else:
-                args[args_key] = val
+        if SWEEP_LIST_OPERATIONS in sweep_config:
+            ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
+            for op in ops:
+                if len(op.keys()) != 1:
+                    raise Exception("Any sweep list operation should be a dictionary with a single key")
+                if SWEEP_LIST_INSERT in op:
+                    idx = op[SWEEP_LIST_INSERT]
+                    if not isinstance(idx, int):
+                        raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
+                    if idx == -1:
+                        args.append(sweep_config)
+                    else:
+                        args.insert(idx, sweep_config)
+                elif SWEEP_LIST_OVERWRITE in op:
+                    idx = op[SWEEP_LIST_OVERWRITE]
+                    if not isinstance(idx, int):
+                        raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
+                    new_arg = overwrite_args(args[idx], sweep_config)
+                    args[idx] = new_arg
+                elif SWEEP_LIST_REMOVE in op:
+                    idx = op[SWEEP_LIST_REMOVE]
+                    if not isinstance(idx, int):
+                        raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
+                    args.pop(idx)
+                else:
+                    raise Exception(f"Unknown sweep list operation: {op}")
+        else:
+            for key, val in sweep_config.items():
+                args_key = int(key[len(IDX_INDICATOR) :])
+                if isinstance(val, dict):
+                    new_args = overwrite_args(args[args_key], val)
+                    args[args_key] = new_args
+                else:
+                    args[args_key] = val
     else:
         all_sweep_group_keys = []
         if isinstance(args, Namespace):
@@ -446,7 +477,7 @@ if __name__ == "__main__":
     # turn the args.sweep.sweep_configuration into a dictionary
     sweep_conf_dict = convert_to_dict(args.sweep.sweep_configuration)
     sweep_conf_dict["parameters"] = parameter_config
-
+    
     def custom_run():
         checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
         if args.sweep.resume and check_checkpoint_exists(checkpoint_dir):

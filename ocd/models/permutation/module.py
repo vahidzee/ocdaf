@@ -171,7 +171,11 @@ class LearnablePermutation(torch.nn.Module):
                     raise ValueError(
                         "For hybrid Quantization num_hard_samples and num_soft_samples should be set to 0."
                     )
-                perm_mat = HybridJoin.apply(soft_perm_mats, hard_perm_mats)
+                
+                # A trick for straight through estimator
+                diff = hard_perm_mats - soft_perm_mats
+                # turn the gradient off for diff
+                perm_mat = soft_perm_mats + diff.detach()
                 results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
                 results["soft_perm_mats"] = soft_perm_mats
             elif permutation_type == "hybrid-dot-similarity":
@@ -215,7 +219,7 @@ class LearnablePermutation(torch.nn.Module):
                 vectorized_gamma = self.parameterized_gamma().reshape(-1)
                 # vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
                 scores = torch.sum(vectorized_gamma * vectorized_hard_mats, dim=-1)
-                scores = torch.nn.functional.softmax(scores)
+                scores = torch.nn.functional.softmax(scores, dim=-1)
                 # normalize the rows of the score grid
                 # score_grid = score_grid / torch.sum(score_grid, dim=-1, keepdim=True)
                 # score_grid = torch.nn.functional.softmax(score_grid, dim=-1)
@@ -256,7 +260,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 10
+        return 50
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
@@ -315,9 +319,9 @@ class LearnablePermutation(torch.nn.Module):
             The resulting permutation matrices, and the percentage of ones that are replaced by hard ones.
         """
         gamma = gamma if gamma is not None else self.parameterized_gamma()
-        sinkhorn_temp = sinkhorn_temp if sinkhorn_temp is not None else self.sinkhorn_temp(**kwargs)
+        sinkhorn_temp = sinkhorn_temp if sinkhorn_temp is not None else self.sinkhorn_temp(training_module=training_module, **kwargs)
         sinkhorn_num_iters = (
-            sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(**kwargs)
+            sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(training_module=training_module, **kwargs)
         )
         # transform gamma with log-sigmoid and temperature
         # gamma = torch.nn.functional.logsigmoid(gamma)
