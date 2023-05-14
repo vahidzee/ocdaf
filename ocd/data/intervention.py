@@ -78,7 +78,6 @@ class InterventionChainDataset(torch.utils.data.Dataset):
     def do(self, idx, values: th.Union[torch.Tensor, list], target: th.Optional[int] = None, num_samples=50):
         values = values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
         results = torch.stack(
-            [self.intervene(idx=idx, value=value, num_samples=num_samples) for value in values],
-            dim=0,
+            [self.intervene(idx=idx, value=value, num_samples=num_samples) for value in values], dim=0
         )
         return results[:, :, target] if target is not None else results
