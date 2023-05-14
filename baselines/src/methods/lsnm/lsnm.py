@@ -17,13 +17,14 @@ class LSNM(AbstractBaseline):
         dataset: th.Union["OCDDataset", str],  # type: ignore
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
+        standardize: bool = False,
         verbose: bool = False,
         independence_test: bool = True,
         neural_network: bool = True,
         n_steps: int = 1000,
         independence_eps: float = 0.01,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="LSNM")
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="LSNM", standardize=standardize)
         self.verbose = verbose
         self.independence_test = independence_test
         self.neural_network = neural_network

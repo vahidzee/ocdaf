@@ -10,31 +10,25 @@ import typing as th
 import numpy as np
 import networkx as nx
 from ocd.post_processing.cam_pruning import cam_pruning
+from src.methods.score.stein import SCORE
 
-
-class Var(AbstractBaseline):
+class Score(AbstractBaseline):
     def __init__(
         self,
         dataset: th.Union["OCDDataset", str],  # type: ignore
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
-        # hyperparameters
         standardize: bool = False,
-        verbose: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Var", standardize=standardize)
-        self.verbose = verbose
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Score", standardize=standardize)
         self.data = self.get_data(conversion="tensor")
+        print(self.data)
+        self.dag, self.order =  SCORE(self.data, 0.001, 0.001, 0.001)
+        print(self.dag, self.order)
+        self.dag = nx.DiGraph(self.dag)
+
 
     def estimate_order(self):
-        data = self.data
-        # compute the variances of each variable
-        with torch.no_grad():
-            var = data.var(dim=0)
-            order = torch.argsort(var, descending=False).tolist()
-        self.order = order
-        return order
+        return self.order
 
     def estimate_dag(self):
-        dag = full_DAG(self.order if hasattr(self, "order") else self.estimate_order())
-        dag = cam_pruning(dag, np.array(self.data.detach().cpu().numpy()), cutoff=0.001, verbose=self.verbose)
-        return nx.DiGraph(dag)
+        return self.dag

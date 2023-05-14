@@ -4,6 +4,7 @@ import networkx as nx
 import torch
 import os
 import sys
+import pandas as pd
 import dypy
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,11 +25,14 @@ class AbstractBaseline(abc.ABC):
         name: th.Optional[str] = None,
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         structure: bool = True,
+        standardize: bool = False,
     ):
         self.name = self.__class__.__name__ if name is None else name
         dataset = dypy.get_value(dataset) if isinstance(dataset, str) else dataset
         dataset_args = dict() if dataset_args is None else dataset_args
         self.dataset = dataset if isinstance(dataset, torch.utils.data.Dataset) else dataset(**dataset_args)
+        self.standardize = standardize
+
         self.structure: bool = structure
 
     @property
@@ -41,11 +45,17 @@ class AbstractBaseline(abc.ABC):
     def get_data(self, conversion: th.Literal["tensor", "numpy", "pandas"] = "tensor"):
         if self.dataset is None or not hasattr(self.dataset, "dag"):
             raise ValueError("Dataset is not loaded to get the samples.")
+        
+        samples = torch.from_numpy(self.dataset.samples.to_numpy())
+        if self.standardize:
+            samples = (samples - samples.mean(dim=0)) / samples.std(dim=0)
         if conversion == "tensor":
-            return torch.from_numpy(self.dataset.samples.to_numpy())
+            return samples
         elif conversion == "numpy":
-            return self.dataset.samples.to_numpy()
-        return self.dataset.samples
+            return samples.numpy()
+        elif conversion == "pandas":
+            return pd.DataFrame(samples.numpy())
+        return samples
 
     @abc.abstractmethod
     def estimate_order(self, **kwargs) -> th.Union[th.List[int], torch.Tensor]:

@@ -16,13 +16,15 @@ class CAM(AbstractBaseline):
         dataset: th.Union["OCDDataset", str],  # type: ignore
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
+        standardize: bool = False,
         linear: bool = False,
         verbose: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="CAM")
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="CAM", standardize=standardize)
         self.linear = linear
         self.verbose = verbose
-
+        if self.linear:
+            raise NotImplementedError("Linear CAM does not work!")
     def estimate_order(self):
         samples = self.get_data(conversion="pandas")
         graph = CDT_CAM(

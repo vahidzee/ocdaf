@@ -30,10 +30,14 @@ def build_args():
     parser.add_argument('--data_type', default='synthetic', type=str)
     parser.add_argument('--data_num', default=0, type=int)
     parser.add_argument('--DAG', action='store_true')
+    parser.add_argument('--linear', action='store_true')
+    parser.add_argument('--standard', action='store_true')
+    parser.add_argument('--permu_sp_map', action='store_true')
+    parser.add_argument('--permu_joint', action='store_true')
     parser.add_argument('--default_root_dir', type=str)
     args = parser.parse_args()
 
-    args.default_root_dir = Path.cwd() / 'results' if args.default_root_dir is None else Path(args.default_root_dir)
+    args.default_root_dir = os.path.join(_DIR, 'results') if args.default_root_dir is None else Path(args.default_root_dir)
     return args
 
 
@@ -69,18 +73,19 @@ def run_baseline(args, wandb_mode=None):
     config.update(wandb.config)
 
     data_config, data_name = get_data_config(args.data_type, args.data_num)
-    linear = data_name.split("_")[0] == 'linear'
+    linear = args.linear
     baseline_cls = {'CAM': CAM, 'Score': Score, 'Permutohedron': Permutohedron}[args.baseline]
-    baseline_args = {'CAM': {'linear': linear},
-                     'Score': {},
-                     'Permutohedron': {'linear': linear, 'seed': args.seed}}[args.baseline]
+    baseline_args = {'CAM': {'linear': linear, 'standardize': args.standard},
+                     'Score': {'standardize': args.standard},
+                     'Permutohedron': {'linear': linear, 'seed': args.seed, 'sp_map': args.permu_sp_map,
+                                       'standardize': args.standard, 'joint': args.permu_joint}}[args.baseline]
 
     log = {'name': data_name, 'baseline': args.baseline, 'seed': args.seed, 'linear': linear}
-    print(log)
+    print(args)
     wandb.log(log)
     dataset_args = data_config['dataset_args'] if 'dataset_args' in data_config else None
     baseline = baseline_cls(dataset=data_config['dataset'], dataset_args=dataset_args, **baseline_args)
-    result = baseline.evaluate(args.DAG)
+    result = baseline.evaluate(structure=args.DAG)
     final_results = {**log, **result}
     wandb.log(final_results)
     save_results(args, final_results)

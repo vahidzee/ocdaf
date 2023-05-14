@@ -28,9 +28,11 @@
 from daguerreo.models import Daguerro  # type: ignore
 from daguerreo import utils  # type: ignore
 from daguerreo.args import parse_pipeline_args  # type: ignore
+from daguerreo.evaluation import count_accuracy  # type: ignore
 import networkx as nx
 import typing as th
 import torch
+import wandb 
 
 from src.base import AbstractBaseline
 
@@ -45,36 +47,43 @@ class Permutohedron(AbstractBaseline):
         # hyperparameters
         linear: bool = False,
         seed: int = 42,
+        sp_map: bool = False,
+        joint: bool = False,
+        standardize: bool = False,
     ):
-        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Permutohedron")
+        super().__init__(dataset=dataset, dataset_args=dataset_args, name="Permutohedron", standardize=standardize)
         self.linear = linear
 
         # parse args
-        # TODO test with tk_sp_max,sp_map
         arg_parser = parse_pipeline_args()
         self.args = arg_parser.parse_args([])
         self.args.nogpu = False
         self.seed = seed
-        self.args.standardize = True
         self.args.equations = "linear" if self.linear else "nonlinear"
         self.args.wandb = False
-        self.args.num_epochs = 5000  # Todo default max epochs is 5000
-        self.args.joint = False
+        self.args.num_epochs = 5000  # default max epochs is 5000
+        self.args.joint = joint
         self.samples = self.get_data(conversion="tensor").double()
+        self.args.structure = 'sp_map' if sp_map else 'tk_sp_max'
 
     @staticmethod
     def _estimate_order_dat(samples, args, seed):
+        print(args)
+        wandb.init(mode="disabled")
         utils.init_seeds(seed=seed)
         torch.set_default_dtype(torch.double)
         daguerro = Daguerro.initialize(samples, args, args.joint)
         daguerro, samples = utils.maybe_gpu(args, daguerro, samples)
-        _ = daguerro(samples, utils.AVAILABLE[args.loss], args)
+        log_dict = daguerro(samples, utils.AVAILABLE[args.loss], args)
         daguerro.eval()
         _, dags = daguerro(samples, utils.AVAILABLE[args.loss], args)
 
         estimated_adj = dags[0].detach().cpu().numpy()
         g = nx.DiGraph(estimated_adj)
+        # log_dict |= count_accuracy(samples.cpu().detach().numpy(), estimated_adj)
+        # print(log_dict)
         orders = list(nx.topological_sort(g))
+        
         return g, orders
 
     def estimate_order(self):
