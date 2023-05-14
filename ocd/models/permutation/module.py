@@ -42,6 +42,8 @@ class LearnablePermutation(torch.nn.Module):
         permutation_type: th.Optional[PERMUTATION_TYPE_OPTIONS] = "soft",
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
+        # Set for limiting the basis
+        maximum_basis_size: th.Optional[int] = None,
     ):
         super().__init__()
         self.num_features = num_features
@@ -50,7 +52,7 @@ class LearnablePermutation(torch.nn.Module):
         self.eps_sinkhorn_permutation_matrix = eps_sinkhorn_permutation_matrix
         self.eps_sinkhorn_doubly_stochastic = eps_sinkhorn_doubly_stochastic
         self.permutation_type = permutation_type
-
+        self.maximum_basis_size = maximum_basis_size
         if force_permutation is None:
             # initialize gamma for learnable permutation
             self.gamma = torch.nn.Parameter(torch.randn(num_features, num_features, device=device, dtype=dtype))
@@ -199,31 +201,27 @@ class LearnablePermutation(torch.nn.Module):
                 results["scores"] = dot_prods
                 results["soft_perm_mats"] = soft_perm_mats
             elif permutation_type == "hybrid-sparse-map-simulator":
-                # soft_perm_mats = self.soft_permutation(
-                #     gamma=gamma,
-                #     gumbel_noise=gumbel_noise[:num_soft_samples],
-                #     sinkhorn_temp=sinkhorn_temp,
-                #     sinkhorn_num_iters=sinkhorn_num_iters,
-                #     training_module=training_module,
-                #     **kwargs,
-                # )
-                # soft_perm_mats = self.parameterized_gamma().repeat(num_hard_samples, 1, 1)
-                
+                # Sample a set of hard permutations
                 hard_perm_mats = self.hard_permutation(
                     gamma=gamma, return_matrix=True, gumbel_noise=gumbel_noise[num_soft_samples:]
                 )
-                # make all the hard_perm_mats unique
+                # make all the hard_perm_mats unique to obtain H_k which is the the approximate Boltzmann support
                 hard_perm_mats = torch.unique(hard_perm_mats, dim=0)
-                # vectorized_soft_mats = soft_perm_mats.reshape(soft_perm_mats.shape[0], -1)
+                
+                # Calculate the energies of the Boltzmann support
                 vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
                 vectorized_gamma = self.parameterized_gamma().reshape(-1)
-                # vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
                 scores = torch.sum(vectorized_gamma * vectorized_hard_mats, dim=-1)
+                
+                if self.maximum_basis_size is not None and len(hard_perm_mats) > self.maximum_basis_size:
+                    # keep the indices of the top-self.maximum_basis_size elements of the scores
+                    _, indices = torch.topk(scores, self.maximum_basis_size)
+                    hard_perm_mats = hard_perm_mats[indices]
+                    scores = scores[indices]
+                
+                # Approximate the actual pmf using softmax
                 scores = torch.nn.functional.softmax(scores, dim=-1)
-                # normalize the rows of the score grid
-                # score_grid = score_grid / torch.sum(score_grid, dim=-1, keepdim=True)
-                # score_grid = torch.nn.functional.softmax(score_grid, dim=-1)
-                # results["soft_perm_mat"] = soft_perm_mats
+                
                 results["hard_perm_mat"] = hard_perm_mats
                 results["scores"] = scores
             else:
