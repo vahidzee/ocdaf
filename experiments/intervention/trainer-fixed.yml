@@ -1,14 +1,25 @@
 callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: experiments/intervention/fixedv2/checkpoints/5
+      dirpath: experiments/intervention/fixedv7/checkpoints/10
       verbose: true
       save_top_k: -1 # save all models
-      every_n_epochs: 30 # save on phase change
-  - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+      every_n_epochs: 100 # save on phase change
+  # - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: lightning.pytorch.callbacks.LearningRateMonitor
     init_args:
       logging_interval: epoch
+  - class_path:  ocd.training.callbacks.qqplot.QQplotCallback
+    init_args:
+      every_n_epochs: 100
+      num_samples: 1000
+      bins: 200
+  - class_path: ocd.training.callbacks.intervention.InterventionCallback
+    init_args:
+      every_n_epochs: 100
+      k: 7.5
+      num_samples: 100
+      num_interventions: 500
 accelerator: gpu
 devices: 1
 num_nodes: 0
@@ -21,6 +32,7 @@ enable_progress_bar: false
 logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
-    project: interventions-v4
-gradient_clip_val: 0.5
+    project: interventions-v7
+    name: chain-10-reduce_platue
+gradient_clip_val: 1.0
 gradient_clip_algorithm: value
