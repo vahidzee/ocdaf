@@ -204,19 +204,19 @@ class AffineFlow(torch.nn.ModuleList):
 
         # Set the noises and set their device
         base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-        # print("base_z              ", base_z)
         x = self.inverse(base_z, **kwargs)[0]
-        # print("x                   ", x)
+
         for idx in intervention:
-            # print("intervention ------ ", idx)
             x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
-            # print("x replaced          ", x)
             z = self(x, **kwargs)[0]
-            # print("z after intervention", z)
             z[:, idx + 1 :] = base_z[:, idx + 1 :]
-            # print("z after replacement ", z)
             x = self.inverse(z, **kwargs)[0]
         return x
+
+    def do(self, idx, values: th.Union[torch.Tensor, list], target: th.Optional[int] = None, num_samples=50):
+        values = values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
+        results = torch.stack([self.intervene(num_samples, {idx: value}) for value in values], dim=0)
+        return results[:, :, target] if target is not None else results
 
     @property
     def ordering(self) -> torch.IntTensor:
