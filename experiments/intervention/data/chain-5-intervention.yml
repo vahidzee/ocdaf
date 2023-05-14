@@ -5,6 +5,10 @@ init_args:
   dataset_args:
     n: 5
     num_samples: 5000
+    # base_distribution: torch.distributions.Normal
+    # base_distribution_args:
+    #   loc: 0.0
+    #   scale: 1.0
     seed: 6406
     weight_s: [0.1, 0.5]
     weight_t: [0.1, 0.6]

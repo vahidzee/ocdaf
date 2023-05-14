@@ -14,7 +14,7 @@ class InterventionCallback(pl.Callback):
         flow_path: str = "model.flow",
         num_samples: int = 100,
         num_interventions: int = 250,
-        k: int = 5,
+        k: float = 5,
         target: int = -1,
         percentile: float = 0.9,
         limit_y: float = 0.9, # 0 means no limit

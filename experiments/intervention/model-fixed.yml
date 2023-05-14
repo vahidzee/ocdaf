@@ -10,8 +10,8 @@ init_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    in_features: 5
-    layers: [5, 15, 5]
+    in_features: 10
+    layers: [15, 15, 5]
     populate_features: True
     scale_transform: true
     scale_transform_s_args:
@@ -31,19 +31,25 @@ init_args:
   # the optimizer
   optimizer: [torch.optim.AdamW]
   optimizer_args:
-    - weight_decay: 0.5
+    - weight_decay: 0.1
   optimizer_parameters:
     - model.flow
-  lr: [0.005]
-  scheduler:
-    - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+  # scheduler:
+  #   - ocd.training.schedulers.reduce_on_increase.ReduceLROnIncrease
+  # scheduler_args:
+  #   - mode: min
+  #     factor: 0.5
+  #     patience: 50
+  #     min_lr: 0.00005
+  #     threshold: 0.001
+  lr: [0.01]
+  scheduler: [torch.optim.lr_scheduler.ReduceLROnPlateau]
   scheduler_args:
-    - mode: min
-      factor: 0.5
-      patience: 50
-      min_lr: 0.00005
-      threshold: 0.001
-  scheduler_interval: ['epoch']
+    - mode: "min"
+      factor: 0.75
+      patience: 75
+      min_lr: 0.0001
+  scheduler_interval: ["epoch"]
   scheduler_name: ["lr_scheduler"]
   scheduler_monitor: ["loss/train"]
   scheduler_optimizer: [0]
