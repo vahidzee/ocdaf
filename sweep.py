@@ -32,6 +32,7 @@ SWEEP_LIST_OPERATIONS = "sweep_list_operations"
 SWEEP_LIST_INSERT = "sweep_insert"
 SWEEP_LIST_REMOVE = "sweep_remove"
 SWEEP_LIST_OVERWRITE = "sweep_overwrite"
+SWEEP_AS_IS = "sweep_as_is"
 SPLIT = "-"
 
 # Create a sweep dataclass to store the sweep configuration
@@ -246,7 +247,8 @@ def flatten_sweep_config(tree_conf: dict):
 
 # overwrite args recursively
 def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
-    if isinstance(args, list):
+    
+    if isinstance(args, list):    
         if SWEEP_LIST_OPERATIONS in sweep_config:
             ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
             for op in ops:
@@ -293,18 +295,28 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 else:
                     setattr(args, key, val)
         elif isinstance(args, dict):
-            for key, val in sweep_config.items():
-                if key.startswith(SWEEP_GROUP):
-                    all_sweep_group_keys.append(key)
-                elif isinstance(val, dict):
-                    new_args = overwrite_args(args[key] if key in args else None, val)
-                    args[key] = new_args
-                else:
-                    args[key] = val
-        elif args is None:
-            return sweep_config
+            is_list_pretender = True
+            for key in args.keys():
+                if not key.startswith(IDX_INDICATOR):
+                    is_list_pretender = False
+            if is_list_pretender:
+                true_args = [None for _ in range(len(args.keys()))]
+                for key in args.keys():
+                    true_args[int(key[len(IDX_INDICATOR) :])] = args[key]
+                return overwrite_args(true_args, sweep_config)
+            else:
+                for key, val in sweep_config.items():
+                    if key.startswith(SWEEP_GROUP):
+                        all_sweep_group_keys.append(key)
+                    elif isinstance(val, dict):
+                        new_args = overwrite_args(args[key] if key in args else None, val)
+                        args[key] = new_args
+                    else:
+                        args[key] = val
+        elif isinstance(sweep_config, str) and sweep_config == SWEEP_AS_IS:
+            return args
         else:
-            raise ValueError("args must be a Namespace or a list in the overwrite_args")
+            return sweep_config
         # sort all_sweep_group_keys 
         all_sweep_group_keys.sort()
         for key in all_sweep_group_keys:
@@ -477,6 +489,7 @@ if __name__ == "__main__":
     # turn the args.sweep.sweep_configuration into a dictionary
     sweep_conf_dict = convert_to_dict(args.sweep.sweep_configuration)
     sweep_conf_dict["parameters"] = parameter_config
+
     
     def custom_run():
         checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
