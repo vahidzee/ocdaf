@@ -30,8 +30,8 @@ class PhaseChangerCallback(Callback):
         self,
         starting_phase: th.Literal["maximization", "expectation"] = "maximization",
         #
-        monitor_validation: bool = True,
-        monitor_training: bool = False,
+        monitor_validation: bool = False,
+        monitor_training: bool = True,
         # The setting for better performance
         # The settings regarding epoch limit values
         maximization_epoch_limit: int = 10,
@@ -40,7 +40,7 @@ class PhaseChangerCallback(Callback):
         patience: int = 5,
         threshold: float = 0.0001,
         cooldown: int = 0,
-        reset_optimizers: bool = True,
+        reset_optimizers: bool = False,
         reinitialize_weights_on_maximization: bool = False,
         log_onto_logger: bool = True,
     ):
