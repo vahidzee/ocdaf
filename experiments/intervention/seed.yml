@@ -1,4 +1,5 @@
 seed_everything: 4944
+# seed_everything: 9375 # sin plus
 # seed_everything: 4944
 #           data:
 #             init_args:
