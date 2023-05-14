@@ -5,7 +5,7 @@ use_smart_trainer: True
 agent_run_args:
   count: 1
 sweep_configuration:
-  method: random
+  method: grid
   metric:
     goal: minimize
     name: metrics/average-backward_relative_penalty
@@ -26,6 +26,26 @@ sweep_configuration:
               - gumbel_noise_std: >
                   lambda self, training_module, **kwargs: 1.9 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) + 0.1
                 permutation_type: hybrid-quantization
+    sweep_group_standardization:
+      sweep: True
+      sweep_identifier: toggle_standardization
+      sweep_alias:
+        - withStandardization
+        - withoutStandardization
+      values:
+        - data:
+            class_path: lightning_toolbox.DataModule
+            init_args:
+              dataset_args:
+                standardization: True
+                reject_outliers_n_far_from_mean: 5
+        - data:
+            class_path: lightning_toolbox.DataModule
+            init_args:
+              dataset_args:
+                standardization: False
+                reject_outliers_n_far_from_mean: null
+
     sweep_group_epochs:
       sweep_identifier: epoch_scheduling
       sweep: True
