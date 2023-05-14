@@ -60,4 +60,4 @@ class SyntrenOCDDataset(OCDDataset):
 
         df = pd.DataFrame(data)
 
-        super().__init__(samples=df, dag=graph, name=f"Syntren-{data_id}")
+        super().__init__(samples=df, dag=graph, name=f"Syntren-{data_id}", standardization=False)

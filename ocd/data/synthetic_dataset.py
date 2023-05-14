@@ -17,7 +17,7 @@ class SyntheticOCDDataset(OCDDataset):
         seed: th.Optional[int] = None,
         name: th.Optional[str] = None,
         enable_simulate: bool = True,
-        standardization: bool = True,
+        standardization: bool = False,
         reject_outliers_n_far_from_mean: th.Optional[float] = None,
         # intervention
         intervention_nodes: th.Optional[th.List[th.Any]] = None,

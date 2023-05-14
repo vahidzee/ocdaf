@@ -32,4 +32,4 @@ class SachsOCDDataset(OCDDataset):
 
         explanation = "\n".join([f"{k} -> {v}" for k, v in label_mapping.items()])
 
-        super().__init__(samples=df, dag=graph, name="Sachs", explanation=explanation)
+        super().__init__(samples=df, dag=graph, name="Sachs", explanation=explanation, standardization=False)

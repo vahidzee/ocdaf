@@ -12,7 +12,7 @@ class OCDDataset(torch.utils.data.Dataset):
         intervention_columns: th.Optional[int] = None,
         name: th.Optional[str] = None,
         explanation: th.Optional[str] = None,
-        standardization: bool = True,
+        standardization: bool = False,
         reject_outliers_n_far_from_mean: th.Optional[float] = None,
     ):
         """
