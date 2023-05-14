@@ -171,7 +171,11 @@ class LearnablePermutation(torch.nn.Module):
                     raise ValueError(
                         "For hybrid Quantization num_hard_samples and num_soft_samples should be set to 0."
                     )
-                perm_mat = HybridJoin.apply(soft_perm_mats, hard_perm_mats)
+                
+                # A trick for straight through estimator
+                diff = hard_perm_mats - soft_perm_mats
+                # turn the gradient off for diff
+                perm_mat = soft_perm_mats + diff.detach()
                 results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
                 results["soft_perm_mats"] = soft_perm_mats
             elif permutation_type == "hybrid-dot-similarity":
@@ -256,7 +260,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 10
+        return 50
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
