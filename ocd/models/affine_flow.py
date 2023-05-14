@@ -198,22 +198,25 @@ class AffineFlow(torch.nn.ModuleList):
         for flow in self:
             flow.reorder(ordering, **kwargs)
 
-    def intervene(self, intervention: th.Dict[int, dy.FunctionDescriptor]):
+    def intervene(self, num_samples, intervention: th.Dict[int, dy.FunctionDescriptor], **kwargs):
         intervention = {k: dy.eval(f) for k, f in intervention.items()}
         device = next(self[0].parameters()).device
 
-        def sampler(num_samples, **kwargs):
-            # Set the noises and set their device
-            base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-            x = self.inverse(base_z, **kwargs)[0]
-            for idx in intervention:
-                x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
-                z = self(x, **kwargs)[0]
-                z[:, idx + 1 :] = base_z[:, idx + 1 :]
-                x = self.inverse(z, **kwargs)[0]
-            return x
-
-        return sampler
+        # Set the noises and set their device
+        base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+        # print("base_z              ", base_z)
+        x = self.inverse(base_z, **kwargs)[0]
+        # print("x                   ", x)
+        for idx in intervention:
+            # print("intervention ------ ", idx)
+            x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
+            # print("x replaced          ", x)
+            z = self(x, **kwargs)[0]
+            # print("z after intervention", z)
+            z[:, idx + 1 :] = base_z[:, idx + 1 :]
+            # print("z after replacement ", z)
+            x = self.inverse(z, **kwargs)[0]
+        return x
 
     @property
     def ordering(self) -> torch.IntTensor:
