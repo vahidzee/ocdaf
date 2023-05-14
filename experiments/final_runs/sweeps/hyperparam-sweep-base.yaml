@@ -43,6 +43,12 @@ data:
     batch_size: 128
     val_size: 0.1
     dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+      observation_size: 1000
+      standardization: True
+      reject_outliers_n_far_from_mean: 5
+      seed: 100
+
 model:
   class_path: ocd.training.module.OCDafTrainingModule
   init_args:

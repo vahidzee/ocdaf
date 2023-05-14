@@ -48,16 +48,15 @@ sweep_configuration:
             sweep_identifier: MLPArchitecture
             sweep: True
             sweep_alias:
-              - SimplePopulate
-              - ComplexPopulate
-              - Fixed
+              - Simple
+              - Complex
             values:
               - layers: [5, 15, 5]
                 populate_features: True
+                layers_limit: [100, 300, 50]
               - layers: [10, 30, 30, 10]
+                layers_limit: [50, 200, 200, 50]
                 populate_features: True
-              - layers: [100, 300, 50]
-                populate_features: False
         lr:
           - sweep: True
             sweep_identifier: lr_flow
@@ -90,35 +89,35 @@ sweep_configuration:
         - Sin-Full-3-Epoch-300
       values:
         - data:
-          init_args:
-            dataset_args:
-              name: parametric_normal_modulated_25_2048_erdos_renyi_sin_plus_x
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args:
-                  graph_type: erdos_renyi
-                  n: 25
-                  p: 0.4
-                  seed: 282
-                noise_parameters: { loc: 0.0, scale: 1.0 }
-                noise_type: normal
-                s_function:
-                  function_descriptor: |
-                    def func(x):
-                      x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-                      return x
-                  function_of_interest: func
-                s_function_signature: softplus
-                seed: 979
-                t_function:
-                  function_descriptor: |
-                    def func(x):
-                      return numpy.sin(x) + x
-                  function_of_interest: func
-                t_function_signature: sin_plus_x
-                weight_s: [0.5, 1.5]
-                weight_t: [0.5, 1.5]
+            init_args:
+              dataset_args:
+                name: parametric_normal_modulated_25_2048_erdos_renyi_sin_plus_x
+                scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+                scm_generator_args:
+                  graph_generator: ocd.data.scm.GraphGenerator
+                  graph_generator_args:
+                    graph_type: erdos_renyi
+                    n: 25
+                    p: 0.4
+                    seed: 282
+                  noise_parameters: { loc: 0.0, scale: 1.0 }
+                  noise_type: normal
+                  s_function:
+                    function_descriptor: |
+                      def func(x):
+                        x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+                        return x
+                    function_of_interest: func
+                  s_function_signature: softplus
+                  seed: 979
+                  t_function:
+                    function_descriptor: |
+                      def func(x):
+                        return numpy.sin(x) + x
+                    function_of_interest: func
+                  t_function_signature: sin_plus_x
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
           trainer:
             max_epochs: 3000
           model:
@@ -130,37 +129,37 @@ sweep_configuration:
                 - patience: 100
                 - patience: 100
         - data:
-          init_args:
-            dataset_args:
-              name: non_parametric_non_linear_gaussian_10_2048_chain
-              scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args:
-                  graph_type: chain
-                  n: 10
-                  seed: 83
-                noise_mean: 0.0
-                noise_std: 1.0
-                s_gamma_rbf_kernel: 1.0
-                s_mean_function_activation:
-                  function_descriptor: |
-                    def func(x):
-                      x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-                      return x
-                  function_of_interest: func
-                s_mean_function_activation_signature: softplus
-                s_mean_function_weights: [0.01, 0.1]
-                s_variance_rbf_kernel: 1.0
-                seed: 204
-                t_mean_function_activation:
-                  function_descriptor: |
-                    def func(x):
-                      return numpy.sin(x) + x
-                  function_of_interest: func
-                t_mean_function_activation_signature: sin_plus_x
-                t_mean_function_weights: [0.01, 0.1]
-                t_variance_rbf_kernel: 1.0
+            init_args:
+              dataset_args:
+                name: non_parametric_non_linear_gaussian_10_2048_chain
+                scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
+                scm_generator_args:
+                  graph_generator: ocd.data.scm.GraphGenerator
+                  graph_generator_args:
+                    graph_type: chain
+                    n: 10
+                    seed: 83
+                  noise_mean: 0.0
+                  noise_std: 1.0
+                  s_gamma_rbf_kernel: 1.0
+                  s_mean_function_activation:
+                    function_descriptor: |
+                      def func(x):
+                        x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+                        return x
+                    function_of_interest: func
+                  s_mean_function_activation_signature: softplus
+                  s_mean_function_weights: [0.01, 0.1]
+                  s_variance_rbf_kernel: 1.0
+                  seed: 204
+                  t_mean_function_activation:
+                    function_descriptor: |
+                      def func(x):
+                        return numpy.sin(x) + x
+                    function_of_interest: func
+                  t_mean_function_activation_signature: sin_plus_x
+                  t_mean_function_weights: [0.01, 0.1]
+                  t_variance_rbf_kernel: 1.0
           trainer:
             max_epochs: 3000
           model:
@@ -172,44 +171,44 @@ sweep_configuration:
                 - patience: 100
                 - patience: 100
         - data:
-          init_args:
-            dataset_args:
-              name: parametric_normal_modulated_5_2048_full_cube_dislocate
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args:
-                  graph_type: full
-                  n: 5
-                  seed: 136
-                noise_parameters:
-                  loc: 0.0
-                  scale: 1.0
-                noise_type: normal
-                s_function:
-                  function_descriptor: |
-                    def func(x):
-                      x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-                      return x
-                  function_of_interest: func
-                s_function_signature: softplus
-                seed: 419
-                t_function:
-                  function_descriptor: |
-                    def func(x):
-                      x[x > 100] = 100
-                      x[x < -100] = -100
-                      x_mean = numpy.mean(x)
-                      x_std = numpy.std(x)
-                      if x_std == 0:
-                        x_std = 1
-                      x = (x - x_mean) / x_std
-                      ret = x**3 + 6
-                      return ret
-                  function_of_interest: func
-                t_function_signature: cube_and_dislocate
-                weight_s: [0.5, 1.5]
-                weight_t: [0.5, 1.5]
+            init_args:
+              dataset_args:
+                name: parametric_normal_modulated_5_2048_full_cube_dislocate
+                scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+                scm_generator_args:
+                  graph_generator: ocd.data.scm.GraphGenerator
+                  graph_generator_args:
+                    graph_type: full
+                    n: 5
+                    seed: 136
+                  noise_parameters:
+                    loc: 0.0
+                    scale: 1.0
+                  noise_type: normal
+                  s_function:
+                    function_descriptor: |
+                      def func(x):
+                        x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+                        return x
+                    function_of_interest: func
+                  s_function_signature: softplus
+                  seed: 419
+                  t_function:
+                    function_descriptor: |
+                      def func(x):
+                        x[x > 100] = 100
+                        x[x < -100] = -100
+                        x_mean = numpy.mean(x)
+                        x_std = numpy.std(x)
+                        if x_std == 0:
+                          x_std = 1
+                        x = (x - x_mean) / x_std
+                        ret = x**3 + 6
+                        return ret
+                    function_of_interest: func
+                  t_function_signature: cube_and_dislocate
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
           trainer:
             max_epochs: 1500
           model:
@@ -221,36 +220,36 @@ sweep_configuration:
                 - patience: 50
                 - patience: 50
         - data:
-          init_args:
-            dataset_args:
-              name: parametric_normal_modulated_3_2048_full_sin_plus_x
-              scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-              scm_generator_args:
-                graph_generator: ocd.data.scm.GraphGenerator
-                graph_generator_args:
-                  graph_type: full
-                  n: 3
-                  seed: 582
-                noise_parameters:
-                  loc: 0.0
-                  scale: 1.0
-                noise_type: normal
-                s_function:
-                  function_descriptor: |
-                    def func(x):
-                      x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-                      return x
-                  function_of_interest: func
-                s_function_signature: softplus
-                seed: 780
-                t_function:
-                  function_descriptor: |
-                    def func(x):
-                      return numpy.sin(x) + x
-                  function_of_interest: func
-                t_function_signature: sin_plus_x
-                weight_s: [0.5, 1.5]
-                weight_t: [0.5, 1.5]
+            init_args:
+              dataset_args:
+                name: parametric_normal_modulated_3_2048_full_sin_plus_x
+                scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+                scm_generator_args:
+                  graph_generator: ocd.data.scm.GraphGenerator
+                  graph_generator_args:
+                    graph_type: full
+                    n: 3
+                    seed: 582
+                  noise_parameters:
+                    loc: 0.0
+                    scale: 1.0
+                  noise_type: normal
+                  s_function:
+                    function_descriptor: |
+                      def func(x):
+                        x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+                        return x
+                    function_of_interest: func
+                  s_function_signature: softplus
+                  seed: 780
+                  t_function:
+                    function_descriptor: |
+                      def func(x):
+                        return numpy.sin(x) + x
+                    function_of_interest: func
+                  t_function_signature: sin_plus_x
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
           trainer:
             max_epochs: 300
           model:

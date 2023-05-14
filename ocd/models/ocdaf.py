@@ -13,8 +13,9 @@ class OCDAF(torch.nn.Module):
         self,
         # architecture
         in_features: th.Optional[th.Union[th.List[int], int]] = None,
-        layers: th.List[th.Union[th.List[int], int]] = None,
+        layers: th.Optional[th.List[th.Union[th.List[int], int]]] = None,
         populate_features: bool = False,  # if True, values in layers are multiplied by in_features
+        layers_limit: th.Optional[th.List[th.Union[th.List[int], int]]] = None,
         residual: bool = False,
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
@@ -51,10 +52,16 @@ class OCDAF(torch.nn.Module):
         if populate_features:
             for i in range(len(layers)):
                 if isinstance(layers[i], int):
-                    layers[i] *= in_features
+                    if layers_limit is not None:
+                        layers[i] = min(in_features * layers[i], layers_limit[i])
+                    else:
+                        layers[i] = in_features * layers[i]
                 else:
                     for j in range(len(layers[i])):
-                        layers[i][j] *= in_features
+                        if layers_limit is not None:
+                            layers[i][j] = min(in_features * layers[i][j], layers_limit[i][j])
+                        else:
+                            layers[i][j] = in_features * layers[i][j]
                         
         # get an IntTensor of 1 to N
         self.flow = AffineFlow(
