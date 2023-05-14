@@ -23,8 +23,6 @@ trainer:
         save_path: experiments/sweep/phasechanging-save-path
         num_samples: 5000
         log_every_n_epochs: 5
-        save_every_n_epochs: 500
-    - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   accelerator: gpu
   devices: 1
   num_nodes: 0
@@ -45,29 +43,6 @@ data:
     batch_size: 128
     val_size: 0.1
     dataset: ocd.data.SyntheticOCDDataset
-    dataset_args:
-      name: parametric_normal_modulated_4_5000_full_sin_plus_x
-      observation_size: 2048
-      standardization: True
-      reject_outliers_n_far_from_mean: 10
-      seed: 18
-      scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-      scm_generator_args:
-        graph_generator: ocd.data.scm.GraphGenerator
-        graph_generator_args: { graph_type: full, n: 4, seed: 867 }
-        noise_parameters: { loc: 0.0, scale: 1.0 }
-        noise_type: normal
-        s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                      \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
-        s_function_signature: softplus
-        seed: 573
-        t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                      \ + x", function_of_interest: func }
-        t_function_signature: sin_plus_x
-        weight_s: [ 0.5, 1.5 ]
-        weight_t: [ 0.5, 1.5 ]
-
-
 model:
   class_path: ocd.training.module.OCDafTrainingModule
   init_args:
@@ -87,7 +62,7 @@ model:
         loc: 0.0
         scale: 1.0
       # The flow model arguments
-      layers: [ 5, 15, 5 ]
+      layers: [5, 15, 5]
       populate_features: True
       num_transforms: 1
       additive: False
@@ -104,9 +79,8 @@ model:
       activation_args:
         negative_slope: 0.1
 
-
     # the optimizer
-    optimizer: [ torch.optim.AdamW, torch.optim.AdamW ]
+    optimizer: [torch.optim.AdamW, torch.optim.AdamW]
     optimizer_args:
       - weight_decay: 0.01
       - weight_decay: 0.01

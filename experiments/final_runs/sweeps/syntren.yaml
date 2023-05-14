@@ -1,0 +1,24 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
+project: small-data-3,4,5,10-method-fixed-order
+checkpoint_interval: 30
+default_root_dir: experiments/sweep
+use_smart_trainer: True
+agent_run_args:
+  count: 1
+sweep_configuration:
+  method: grid
+  metric:
+    goal: minimize
+    name: metrics/average-backward_relative_penalty
+  parameters:
+    data:
+      class_path: lightning_toolbox.DataModule
+      init_args:
+        batch_size: 128
+        dataset: ocd.data.real_world.syntren.SyntrenOCDDataset
+        val_size: 0.01
+        dataset_args:
+          data_id:
+            sweep: true
+            values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
