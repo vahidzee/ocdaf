@@ -106,7 +106,7 @@ class OCDAF(torch.nn.Module):
         **kwargs
     ):
         results = {}
-
+        permutation_results = None
         # sample latent permutation
         latent_permutation, gumbel_noise = None, None
         if self.permutation_model is not None and permute:
@@ -185,6 +185,6 @@ class OCDAF(torch.nn.Module):
             ret["latent_permutation"] = permutation_results
 
         # TODO: remove this!
-        if "scores" in permutation_results:
+        if permutation_results is not None and "scores" in permutation_results:
             ret["scores"] = permutation_results["scores"]
         return ret
