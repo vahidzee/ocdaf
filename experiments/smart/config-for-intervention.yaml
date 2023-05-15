@@ -6,7 +6,7 @@ data:
     dataset_args:
       standardization: True
       reject_outliers_n_far_from_mean: 5
-      name: small_data_run
+      name: intervention_run
       observation_size: 1000
       scm_generator: ocd.data.synthetic.ParametricSCMGenerator
       scm_generator_args:

@@ -16,9 +16,10 @@ sweep_configuration:
         sweep: True
         sweep_identifier: PhaseChanging
         sweep_alias:
-          - maximization50
-          - maximization100
-          - maximization200
+          - maximization50expectation20
+          - maximization100expectation50
+          - maximization200expectation50
+          - maximization200expectation100
         values:
           - sweep_list_operations:
               - sweep_overwrite: 0
@@ -39,6 +40,13 @@ sweep_configuration:
             init_args:
               maximization_epoch_limit: 200
               expectation_epoch_limit: 50
+              patience: 20
+              cooldown: 200
+          - sweep_list_operations:
+              - sweep_overwrite: 0
+            init_args:
+              maximization_epoch_limit: 200
+              expectation_epoch_limit: 100
               patience: 20
               cooldown: 200
     model:
@@ -83,7 +91,7 @@ sweep_configuration:
       sweep_identifier: DataBasisSizeAndEpoch
       sweep: True
       sweep_alias:
-        - Sin-Erdos-25-Epoch-3000
+        - Sin-Erdos-25-Epoch-6000
         - NonParam-Chain-10-Epoch-3000
         - Cube-Full-5-Epoch-1500
         - Sin-Full-3-Epoch-300
@@ -119,7 +127,7 @@ sweep_configuration:
                   weight_s: [0.5, 1.5]
                   weight_t: [0.5, 1.5]
           trainer:
-            max_epochs: 3000
+            max_epochs: 6000
           model:
             init_args:
               model_args:
