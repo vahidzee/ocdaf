@@ -10,6 +10,9 @@ import yaml
 from src.methods.cam import CAM
 from src.methods.score import Score
 from src.methods.permutohedron import Permutohedron
+from src.methods.var import Var
+from src.methods.lsnm import LSNM
+
 
 sys.path.append("..")
 
@@ -74,14 +77,16 @@ def run_baseline(args, wandb_mode=None):
 
     data_config, data_name = get_data_config(args.data_type, args.data_num)
     linear = args.linear
-    baseline_cls = {'CAM': CAM, 'Score': Score, 'Permutohedron': Permutohedron}[args.baseline]
+    baseline_cls = {'CAM': CAM, 'Score': Score, 'biLSNM': LSNM,
+                    'Permutohedron': Permutohedron, 'VarSort': Var}[args.baseline]
     baseline_args = {'CAM': {'linear': linear, 'standardize': args.standard},
                      'Score': {'standardize': args.standard},
                      'Permutohedron': {'linear': linear, 'seed': args.seed, 'sp_map': args.permu_sp_map,
-                                       'standardize': args.standard, 'joint': args.permu_joint}}[args.baseline]
+                                       'standardize': args.standard, 'joint': args.permu_joint},
+                     'biLSNM': {'neural_network': not linear, 'standardize': args.standard},
+                     'VarSort': {'standardize': args.standard}}[args.baseline]
 
-    log = {'name': data_name, 'baseline': args.baseline, 'seed': args.seed, 'linear': linear}
-    print(args)
+    log = {'name': data_name, 'baseline': args.baseline, 'seed': args.seed, 'linear': linear, 'standard': args.standard, 'permu_sp_map': args.permu_sp_map, 'permu_joint': args.permu_joint}
     wandb.log(log)
     dataset_args = data_config['dataset_args'] if 'dataset_args' in data_config else None
     baseline = baseline_cls(dataset=data_config['dataset'], dataset_args=dataset_args, **baseline_args)
@@ -99,3 +104,4 @@ if __name__ == '__main__':
         wandb.agent(the_args.sweep_id, project=the_args.project, count=1, function=func_to_call)
     else:
         func_to_call(wandb_mode='disabled')
+``

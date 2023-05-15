@@ -18,7 +18,7 @@ class LSNM(AbstractBaseline):
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
         standardize: bool = False,
-        verbose: bool = False,
+        verbose: bool = True,
         independence_test: bool = True,
         neural_network: bool = True,
         n_steps: int = 1000,
