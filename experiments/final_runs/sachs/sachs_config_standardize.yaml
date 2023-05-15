@@ -38,7 +38,7 @@ trainer:
         log_onto_logger: true
     - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
       init_args:
-        save_path: experiments/sweep/phasechanging-save-path/smart-non_parametric_non_linear_gaussian_10_2048_chain-2023-05-15-14-33-56
+        save_path: experiments/final_runs/sachs/standardize
         save_every_n_epochs: null
         log_every_n_epochs: 5
         num_samples: 5000
@@ -83,6 +83,10 @@ data:
   init_args:
     batch_size: 128
     dataset: ocd.data.real_world.sachs.SachsOCDDataset
+    dataset_args:
+      name: sachs_standardized
+      standardization: True
+      reject_outliers_n_far_from_mean: 5
     val_size: 0.01
 model:
   class_path: ocd.training.module.OCDafTrainingModule
