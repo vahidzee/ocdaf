@@ -43,8 +43,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
 
@@ -80,8 +88,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
 
@@ -117,8 +133,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
               scheduler_args:
@@ -153,8 +177,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
               scheduler_args:
@@ -189,8 +221,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
               scheduler_args:
@@ -225,8 +265,16 @@ sweep_configuration:
                         step_size = 2.0 / tot_epochs_on_exp
                         if not hasattr(training_module, 'last_std'):
                           training_module.last_std = 2.0
-                        if training_module.current_phase != 'maximization':
+                        
+                        # if you don't have the epoch from before then assign it
+                        if not hasattr(training_module, 'last_epoch_std_sched'):
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+                        
+                        if training_module.current_phase != 'maximization' and training_module.last_epoch_std_sched != training_module.current_epoch:
                           training_module.last_std -= step_size
+                        
+                        training_module.last_epoch_std_sched = training_module.current_epoch
+
                         return training_module.last_std
                     function_of_interest: func
               scheduler_args:
@@ -257,7 +305,34 @@ sweep_configuration:
             init_args:
               model_args:
                 permutation_learner_args:
-                  gumbel_noise_std: sweep_as_is
+                  gumbel_noise_std: >
+                    sweep_eval(lambda x: x)
+    sweep_group_scheduling_C:
+      sweep_identifier: lr_patience
+      sweep: True
+      sweep_alias:
+        - double
+        - same
+      values:
+        - model:
+            init_args:
+              scheduler_args:
+                - mode: min
+                  patience: >
+                    sweep_eval(lambda x: 2 * x)
+                - mode: min
+                  patience: >
+                    sweep_eval(lambda x: 2 * x)
+        - model:
+            init_args:
+              scheduler_args:
+                - mode: min
+                  patience: >
+                    sweep_eval(lambda x: x)
+                - mode: min
+                  patience: >
+                    sweep_eval(lambda x: x)
+
     # model:
     #   init_args:
     #     model_args:
@@ -311,7 +386,7 @@ sweep_configuration:
     #     - optimizer_args:
     #         - weight_decay: 0.1
     #         - weight_decay: 0.01
-    sweep_group_datasets:
+    sweep_group_datasets_A:
       sweep_identifier: Dataset
       sweep: True
       sweep_alias:
@@ -496,7 +571,8 @@ sweep_configuration:
                 scale_transform_t_args:
                   pre_act_scale: 0.01
                   post_act_scale: 100.
-    sweep_group_seed_data:
+    sweep_group_datasets_B:
+      sweep_identifier: dataseed
       sweep: True
       sweep_alias:
         - seed0
@@ -518,7 +594,7 @@ sweep_configuration:
               dataset_args:
                 scm_generator_args:
                   seed: 120
-    sweep_group_limited_basis_toggle:
+    sweep_group_datasets_C:
       sweep_identifier: toggle_limit_basis
       sweep: True
       sweep_alias:
@@ -530,7 +606,8 @@ sweep_configuration:
               model_args:
                 permutation_learner_args:
                   # Don't change for that particular sweep and let it be limited basis
-                  maximum_basis_size: sweep_as_is
+                  maximum_basis_size: >
+                    sweep_eval(lambda x: x)
         - model:
             init_args:
               model_args:
