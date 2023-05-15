@@ -1,4 +1,4 @@
-from src.base import AbstractBaseline
+from source.base import AbstractBaseline
 from cdt.causality.graph import CAM as CDT_CAM
 import networkx as nx
 import typing as th
@@ -25,6 +25,7 @@ class CAM(AbstractBaseline):
         self.verbose = verbose
         if self.linear:
             raise NotImplementedError("Linear CAM does not work!")
+
     def estimate_order(self):
         samples = self.get_data(conversion="pandas")
         graph = CDT_CAM(
