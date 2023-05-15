@@ -1,10 +1,10 @@
 callbacks:
-  - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+  - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
     init_args:
-      dirpath: experiments/intervention/fixedv7/checkpoints/10
+      dirpath: experiments/intervention/discovery/checkpoints/3
       verbose: true
       save_top_k: -1 # save all models
-      every_n_epochs: 100 # save on phase change
+      every_n_epochs: 1 # save on phase change
   # - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
   - class_path: lightning.pytorch.callbacks.LearningRateMonitor
     init_args:
@@ -20,6 +20,23 @@ callbacks:
       k: 7.5
       num_samples: 100
       num_interventions: 500
+  # Phase changer
+  - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+    init_args:
+      starting_phase: maximization
+      # The settings regarding epoch limit values
+      maximization_epoch_limit: 120
+      expectation_epoch_limit: 50
+      # The settings regarding the generalization gap
+      patience: 25
+      threshold: 0.0001
+      cooldown: 120
+      reset_optimizers: False
+      reinitialize_weights_on_maximization: False
+  # Permutation results
+  - class_path: ocd.training.callbacks.intervention_discovery.PermutationEvaluationCallback
+    init_args:
+      every_n_epochs: 25
 accelerator: gpu
 devices: 1
 num_nodes: 0
@@ -33,6 +50,4 @@ logger:
   class_path: lightning.pytorch.loggers.WandbLogger
   init_args:
     project: interventions-v7
-    name: chain-10-reduce_platue
-gradient_clip_val: 1.0
-gradient_clip_algorithm: value
+    name: chain-3-discovery
