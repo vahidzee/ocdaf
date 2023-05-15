@@ -23,13 +23,14 @@ all_evaluation_metrics = {
 class PermutationEvaluationCallback(Callback):
     def __init__(
         self,
-        every_n_epochs: th.Optional[int] = None,
-        num_samples: int = 1000,
+        every_n_epochs: int = 1,
+        on_maximization: bool = False, # only run on expectation
+        num_samples: th.Optional[int] = None, # use batch_size instead
         evaluation_metrics: th.Optional[th.List[str]] = None,
     ):
         self.every_n_epochs = every_n_epochs
         self.num_samples = num_samples
-        
+        self.on_maximization = on_maximization
         self.evaluation_metrics = {}
         if evaluation_metrics is not None:
             for metric_name in evaluation_metrics:
@@ -83,6 +84,7 @@ class PermutationEvaluationCallback(Callback):
     def on_fit_start(self, trainer: Trainer, pl_module: TrainingModule) -> None:
         data = trainer.datamodule.data.data
         n = data.shape[-1]
+        self.num_samples = self.num_samples if self.num_samples is not None else trainer.datamodule.train_batch_size
         self.causal_graph = nx.DiGraph()
         # create a chain graph of size n
         for i in range(n):
@@ -93,6 +95,9 @@ class PermutationEvaluationCallback(Callback):
         return super().on_fit_start(trainer, pl_module)
     
     def on_train_epoch_end(self, trainer: Trainer, pl_module: TrainingModule) -> None:
+        if not self.on_maximization and (
+            getattr(pl_module.model, "current_phase", "maximization") == "maximization"):
+            return super().on_train_epoch_end(trainer, pl_module)
         if self.every_n_epochs and trainer.current_epoch % self.every_n_epochs == 0:
             self._log_results(pl_module)
         return super().on_train_epoch_end(trainer, pl_module)
