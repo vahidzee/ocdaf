@@ -41,7 +41,7 @@ data:
   class_path: lightning_toolbox.DataModule
   init_args:
     batch_size: 128
-    val_size: 0.1
+    val_size: 0.01
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
       observation_size: 1000
@@ -60,7 +60,7 @@ model:
       permutation_learner_cls: ocd.models.permutation.LearnablePermutation
       permutation_learner_args:
         gumbel_noise_std: >
-          lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+          lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
         permutation_type: hybrid-sparse-map-simulator
       # Base distribution arguments
       base_distribution: torch.distributions.Normal
@@ -86,6 +86,7 @@ model:
         negative_slope: 0.1
 
     # the optimizer
+    lr: [0.01, 0.01]
     optimizer: [torch.optim.AdamW, torch.optim.AdamW]
     optimizer_args:
       - weight_decay: 0.01
@@ -98,6 +99,23 @@ model:
         lambda training_module: training_module.current_phase == 'maximization' if hasattr(training_module, 'current_phase') else True
       - >
         lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True
+    scheduler:
+      - torch.optim.lr_scheduler.ReduceLROnPlateau
+      - torch.optim.lr_scheduler.ReduceLROnPlateau
+    scheduler_args:
+      - mode: min
+        factor: 0.5
+        patience: 10
+        min_lr: 0.000005
+        threshold: 0.0001
+      - mode: min
+        factor: 0.5
+        patience: 10
+        min_lr: 0.000005
+        threshold: 0.0001
+    scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
+    scheduler_optimizer: [0, 1]
+    scheduler_monitor: ["loss", "loss"]
     grad_clip_val: 1.0
     objective_args:
       nll:

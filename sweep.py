@@ -281,7 +281,7 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 if isinstance(val, dict):
                     new_args = overwrite_args(args[args_key], val)
                     args[args_key] = new_args
-                else:
+                elif val != SWEEP_AS_IS:
                     args[args_key] = val
     else:
         all_sweep_group_keys = []
@@ -292,7 +292,7 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 elif isinstance(val, dict):
                     new_args = overwrite_args(getattr(args, key), val)
                     setattr(args, key, new_args)
-                else:
+                elif val != SWEEP_AS_IS:
                     setattr(args, key, val)
         elif isinstance(args, dict):
             is_list_pretender = True
@@ -311,7 +311,7 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                     elif isinstance(val, dict):
                         new_args = overwrite_args(args[key] if key in args else None, val)
                         args[key] = new_args
-                    else:
+                    elif val != SWEEP_AS_IS:
                         args[key] = val
         elif isinstance(sweep_config, str) and sweep_config == SWEEP_AS_IS:
             return args

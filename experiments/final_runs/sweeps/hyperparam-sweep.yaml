@@ -16,18 +16,9 @@ sweep_configuration:
         sweep: True
         sweep_identifier: PhaseChanging
         sweep_alias:
-          - maximization50expectation20
           - maximization100expectation50
-          - maximization200expectation50
           - maximization200expectation100
         values:
-          - sweep_list_operations:
-              - sweep_overwrite: 0
-            init_args:
-              maximization_epoch_limit: 50
-              expectation_epoch_limit: 20
-              patience: 10
-              cooldown: 10
           - sweep_list_operations:
               - sweep_overwrite: 0
             init_args:
@@ -39,19 +30,36 @@ sweep_configuration:
               - sweep_overwrite: 0
             init_args:
               maximization_epoch_limit: 200
-              expectation_epoch_limit: 50
-              patience: 20
-              cooldown: 200
-          - sweep_list_operations:
-              - sweep_overwrite: 0
-            init_args:
-              maximization_epoch_limit: 200
               expectation_epoch_limit: 100
               patience: 20
               cooldown: 200
     model:
       init_args:
         model_args:
+          sweep_group_scale_transform:
+            sweep: True
+            sweep_identifier: scale_transform
+            sweep_alias:
+              - noScale
+              - looseScale
+              - withScale
+            values:
+              - scale_transform: false
+              - scale_transform: true
+                scale_transform_s_args:
+                  pre_act_scale: 0.4
+                  post_act_scale: 5.
+                scale_transform_t_args:
+                  pre_act_scale: 0.1
+                  post_act_scale: 10.
+              - scale_transform: true
+                scale_transform_s_args:
+                  pre_act_scale: 0.1
+                  post_act_scale: 10.
+                scale_transform_t_args:
+                  pre_act_scale: 0.01
+                  post_act_scale: 100.
+
           sweep_group_architecture:
             sweep_identifier: MLPArchitecture
             sweep: True
@@ -62,16 +70,9 @@ sweep_configuration:
               - layers: [5, 15, 5]
                 populate_features: True
                 layers_limit: [100, 300, 50]
-              - layers: [10, 30, 30, 10]
-                layers_limit: [50, 200, 200, 50]
+              - layers: [10, 30, 10]
                 populate_features: True
-        lr:
-          - sweep: True
-            sweep_identifier: lr_flow
-            values: [0.01, 0.05]
-          - sweep: True
-            sweep_identifier: lr_gamma
-            values: [0.01, 0.001]
+                layers_limit: [100, 300, 50]
         sweep_group_weight_decay:
           sweep_identifier: WeightDecay
           sweep: True
@@ -80,62 +81,61 @@ sweep_configuration:
             - large_weight
           values:
             - optimizer_args:
-                - weight_decay: 0.1
+                - weight_decay: 0.01
                 - weight_decay: 0.01
             - optimizer_args:
-                - weight_decay: 1
-                - weight_decay: 0.05
-    seed_everything: 42
+                - weight_decay: 0.1
+                - weight_decay: 0.01
 
     sweep_group_datasets:
       sweep_identifier: DataBasisSizeAndEpoch
       sweep: True
       sweep_alias:
-        - Sin-Erdos-25-Epoch-6000
+        # - Sin-Erdos-25-Epoch-6000
         - NonParam-Chain-10-Epoch-3000
         - Cube-Full-5-Epoch-1500
-        - Sin-Full-3-Epoch-300
+        - Sin-Full-3-Epoch-600
       values:
-        - data:
-            init_args:
-              dataset_args:
-                name: parametric_normal_modulated_25_2048_erdos_renyi_sin_plus_x
-                scm_generator: ocd.data.synthetic.ParametricSCMGenerator
-                scm_generator_args:
-                  graph_generator: ocd.data.scm.GraphGenerator
-                  graph_generator_args:
-                    graph_type: erdos_renyi
-                    n: 25
-                    p: 0.4
-                    seed: 282
-                  noise_parameters: { loc: 0.0, scale: 1.0 }
-                  noise_type: normal
-                  s_function:
-                    function_descriptor: |
-                      def func(x):
-                        x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-                        return x
-                    function_of_interest: func
-                  s_function_signature: softplus
-                  seed: 979
-                  t_function:
-                    function_descriptor: |
-                      def func(x):
-                        return numpy.sin(x) + x
-                    function_of_interest: func
-                  t_function_signature: sin_plus_x
-                  weight_s: [0.5, 1.5]
-                  weight_t: [0.5, 1.5]
-          trainer:
-            max_epochs: 6000
-          model:
-            init_args:
-              model_args:
-                permutation_learner_args:
-                  maximum_basis_size: 64
-              scheduler_args:
-                - patience: 100
-                - patience: 100
+        # - data:
+        #     init_args:
+        #       dataset_args:
+        #         name: parametric_normal_modulated_25_2048_erdos_renyi_sin_plus_x
+        #         scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+        #         scm_generator_args:
+        #           graph_generator: ocd.data.scm.GraphGenerator
+        #           graph_generator_args:
+        #             graph_type: erdos_renyi
+        #             n: 25
+        #             p: 0.4
+        #             seed: 282
+        #           noise_parameters: { loc: 0.0, scale: 1.0 }
+        #           noise_type: normal
+        #           s_function:
+        #             function_descriptor: |
+        #               def func(x):
+        #                 x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+        #                 return x
+        #             function_of_interest: func
+        #           s_function_signature: softplus
+        #           seed: 979
+        #           t_function:
+        #             function_descriptor: |
+        #               def func(x):
+        #                 return numpy.sin(x) + x
+        #             function_of_interest: func
+        #           t_function_signature: sin_plus_x
+        #           weight_s: [0.5, 1.5]
+        #           weight_t: [0.5, 1.5]
+        #   trainer:
+        #     max_epochs: 6000
+        #   model:
+        #     init_args:
+        #       model_args:
+        #         permutation_learner_args:
+        #           maximum_basis_size: 64
+        #       scheduler_args:
+        #         - patience: 100
+        #         - patience: 100
         - data:
             init_args:
               dataset_args:
@@ -259,7 +259,7 @@ sweep_configuration:
                   weight_s: [0.5, 1.5]
                   weight_t: [0.5, 1.5]
           trainer:
-            max_epochs: 300
+            max_epochs: 600
           model:
             init_args:
               model_args:
@@ -268,3 +268,42 @@ sweep_configuration:
               scheduler_args:
                 - patience: 10
                 - patience: 10
+    sweep_group_seed_data:
+      sweep: True
+      sweep_alias:
+        - seed0
+        - seed1
+        - seed2
+      values:
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  seed: 10
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  seed: 111
+        - data:
+            init_args:
+              dataset_args:
+                scm_generator_args:
+                  seed: 120
+    sweep_group_limited_basis_toggle:
+      sweep_identifier: toggle_limit_basis
+      sweep: True
+      sweep_alias:
+        - limited
+        - unlimited(64)
+      values:
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  maximum_basis_size: sweep_as_is
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  maximum_basis_size: 64
