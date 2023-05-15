@@ -11,90 +11,314 @@ sweep_configuration:
     goal: minimize
     name: metrics/average-backward_relative_penalty
   parameters:
-    trainer:
-      callbacks:
-        sweep: True
-        sweep_identifier: PhaseChanging
-        sweep_alias:
-          - maximization100expectation50
-          - maximization200expectation100
-        values:
-          - sweep_list_operations:
-              - sweep_overwrite: 0
-            init_args:
-              maximization_epoch_limit: 100
-              expectation_epoch_limit: 50
-              patience: 15
-              cooldown: 100
-          - sweep_list_operations:
-              - sweep_overwrite: 0
-            init_args:
-              maximization_epoch_limit: 200
-              expectation_epoch_limit: 100
-              patience: 20
-              cooldown: 200
-    model:
-      init_args:
-        model_args:
-          sweep_group_scale_transform:
-            sweep: True
-            sweep_identifier: scale_transform
-            sweep_alias:
-              - noScale
-              - looseScale
-              - withScale
-            values:
-              - scale_transform: false
-              - scale_transform: true
-                scale_transform_s_args:
-                  pre_act_scale: 0.4
-                  post_act_scale: 5.
-                scale_transform_t_args:
-                  pre_act_scale: 0.1
-                  post_act_scale: 10.
-              - scale_transform: true
-                scale_transform_s_args:
-                  pre_act_scale: 0.1
-                  post_act_scale: 10.
-                scale_transform_t_args:
-                  pre_act_scale: 0.01
-                  post_act_scale: 100.
-
-          sweep_group_architecture:
-            sweep_identifier: MLPArchitecture
-            sweep: True
-            sweep_alias:
-              - Simple
-              - Complex
-            values:
-              - layers: [5, 15, 5]
-                populate_features: True
-                layers_limit: [100, 300, 50]
-              - layers: [10, 30, 10]
-                populate_features: True
-                layers_limit: [100, 300, 50]
-        sweep_group_weight_decay:
-          sweep_identifier: WeightDecay
-          sweep: True
-          sweep_alias:
-            - medium_weight
-            - large_weight
-          values:
-            - optimizer_args:
-                - weight_decay: 0.01
-                - weight_decay: 0.01
-            - optimizer_args:
-                - weight_decay: 0.1
-                - weight_decay: 0.01
-
-    sweep_group_datasets:
-      sweep_identifier: DataBasisSizeAndEpoch
+    sweep_group_scheduling_A:
+      sweep_identifier: scheduling
       sweep: True
       sweep_alias:
-        # - Sin-Erdos-25-Epoch-6000
-        - NonParam-Chain-10-Epoch-3000
-        - Cube-Full-5-Epoch-1500
-        - Sin-Full-3-Epoch-600
+        - epoch6000max200exp100
+        - epoch6000max200exp200
+        - epoch3000max100exp50
+        - epoch3000max100exp100
+        - epoch600max60exp60
+        - epoch600max60exp30
+      values:
+        - trainer:
+            max_epochs: 6000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 200
+                expectation_epoch_limit: 100
+                patience: 15
+                cooldown: 200
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 6000 / 300 * 100
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 50
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 50
+                  min_lr: 0.000005
+                  threshold: 0.0001
+        - trainer:
+            max_epochs: 6000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 200
+                expectation_epoch_limit: 200
+                patience: 15
+                cooldown: 200
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 6000 / 400 * 200
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 50
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 50
+                  min_lr: 0.000005
+                  threshold: 0.0001
+        - trainer:
+            max_epochs: 3000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 100
+                expectation_epoch_limit: 50
+                patience: 15
+                cooldown: 100
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 3000 / 150 * 50
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 30
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 30
+                  min_lr: 0.000005
+                  threshold: 0.0001
+        - trainer:
+            max_epochs: 3000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 100
+                expectation_epoch_limit: 100
+                patience: 15
+                cooldown: 100
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 3000 / 200 * 100
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 30
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 30
+                  min_lr: 0.000005
+                  threshold: 0.0001
+        - trainer:
+            max_epochs: 600
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 60
+                expectation_epoch_limit: 60
+                patience: 15
+                cooldown: 100
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 600 / 90 * 60
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 10
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 10
+                  min_lr: 0.000005
+                  threshold: 0.0001
+        - trainer:
+            max_epochs: 600
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 60
+                expectation_epoch_limit: 30
+                patience: 15
+                cooldown: 100
+          model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std:
+                    code: |
+                      def func(self, training_module, **kwargs):
+                        tot_epochs_on_exp = 600 / 90 * 30
+                        step_size = 2.0 / tot_epochs_on_exp
+                        if not hasattr(training_module, 'last_std'):
+                          training_module.last_std = 2.0
+                        if training_module.current_phase != 'maximization':
+                          training_module.last_std -= step_size
+                        return training_module.last_std
+                    function_of_interest: func
+              scheduler_args:
+                - mode: min
+                  factor: 0.8
+                  patience: 10
+                  min_lr: 0.000005
+                  threshold: 0.0001
+                - mode: min
+                  factor: 0.8
+                  patience: 10
+                  min_lr: 0.000005
+                  threshold: 0.0001
+    sweep_group_scheduling_B:
+      sweep_identifier: gumbel_std
+      sweep: True
+      sweep_alias:
+        - linear
+        - no_change_on_maxim
+      values:
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std: >
+                    lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+        - model:
+            init_args:
+              model_args:
+                permutation_learner_args:
+                  gumbel_noise_std: sweep_as_is
+    # model:
+    #   init_args:
+    #     model_args:
+    #       sweep_group_scale_transform:
+    #         sweep: True
+    #         sweep_identifier: scale_transform
+    #         sweep_alias:
+    #           - noScale
+    #           - looseScale
+    #           - withScale
+    #         values:
+    #           - scale_transform: false
+    #           - scale_transform: true
+    #             scale_transform_s_args:
+    #               pre_act_scale: 0.4
+    #               post_act_scale: 5.
+    #             scale_transform_t_args:
+    #               pre_act_scale: 0.1
+    #               post_act_scale: 10.
+    #           - scale_transform: true
+    #             scale_transform_s_args:
+    #               pre_act_scale: 0.1
+    #               post_act_scale: 10.
+    #             scale_transform_t_args:
+    #               pre_act_scale: 0.01
+    #               post_act_scale: 100.
+
+    # sweep_group_architecture:
+    #   sweep_identifier: MLPArchitecture
+    #   sweep: True
+    #   sweep_alias:
+    #     - Simple
+    #     - Complex
+    #   values:
+    #     - layers: [5, 15, 5]
+    #       populate_features: True
+    #       layers_limit: [100, 300, 50]
+    #     - layers: [10, 30, 10]
+    #       populate_features: True
+    #       layers_limit: [100, 300, 50]
+    # sweep_group_weight_decay:
+    #   sweep_identifier: WeightDecay
+    #   sweep: True
+    #   sweep_alias:
+    #     - medium_weight
+    #     - large_weight
+    #   values:
+    #     - optimizer_args:
+    #         - weight_decay: 0.01
+    #         - weight_decay: 0.01
+    #     - optimizer_args:
+    #         - weight_decay: 0.1
+    #         - weight_decay: 0.01
+    sweep_group_datasets:
+      sweep_identifier: Dataset
+      sweep: True
+      sweep_alias:
+        # - Sin-Erdos-25
+        - NonParam-Chain-10
+        - Cube-Full-5
+        - Sin-Full-3
       values:
         # - data:
         #     init_args:
@@ -126,16 +350,11 @@ sweep_configuration:
         #           t_function_signature: sin_plus_x
         #           weight_s: [0.5, 1.5]
         #           weight_t: [0.5, 1.5]
-        #   trainer:
-        #     max_epochs: 6000
         #   model:
         #     init_args:
         #       model_args:
         #         permutation_learner_args:
         #           maximum_basis_size: 64
-        #       scheduler_args:
-        #         - patience: 100
-        #         - patience: 100
         - data:
             init_args:
               dataset_args:
@@ -168,11 +387,16 @@ sweep_configuration:
                   t_mean_function_activation_signature: sin_plus_x
                   t_mean_function_weights: [0.01, 0.1]
                   t_variance_rbf_kernel: 1.0
-          trainer:
-            max_epochs: 3000
           model:
             init_args:
               model_args:
+                scale_transform: true
+                scale_transform_s_args:
+                  pre_act_scale: 0.1
+                  post_act_scale: 10.
+                scale_transform_t_args:
+                  pre_act_scale: 0.01
+                  post_act_scale: 100.
                 permutation_learner_args:
                   maximum_basis_size: 64
               scheduler_args:
@@ -217,16 +441,18 @@ sweep_configuration:
                   t_function_signature: cube_and_dislocate
                   weight_s: [0.5, 1.5]
                   weight_t: [0.5, 1.5]
-          trainer:
-            max_epochs: 1500
           model:
             init_args:
               model_args:
+                scale_transform: true
+                scale_transform_s_args:
+                  pre_act_scale: 0.1
+                  post_act_scale: 10.
+                scale_transform_t_args:
+                  pre_act_scale: 0.01
+                  post_act_scale: 100.
                 permutation_learner_args:
                   maximum_basis_size: 10
-              scheduler_args:
-                - patience: 50
-                - patience: 50
         - data:
             init_args:
               dataset_args:
@@ -258,16 +484,18 @@ sweep_configuration:
                   t_function_signature: sin_plus_x
                   weight_s: [0.5, 1.5]
                   weight_t: [0.5, 1.5]
-          trainer:
-            max_epochs: 600
           model:
             init_args:
               model_args:
                 permutation_learner_args:
                   maximum_basis_size: 10
-              scheduler_args:
-                - patience: 10
-                - patience: 10
+                scale_transform: true
+                scale_transform_s_args:
+                  pre_act_scale: 0.1
+                  post_act_scale: 10.
+                scale_transform_t_args:
+                  pre_act_scale: 0.01
+                  post_act_scale: 100.
     sweep_group_seed_data:
       sweep: True
       sweep_alias:
@@ -301,6 +529,7 @@ sweep_configuration:
             init_args:
               model_args:
                 permutation_learner_args:
+                  # Don't change for that particular sweep and let it be limited basis
                   maximum_basis_size: sweep_as_is
         - model:
             init_args:
