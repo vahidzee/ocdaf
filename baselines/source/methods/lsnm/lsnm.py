@@ -3,12 +3,12 @@
 # under the GNU Affero General Public License v3.0
 # Copy right belongs to the original author https://github.com/paulrolland1307
 
-from src.base import AbstractBaseline  # also adds ocd to sys.path
-from src.utils import full_DAG
+from source.base import AbstractBaseline  # also adds ocd to sys.path
+from source.utils import full_DAG
 import typing as th
 import numpy as np
 import networkx as nx
-from src.methods.lsnm.loci import loci
+from source.methods.lsnm.loci import loci
 
 
 class LSNM(AbstractBaseline):
@@ -18,7 +18,7 @@ class LSNM(AbstractBaseline):
         dataset_args: th.Optional[th.Dict[str, th.Any]] = None,
         # hyperparameters
         standardize: bool = False,
-        verbose: bool = False,
+        verbose: bool = True,
         independence_test: bool = True,
         neural_network: bool = True,
         n_steps: int = 1000,

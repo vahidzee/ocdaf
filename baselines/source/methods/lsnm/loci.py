@@ -1,12 +1,12 @@
 import numpy as np
 import torch
 from torch import nn
-from src.methods.lsnm.utils import TensorDataLoader
+from source.methods.lsnm.utils import TensorDataLoader
 from sklearn.preprocessing import StandardScaler, SplineTransformer
 
-from src.methods.lsnm.hsic import HSIC
-from src.methods.lsnm.het_ridge import convex_fgls
-from src.methods.lsnm.ml import map_optimization
+from source.methods.lsnm.hsic import HSIC
+from source.methods.lsnm.het_ridge import convex_fgls
+from source.methods.lsnm.ml import map_optimization
 
 
 def set_seed(seed):

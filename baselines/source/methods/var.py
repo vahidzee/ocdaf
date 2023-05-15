@@ -3,8 +3,8 @@
 # under the GNU Affero General Public License v3.0
 # Copy right belongs to the original author https://github.com/paulrolland1307
 
-from src.base import AbstractBaseline  # also adds ocd to sys.path
-from src.utils import full_DAG
+from source.base import AbstractBaseline  # also adds ocd to sys.path
+from source.utils import full_DAG
 import torch
 import typing as th
 import numpy as np

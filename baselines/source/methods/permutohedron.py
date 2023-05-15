@@ -32,9 +32,9 @@ from daguerreo.evaluation import count_accuracy  # type: ignore
 import networkx as nx
 import typing as th
 import torch
-import wandb 
+import wandb
 
-from src.base import AbstractBaseline
+from source.base import AbstractBaseline
 
 
 class Permutohedron(AbstractBaseline):
@@ -64,7 +64,7 @@ class Permutohedron(AbstractBaseline):
         self.args.num_epochs = 5000  # default max epochs is 5000
         self.args.joint = joint
         self.samples = self.get_data(conversion="tensor").double()
-        self.args.structure = 'sp_map' if sp_map else 'tk_sp_max'
+        self.args.structure = "sp_map" if sp_map else "tk_sp_max"
 
     @staticmethod
     def _estimate_order_dat(samples, args, seed):
@@ -83,7 +83,7 @@ class Permutohedron(AbstractBaseline):
         # log_dict |= count_accuracy(samples.cpu().detach().numpy(), estimated_adj)
         # print(log_dict)
         orders = list(nx.topological_sort(g))
-        
+
         return g, orders
 
     def estimate_order(self):
