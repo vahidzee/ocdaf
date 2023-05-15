@@ -33,14 +33,14 @@ sweep_configuration:
               maximization_epoch_limit: 100
               expectation_epoch_limit: 50
               patience: 15
-              cooldown: 25
+              cooldown: 100
           - sweep_list_operations:
               - sweep_overwrite: 0
             init_args:
               maximization_epoch_limit: 200
               expectation_epoch_limit: 50
               patience: 20
-              cooldown: 50
+              cooldown: 200
     model:
       init_args:
         model_args:
