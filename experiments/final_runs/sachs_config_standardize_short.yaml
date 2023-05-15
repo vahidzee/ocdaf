@@ -47,7 +47,7 @@ trainer:
         evaluation_metrics: null
         ignore_evaluation_metrics:
           - pc-shd
-  max_epochs: 10000
+  max_epochs: 3000
   max_steps: -1
   min_steps: null
   max_time: null
@@ -83,6 +83,10 @@ data:
   init_args:
     batch_size: 128
     dataset: ocd.data.real_world.sachs.SachsOCDDataset
+    dataset_args:
+      name: sachs_standardized
+      standardization: True
+      reject_outliers_n_far_from_mean: 5
     val_size: 0.01
 model:
   class_path: ocd.training.module.OCDafTrainingModule
@@ -105,7 +109,7 @@ model:
         gumbel_noise_std:
           code:
             "def func(self, training_module, **kwargs):\n  tot_epochs_on_exp =\
-            \ 10000 / 150 * 50\n  step_size = 2.0 / tot_epochs_on_exp\n  if not hasattr(training_module,\
+            \ 3000 / 150 * 50\n  step_size = 2.0 / tot_epochs_on_exp\n  if not hasattr(training_module,\
             \ 'last_std'):\n    training_module.last_std = 2.0\n  \n  # if you don't\
             \ have the epoch from before then assign it\n  if not hasattr(training_module,\
             \ 'last_epoch_std_sched'):\n    training_module.last_epoch_std_sched =\
