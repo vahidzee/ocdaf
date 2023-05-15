@@ -20,6 +20,8 @@ import shutil
 from wandb.sdk.wandb_config import Config
 import json
 from random_word import RandomWords
+import dypy as dy
+import re
 
 SEPARATOR = "__CUSTOM_SEPERATOR__"
 IDX_INDICATOR = "__IDX__"
@@ -32,7 +34,7 @@ SWEEP_LIST_OPERATIONS = "sweep_list_operations"
 SWEEP_LIST_INSERT = "sweep_insert"
 SWEEP_LIST_REMOVE = "sweep_remove"
 SWEEP_LIST_OVERWRITE = "sweep_overwrite"
-SWEEP_AS_IS = "sweep_as_is"
+SWEEP_OPERATION_VAL = "sweep_eval"
 SPLIT = "-"
 
 # Create a sweep dataclass to store the sweep configuration
@@ -247,53 +249,76 @@ def flatten_sweep_config(tree_conf: dict):
 
 # overwrite args recursively
 def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
-    
-    if isinstance(args, list):    
-        if SWEEP_LIST_OPERATIONS in sweep_config:
-            ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
-            for op in ops:
-                if len(op.keys()) != 1:
-                    raise Exception("Any sweep list operation should be a dictionary with a single key")
-                if SWEEP_LIST_INSERT in op:
-                    idx = op[SWEEP_LIST_INSERT]
-                    if not isinstance(idx, int):
-                        raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
-                    if idx == -1:
-                        args.append(sweep_config)
+    if isinstance(args, list): 
+        if isinstance(sweep_config, dict):   
+            if SWEEP_LIST_OPERATIONS in sweep_config:
+                ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
+                for op in ops:
+                    if len(op.keys()) != 1:
+                        raise Exception("Any sweep list operation should be a dictionary with a single key")
+                    if SWEEP_LIST_INSERT in op:
+                        idx = op[SWEEP_LIST_INSERT]
+                        if not isinstance(idx, int):
+                            raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
+                        if idx == -1:
+                            args.append(sweep_config)
+                        else:
+                            args.insert(idx, sweep_config)
+                    elif SWEEP_LIST_OVERWRITE in op:
+                        idx = op[SWEEP_LIST_OVERWRITE]
+                        if not isinstance(idx, int):
+                            raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
+                        new_arg = overwrite_args(args[idx], sweep_config)
+                        args[idx] = new_arg
+                    elif SWEEP_LIST_REMOVE in op:
+                        idx = op[SWEEP_LIST_REMOVE]
+                        if not isinstance(idx, int):
+                            raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
+                        args.pop(idx)
                     else:
-                        args.insert(idx, sweep_config)
-                elif SWEEP_LIST_OVERWRITE in op:
-                    idx = op[SWEEP_LIST_OVERWRITE]
-                    if not isinstance(idx, int):
-                        raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
-                    new_arg = overwrite_args(args[idx], sweep_config)
-                    args[idx] = new_arg
-                elif SWEEP_LIST_REMOVE in op:
-                    idx = op[SWEEP_LIST_REMOVE]
-                    if not isinstance(idx, int):
-                        raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
-                    args.pop(idx)
+                        raise Exception(f"Unknown sweep list operation: {op}")
+            else:
+                for key, val in sweep_config.items():
+                    args_key = int(key[len(IDX_INDICATOR) :])
+                    if isinstance(val, dict) or isinstance(val, list):
+                        new_args = overwrite_args(args[args_key], val)
+                        args[args_key] = new_args
+                        
+                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
+                        args[args_key] = val
+                    else:
+                        pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                        func_to_eval = re.search(pat, val).group(1)
+                        args[args_key] = dy.eval(func_to_eval)(args[args_key])
+        elif isinstance(sweep_config, list):
+            if len(sweep_config) != len(args):
+                raise Exception(f"Expected a list of length {len(args)} but got a list of length {len(sweep_config)}")
+            for idx, val in enumerate(sweep_config):
+                if isinstance(val, dict) or isinstance(val, list):
+                    new_args = overwrite_args(args[idx], val)
+                    args[idx] = new_args
+                elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
+                    args[idx] = val
                 else:
-                    raise Exception(f"Unknown sweep list operation: {op}")
-        else:
-            for key, val in sweep_config.items():
-                args_key = int(key[len(IDX_INDICATOR) :])
-                if isinstance(val, dict):
-                    new_args = overwrite_args(args[args_key], val)
-                    args[args_key] = new_args
-                elif val != SWEEP_AS_IS:
-                    args[args_key] = val
+                    pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                    func_to_eval = re.search(pat, val).group(1)
+                    args[idx] = dy.eval(func_to_eval)(args[idx])
+                    
     else:
         all_sweep_group_keys = []
         if isinstance(args, Namespace):
             for key, val in sweep_config.items():
                 if key.startswith(SWEEP_GROUP):
                     all_sweep_group_keys.append(key)
-                elif isinstance(val, dict):
+                elif isinstance(val, dict) or isinstance(val, list):
                     new_args = overwrite_args(getattr(args, key), val)
                     setattr(args, key, new_args)
-                elif val != SWEEP_AS_IS:
+                elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1:
                     setattr(args, key, val)
+                else:
+                    pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                    func_to_eval = re.search(pat, val).group(1)
+                    setattr(args, key, dy.eval(func_to_eval)(getattr(args, key)))
         elif isinstance(args, dict):
             is_list_pretender = True
             for key in args.keys():
@@ -308,13 +333,19 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
                 for key, val in sweep_config.items():
                     if key.startswith(SWEEP_GROUP):
                         all_sweep_group_keys.append(key)
-                    elif isinstance(val, dict):
+                    elif isinstance(val, dict) or isinstance(val, list):
                         new_args = overwrite_args(args[key] if key in args else None, val)
                         args[key] = new_args
-                    elif val != SWEEP_AS_IS:
+                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
                         args[key] = val
-        elif isinstance(sweep_config, str) and sweep_config == SWEEP_AS_IS:
-            return args
+                    else:
+                        pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                        func_to_eval = re.search(pat, val).group(1)
+                        args[key] = dy.eval(func_to_eval)(args[key])
+        elif isinstance(sweep_config, str) and sweep_config.find(SWEEP_OPERATION_VAL) != -1:
+            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+            func_to_eval = re.search(pat, sweep_config).group(1)
+            return dy.eval(func_to_eval)(args)
         else:
             return sweep_config
         # sort all_sweep_group_keys 
@@ -403,13 +434,15 @@ def sweep_run(args):
     
     sweep_config = decompress_parameter_config(sweep_config)
     sweep_config = unflatten_sweep_config(sweep_config)
-
     # make a copy of args
     args_copy = copy.deepcopy(args)
-    
+    sweep_save = copy.deepcopy(args.sweep)
+    use_smart_trainer = sweep_save.use_smart_trainer
+    # throwaway the sweep config
+    delattr(args_copy, "sweep")
     args_copy = overwrite_args(args_copy, sweep_config)
 
-    if args_copy.sweep.use_smart_trainer:
+    if use_smart_trainer:
         new_conf, _ = change_config_for_causal_discovery(
             args_copy, bypass_logger=True, 
         )
@@ -419,7 +452,8 @@ def sweep_run(args):
         #     os.makedirs(args_copy.sweep.default_root_dir / subdir)
         # new_conf["trainer"]["callbacks"][ind]["init_args"]["save_path"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
         args_copy = overwrite_args(args_copy, new_conf)
-
+    
+    args_copy.sweep = sweep_save
     # Add a checkpointing callback to the trainer
     if not checkpoint_dir.exists():
         checkpoint_dir.mkdir(parents=True)
@@ -489,7 +523,6 @@ if __name__ == "__main__":
     # turn the args.sweep.sweep_configuration into a dictionary
     sweep_conf_dict = convert_to_dict(args.sweep.sweep_configuration)
     sweep_conf_dict["parameters"] = parameter_config
-
     
     def custom_run():
         checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
