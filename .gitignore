@@ -162,7 +162,7 @@ experiments/smart-trainer-logs/*
 synthetic-tests/*
 
 # The configuration that Lightning Constantly makes
-config.yaml
+# config.yaml
 
 # Lightning checkpoints and logs
 *.ckpt
@@ -183,6 +183,6 @@ baselines/results/
 experiments/sweep/checkpoints-*
 experiments/sweep/phase-changing-save-path/*
 results/*
-*.json
+final-results.json
 *.slrm 
 

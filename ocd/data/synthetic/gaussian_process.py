@@ -33,6 +33,8 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
         s_mean_function_weights: th.Union[float, th.Tuple[float, float]] = (0.0, 0.0),
         s_mean_function_activation: th.Optional[th.Union[th.Callable, str, th.Dict[str, str]]] = None,
         s_mean_function_activation_signature: th.Optional[str] = None,
+        s_pos_function: th.Optional[th.Union[th.Callable, str, th.Dict[str, str]]] = None,
+        s_pos_function_signature: th.Optional[str] = 'softplus',
         t_gamma_rbf_kernel: th.Union[float, th.Tuple[float, float]] = 1.0,
         t_variance_rbf_kernel: th.Union[float, th.Tuple[float, float]] = 1.0,
         t_mean_function_weights: th.Union[float, th.Tuple[float, float]] = (0.0, 0.0),
@@ -95,6 +97,14 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
         elif isinstance(t_mean_function_activation, dict):
             self.t_mean_function_activation = dy.eval_function(**t_mean_function_activation)
         self.t_mean_function_signature = t_mean_function_activation_signature
+        
+        if s_pos_function is None:
+            self.s_pos_function = lambda x: numpy.log(1 + numpy.exp(x))
+        elif isinstance(s_pos_function, str):
+            self.s_pos_function = dy.eval(s_pos_function)
+        elif isinstance(s_pos_function, dict):
+            self.s_pos_function = dy.eval_function(**s_pos_function)
+        self.s_pos_function_signature = s_pos_function_signature
 
     def generate_node_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
         numpy.random.seed(seed)
@@ -160,7 +170,7 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
             t_values = t_mean * numpy.ones(noise.shape)
 
         # Turn all the s_values into positive by passing it through a softplus function
-        s_values = numpy.log(1 + numpy.exp(s_values))
+        s_values = self.s_pos_function(s_values)
 
         return t_values + s_values * noise
 
@@ -193,4 +203,4 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
             t_mean = f"{self.t_mean_function_signature}({t_mean})"
         s_kernel = f"RBF(gamma={node_parameters['s_gamma']:.2f}, bandwidth={node_parameters['s_var']:.2f})"
         t_kernel = f"RBF(gamma={node_parameters['t_gamma']:.2f}, bandwidth={node_parameters['t_var']:.2f})"
-        return f"GP(mean=[{t_mean}], var={t_kernel}) + GP(mean=[{s_mean}], var={s_kernel}) * {noise}"
+        return f"GP(mean=[{t_mean}], var={t_kernel}) + {self.s_mean_function_signature}(GP(mean=[{s_mean}], var={s_kernel})) * {noise}"

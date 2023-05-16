@@ -65,6 +65,7 @@ class Sweep:
     run_when_instantiate: bool = False
     use_smart_trainer: bool = False
     resume: bool = False
+    count: th.Optional[int] = None
 
 
 compression_mapping = {}
@@ -282,6 +283,7 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_pat
                             args.pop(idx)
                         else:
                             raise Exception(f"Unknown sweep list operation: {op}")
+                    sweep_config[SWEEP_LIST_OPERATIONS] = ops
                 else:
                     for key, val in sweep_config.items():
                         args_key = int(key[len(IDX_INDICATOR) :])
@@ -369,6 +371,8 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_pat
         print("current_path:", current_path)
         print("Exception:\n", e)
         print(traceback.format_exc())
+        print("While overwriting the following")
+        pprint(sweep_config)
         print("-----------")
         raise e
     return args
@@ -558,11 +562,14 @@ if __name__ == "__main__":
             sweep_run(args=args)
         else:
             # If resuming is not enabled, then get a new configuration and run
+            param = args.sweep.agent_run_args
+            if args.sweep.count is not None:
+                param["count"] = args.sweep.count
             wandb.agent(
                 sweep_id,
                 function=functools.partial(sweep_run, args=args),
                 project=args.sweep.project,
-                **args.sweep.agent_run_args,
+                **param,
             )
 
     if args.sweep.sweep_id is not None:
