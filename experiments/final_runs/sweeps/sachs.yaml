@@ -1,0 +1,17 @@
+# This is a sweep on different phase changing strategies and how
+# it can affect the training process for larger datasets
+project: sachs
+checkpoint_interval: 30
+default_root_dir: experiments/sweep
+use_smart_trainer: True
+agent_run_args:
+  count: 10000
+sweep_configuration:
+  method: grid
+  metric:
+    goal: minimize
+    name: metrics/average-backward_relative_penalty
+  parameters:
+    seed_everything:
+      sweep: True
+      values: [100, 200, 300, 400, 500]
