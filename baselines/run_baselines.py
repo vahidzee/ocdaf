@@ -12,6 +12,7 @@ from source.methods.lsnm import LSNM
 from source.methods.cam import CAM
 from source.methods.score import Score
 from source.methods.permutohedron import Permutohedron
+from source.methods.dif_dag_sampling import DifferentiableDagSampling
 
 sys.path.append("..")
 
@@ -78,13 +79,14 @@ def run_baseline(args, wandb_mode=None):
 
     data_config, data_name = get_data_config(args.data_type, args.data_num)
     linear = args.linear
-    baseline_cls = {'CAM': CAM, 'Score': Score, 'biLSNM': LSNM,
+    baseline_cls = {'CAM': CAM, 'Score': Score, 'biLSNM': LSNM, 'DiffSample': DifferentiableDagSampling,
                     'Permutohedron': Permutohedron, 'VarSort': Var}[args.baseline]
     baseline_args = {'CAM': {'linear': linear, 'standardize': args.standard},
                      'Score': {'standardize': args.standard},
                      'Permutohedron': {'linear': linear, 'seed': args.seed, 'sp_map': args.permu_sp_map,
                                        'standardize': args.standard, 'joint': args.permu_joint},
                      'biLSNM': {'neural_network': not linear, 'standardize': args.standard},
+                     'DiffSample': {'seed': args.seed, 'standardize': args.standard},
                      'VarSort': {'standardize': args.standard}}[args.baseline]
 
     log = {'name': data_name, 'baseline': args.baseline, 'seed': args.seed, 'linear': linear, 'standard': args.standard, 'permu_sp_map': args.permu_sp_map, 'permu_joint': args.permu_joint}

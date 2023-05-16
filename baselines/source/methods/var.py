@@ -21,6 +21,8 @@ class Var(AbstractBaseline):
         standardize: bool = False,
         verbose: bool = False,
     ):
+        # set hyperparameters
+        standardize = False
         super().__init__(dataset=dataset, dataset_args=dataset_args, name="Var", standardize=standardize)
         self.verbose = verbose
         self.data = self.get_data(conversion="tensor")
