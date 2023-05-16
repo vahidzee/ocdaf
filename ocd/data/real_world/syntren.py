@@ -30,6 +30,7 @@ from ocd.data import OCDDataset
 import pandas as pd
 import numpy as np
 import os
+import typing as th
 
 DEFAULT_SEED = 1234
 
@@ -47,7 +48,7 @@ def reordering(adj_mat, data):
 
 
 class SyntrenOCDDataset(OCDDataset):
-    def __init__(self, data_id: int):
+    def __init__(self, data_id: int, standardization: bool = False, reject_outliers_n_far_from_mean: th.Optional[float] = None):
         """ Args:
             data_id: The id of the dataset to load (from 0 to 9)
         """
@@ -60,4 +61,4 @@ class SyntrenOCDDataset(OCDDataset):
 
         df = pd.DataFrame(data)
 
-        super().__init__(samples=df, dag=graph, name=f"Syntren-{data_id}", standardization=False)
+        super().__init__(samples=df, dag=graph, name=f"Syntren-{data_id}", standardization=standardization, reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean)
