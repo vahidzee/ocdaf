@@ -22,6 +22,7 @@ import json
 from random_word import RandomWords
 import dypy as dy
 import re
+import traceback
 
 SEPARATOR = "__CUSTOM_SEPERATOR__"
 IDX_INDICATOR = "__IDX__"
@@ -248,113 +249,128 @@ def flatten_sweep_config(tree_conf: dict):
 
 
 # overwrite args recursively
-def overwrite_args(args: th.Union[Namespace, th.List], sweep_config):
-    if isinstance(args, list): 
-        if isinstance(sweep_config, dict):   
-            if SWEEP_LIST_OPERATIONS in sweep_config:
-                ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
-                for op in ops:
-                    if len(op.keys()) != 1:
-                        raise Exception("Any sweep list operation should be a dictionary with a single key")
-                    if SWEEP_LIST_INSERT in op:
-                        idx = op[SWEEP_LIST_INSERT]
-                        if not isinstance(idx, int):
-                            raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
-                        if idx == -1:
-                            args.append(sweep_config)
+def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_path: th.List[str] = None):
+    # try and catch an exception and add "line" to the exception and then re-raise it
+    if current_path is None:
+        current_path = []
+    try:
+        if isinstance(args, list): 
+            if isinstance(sweep_config, dict):   
+                if SWEEP_LIST_OPERATIONS in sweep_config:
+                    ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
+                    for op in ops:
+                        if len(op.keys()) != 1:
+                            raise Exception("Any sweep list operation should be a dictionary with a single key")
+                        if SWEEP_LIST_INSERT in op:
+                            idx = op[SWEEP_LIST_INSERT]
+                            if not isinstance(idx, int):
+                                raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
+                            if idx == -1:
+                                args.append(sweep_config)
+                            else:
+                                args.insert(idx, sweep_config)
+                        elif SWEEP_LIST_OVERWRITE in op:
+                            idx = op[SWEEP_LIST_OVERWRITE]
+                            if not isinstance(idx, int):
+                                raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
+                            new_arg = overwrite_args(args[idx], sweep_config, current_path + [str(idx)])
+                            args[idx] = new_arg
+                        elif SWEEP_LIST_REMOVE in op:
+                            idx = op[SWEEP_LIST_REMOVE]
+                            if not isinstance(idx, int):
+                                raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
+                            args.pop(idx)
                         else:
-                            args.insert(idx, sweep_config)
-                    elif SWEEP_LIST_OVERWRITE in op:
-                        idx = op[SWEEP_LIST_OVERWRITE]
-                        if not isinstance(idx, int):
-                            raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
-                        new_arg = overwrite_args(args[idx], sweep_config)
-                        args[idx] = new_arg
-                    elif SWEEP_LIST_REMOVE in op:
-                        idx = op[SWEEP_LIST_REMOVE]
-                        if not isinstance(idx, int):
-                            raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
-                        args.pop(idx)
-                    else:
-                        raise Exception(f"Unknown sweep list operation: {op}")
-            else:
-                for key, val in sweep_config.items():
-                    args_key = int(key[len(IDX_INDICATOR) :])
+                            raise Exception(f"Unknown sweep list operation: {op}")
+                else:
+                    for key, val in sweep_config.items():
+                        args_key = int(key[len(IDX_INDICATOR) :])
+                        if isinstance(val, dict) or isinstance(val, list):
+                            new_args = overwrite_args(args[args_key], val, current_path + [str(args_key)])
+                            args[args_key] = new_args
+                            
+                        elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
+                            args[args_key] = val
+                        else:
+                            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                            func_to_eval = re.search(pat, val).group(1)
+                            args[args_key] = dy.eval(func_to_eval)(args[args_key])
+            elif isinstance(sweep_config, list):
+                if len(sweep_config) != len(args):
+                    raise Exception(f"Expected a list of length {len(args)} but got a list of length {len(sweep_config)}")
+                for idx, val in enumerate(sweep_config):
                     if isinstance(val, dict) or isinstance(val, list):
-                        new_args = overwrite_args(args[args_key], val)
-                        args[args_key] = new_args
-                        
+                        new_args = overwrite_args(args[idx], val, current_path + [str(idx)])
+                        args[idx] = new_args
                     elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                        args[args_key] = val
+                        args[idx] = val
                     else:
                         pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
                         func_to_eval = re.search(pat, val).group(1)
-                        args[args_key] = dy.eval(func_to_eval)(args[args_key])
-        elif isinstance(sweep_config, list):
-            if len(sweep_config) != len(args):
-                raise Exception(f"Expected a list of length {len(args)} but got a list of length {len(sweep_config)}")
-            for idx, val in enumerate(sweep_config):
-                if isinstance(val, dict) or isinstance(val, list):
-                    new_args = overwrite_args(args[idx], val)
-                    args[idx] = new_args
-                elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                    args[idx] = val
-                else:
-                    pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                    func_to_eval = re.search(pat, val).group(1)
-                    args[idx] = dy.eval(func_to_eval)(args[idx])
-                    
-    else:
-        all_sweep_group_keys = []
-        if isinstance(args, Namespace):
-            for key, val in sweep_config.items():
-                if key.startswith(SWEEP_GROUP):
-                    all_sweep_group_keys.append(key)
-                elif isinstance(val, dict) or isinstance(val, list):
-                    new_args = overwrite_args(getattr(args, key), val)
-                    setattr(args, key, new_args)
-                elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1:
-                    setattr(args, key, val)
-                else:
-                    pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                    func_to_eval = re.search(pat, val).group(1)
-                    setattr(args, key, dy.eval(func_to_eval)(getattr(args, key)))
-        elif isinstance(args, dict):
-            is_list_pretender = True
-            for key in args.keys():
-                if not key.startswith(IDX_INDICATOR):
-                    is_list_pretender = False
-            if is_list_pretender:
-                true_args = [None for _ in range(len(args.keys()))]
-                for key in args.keys():
-                    true_args[int(key[len(IDX_INDICATOR) :])] = args[key]
-                return overwrite_args(true_args, sweep_config)
-            else:
+                        args[idx] = dy.eval(func_to_eval)(args[idx])
+                        
+        else:
+            all_sweep_group_keys = []
+            if isinstance(args, Namespace):
                 for key, val in sweep_config.items():
                     if key.startswith(SWEEP_GROUP):
                         all_sweep_group_keys.append(key)
+                        continue
+                    if not hasattr(args, key):
+                        setattr(args, key, Namespace())
                     elif isinstance(val, dict) or isinstance(val, list):
-                        new_args = overwrite_args(args[key] if key in args else None, val)
-                        args[key] = new_args
-                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                        args[key] = val
+                        new_args = overwrite_args(getattr(args, key), val, current_path + [str(key)])
+                        setattr(args, key, new_args)
+                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1:
+                        setattr(args, key, val)
                     else:
                         pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
                         func_to_eval = re.search(pat, val).group(1)
-                        args[key] = dy.eval(func_to_eval)(args[key])
-        elif isinstance(sweep_config, str) and sweep_config.find(SWEEP_OPERATION_VAL) != -1:
-            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-            func_to_eval = re.search(pat, sweep_config).group(1)
-            return dy.eval(func_to_eval)(args)
-        else:
-            return sweep_config
-        # sort all_sweep_group_keys 
-        all_sweep_group_keys.sort()
-        for key in all_sweep_group_keys:
-            val = sweep_config[key]
-            new_args = overwrite_args(args, val)
-            args = new_args
-
+                        setattr(args, key, dy.eval(func_to_eval)(getattr(args, key)))
+            elif isinstance(args, dict):
+                is_list_pretender = True
+                for key in args.keys():
+                    if not key.startswith(IDX_INDICATOR):
+                        is_list_pretender = False
+                if is_list_pretender:
+                    true_args = [None for _ in range(len(args.keys()))]
+                    for key in args.keys():
+                        true_args[int(key[len(IDX_INDICATOR) :])] = args[key]
+                    return overwrite_args(true_args, sweep_config, current_path)
+                else:
+                    for key, val in sweep_config.items():
+                        if key.startswith(SWEEP_GROUP):
+                            all_sweep_group_keys.append(key)
+                            continue
+                        if key not in args:
+                            args[key] = None
+                        if isinstance(val, dict) or isinstance(val, list):
+                            new_args = overwrite_args(args[key] if key in args else None, val, current_path + [str(key)])
+                            args[key] = new_args
+                        elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
+                            args[key] = val
+                        else:
+                            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                            func_to_eval = re.search(pat, val).group(1)
+                            args[key] = dy.eval(func_to_eval)(args[key])
+            elif isinstance(sweep_config, str) and sweep_config.find(SWEEP_OPERATION_VAL) != -1:
+                pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
+                func_to_eval = re.search(pat, sweep_config).group(1)
+                return dy.eval(func_to_eval)(args)
+            else:
+                return sweep_config
+            # sort all_sweep_group_keys 
+            all_sweep_group_keys.sort()
+            for key in all_sweep_group_keys:
+                val = sweep_config[key]
+                new_args = overwrite_args(args, val, current_path + [f"{key}"])
+                args = new_args
+    except Exception as e:
+        print("current_path:", current_path)
+        print("Exception:\n", e)
+        print(traceback.format_exc())
+        print("-----------")
+        raise e
     return args
 
 
@@ -377,142 +393,153 @@ def init_or_resume_wandb_run(
     NOTE:
         Make sure that wandb_id_file_path.parent exists before calling this function
     """
-    # check if the checkpoint_dir contains any subdirectories or not
-    all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
-    # sort all_subdirs by their name lexically
-    all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
+    try:
+        # check if the checkpoint_dir contains any subdirectories or not
+        all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
+        # sort all_subdirs by their name lexically
+        all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
 
-    if run_name is not None:
-        r = RandomWords()
-        w = r.get_random_word()
-        run_name = run_name + '-' + w 
+        if run_name is not None:
+            r = RandomWords()
+            w = r.get_random_word()
+            run_name = run_name + '-' + w 
 
-    if len(all_subdirs) > 0 and resume:
-        dir_name = all_subdirs[0].name
-        resume_id = SPLIT.join(dir_name.split(SPLIT)[1:])
-        logger = WandbLogger(project=project_name, name=run_name, id=resume_id, resume="must")
-        with open(checkpoint_dir / dir_name / "sweep_config.json", "r") as f:
-            sweep_config = json.load(f)
-        mx = int(all_subdirs[-1].name.split(SPLIT)[0])
-        new_dir_name = f"{mx+1}{SPLIT}{resume_id}"
-        # Change the name of the directory dir_name to new_dir_name
-        shutil.copytree(checkpoint_dir / dir_name, checkpoint_dir / new_dir_name)
-        shutil.rmtree(checkpoint_dir / dir_name)
-        new_checkpoint_dir = checkpoint_dir / new_dir_name
-    else:
-        # if the run_id doesn't exist, then create a new run
-        # and create the subdirectory
-        logger = WandbLogger(project=project_name, name=run_name)
+        if len(all_subdirs) > 0 and resume:
+            dir_name = all_subdirs[0].name
+            resume_id = SPLIT.join(dir_name.split(SPLIT)[1:])
+            logger = WandbLogger(project=project_name, name=run_name, id=resume_id, resume="must")
+            with open(checkpoint_dir / dir_name / "sweep_config.json", "r") as f:
+                sweep_config = json.load(f)
+            mx = int(all_subdirs[-1].name.split(SPLIT)[0])
+            new_dir_name = f"{mx+1}{SPLIT}{resume_id}"
+            # Change the name of the directory dir_name to new_dir_name
+            shutil.copytree(checkpoint_dir / dir_name, checkpoint_dir / new_dir_name)
+            shutil.rmtree(checkpoint_dir / dir_name)
+            new_checkpoint_dir = checkpoint_dir / new_dir_name
+        else:
+            # if the run_id doesn't exist, then create a new run
+            # and create the subdirectory
+            logger = WandbLogger(project=project_name, name=run_name)
 
-        mx = 0 if len(all_subdirs) == 0 else int(all_subdirs[-1].name.split(SPLIT)[0])
-        new_dir_name = f"{mx+1}{SPLIT}{logger.experiment.id}"
+            mx = 0 if len(all_subdirs) == 0 else int(all_subdirs[-1].name.split(SPLIT)[0])
+            new_dir_name = f"{mx+1}{SPLIT}{logger.experiment.id}"
 
-        os.makedirs(checkpoint_dir / new_dir_name)
-        sweep_config = dict(logger.experiment.config)
-        # dump a json in checkpoint_dir/run_id containing the sweep config
-        with open(checkpoint_dir / new_dir_name / "sweep_config.json", "w") as f:
-            json.dump(sweep_config, f)
+            os.makedirs(checkpoint_dir / new_dir_name)
+            sweep_config = dict(logger.experiment.config)
+            # dump a json in checkpoint_dir/run_id containing the sweep config
+            with open(checkpoint_dir / new_dir_name / "sweep_config.json", "w") as f:
+                json.dump(sweep_config, f)
 
-        new_checkpoint_dir = checkpoint_dir / new_dir_name
-
+            new_checkpoint_dir = checkpoint_dir / new_dir_name
+    except Exception as e:
+        print("Exception:\n", e)
+        print(traceback.format_exc())
+        print("-----------")
+        raise e
     return logger, sweep_config, new_checkpoint_dir
 
 
 def sweep_run(args):
-    # Setup the checkpoint directory
-    parent_checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
-    # if the path does not exists then create it
-    if not os.path.exists(parent_checkpoint_dir):
-        os.makedirs(parent_checkpoint_dir)
+    try:
+        # Setup the checkpoint directory
+        parent_checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
+        # if the path does not exists then create it
+        if not os.path.exists(parent_checkpoint_dir):
+            os.makedirs(parent_checkpoint_dir)
 
-    logger, sweep_config, checkpoint_dir = init_or_resume_wandb_run(
-        checkpoint_dir=parent_checkpoint_dir,
-        project_name=args.sweep.project,
-        run_name=args.sweep.run_name,
-        resume=args.sweep.resume,
-    )
-    
-    sweep_config = decompress_parameter_config(sweep_config)
-    sweep_config = unflatten_sweep_config(sweep_config)
-    # make a copy of args
-    args_copy = copy.deepcopy(args)
-    sweep_save = copy.deepcopy(args.sweep)
-    use_smart_trainer = sweep_save.use_smart_trainer
-    # throwaway the sweep config
-    delattr(args_copy, "sweep")
-    args_copy = overwrite_args(args_copy, sweep_config)
-
-    if use_smart_trainer:
-        new_conf, _ = change_config_for_causal_discovery(
-            args_copy, bypass_logger=True, 
+        logger, sweep_config, checkpoint_dir = init_or_resume_wandb_run(
+            checkpoint_dir=parent_checkpoint_dir,
+            project_name=args.sweep.project,
+            run_name=args.sweep.run_name,
+            resume=args.sweep.resume,
         )
-        # ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
-        # subdir = f"saves-{args.sweep.sweep_id}"
-        # if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
-        #     os.makedirs(args_copy.sweep.default_root_dir / subdir)
-        # new_conf["trainer"]["callbacks"][ind]["init_args"]["save_path"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
-        args_copy = overwrite_args(args_copy, new_conf)
-    
-    args_copy.sweep = sweep_save
-    # Add a checkpointing callback to the trainer
-    if not checkpoint_dir.exists():
-        checkpoint_dir.mkdir(parents=True)
-    
-    new_callback = Namespace(
-        {
-            "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
-            "init_args": {
-                "dirpath": checkpoint_dir,
-                "verbose": True,
-                "train_time_interval": timedelta(seconds=args_copy.sweep.checkpoint_interval),
-                "save_top_k": 1,
-            },
-        }
-    )
-    
-    if len(new_conf["trainer"]["callbacks"]) > 0 and new_conf['trainer']['callbacks'][-1]['class_path'] == "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint":
-        new_conf["trainer"]["callbacks"][-1] = new_callback
-    else:
-        new_conf["trainer"]["callbacks"].append(new_callback)
-    
-    parser = build_parser()
-    args_copy = parser.parse_object(args_copy)
+        
+        sweep_config = decompress_parameter_config(sweep_config)
+        sweep_config = unflatten_sweep_config(sweep_config)
+        # make a copy of args
+        args_copy = copy.deepcopy(args)
+        sweep_save = copy.deepcopy(args.sweep)
+        use_smart_trainer = sweep_save.use_smart_trainer
+        # throwaway the sweep config
+        delattr(args_copy, "sweep")
+        args_copy = overwrite_args(args_copy, sweep_config)
 
-    # create a copy of args and drop the sweep configurations
-    new_parser = build_parser(with_sweep=False)
-    args_copy_copy = copy.deepcopy(args_copy)
-    delattr(args_copy_copy, "sweep")
-    new_parser.save(
-        args_copy_copy,
-        os.path.join(parent_checkpoint_dir, f"discovery-config-{logger.experiment.id}.yaml"),
-        skip_none=False,
-        overwrite=True,
-        multifile=False,
-    )
+        if use_smart_trainer:
+            new_conf, _ = change_config_for_causal_discovery(
+                args_copy, bypass_logger=True, 
+            )
+            # ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
+            # subdir = f"saves-{args.sweep.sweep_id}"
+            # if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
+            #     os.makedirs(args_copy.sweep.default_root_dir / subdir)
+            # new_conf["trainer"]["callbacks"][ind]["init_args"]["save_path"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
+            args_copy = overwrite_args(args_copy, new_conf)
+        
+        args_copy.sweep = sweep_save
+        # Add a checkpointing callback to the trainer
+        if not checkpoint_dir.exists():
+            checkpoint_dir.mkdir(parents=True)
+        
+        new_callback = Namespace(
+            {
+                "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
+                "init_args": {
+                    "dirpath": checkpoint_dir,
+                    "verbose": True,
+                    "train_time_interval": timedelta(seconds=args_copy.sweep.checkpoint_interval),
+                    "save_top_k": 1,
+                },
+            }
+        )
+        
+        if len(new_conf["trainer"]["callbacks"]) > 0 and new_conf['trainer']['callbacks'][-1]['class_path'] == "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint":
+            new_conf["trainer"]["callbacks"][-1] = new_callback
+        else:
+            new_conf["trainer"]["callbacks"].append(new_callback)
+        
+        parser = build_parser()
+        args_copy = parser.parse_object(args_copy)
 
-    config_init = parser.instantiate_classes(args_copy)
+        # create a copy of args and drop the sweep configurations
+        new_parser = build_parser(with_sweep=False)
+        args_copy_copy = copy.deepcopy(args_copy)
+        delattr(args_copy_copy, "sweep")
+        new_parser.save(
+            args_copy_copy,
+            os.path.join(parent_checkpoint_dir, f"discovery-config-{logger.experiment.id}.yaml"),
+            skip_none=False,
+            overwrite=True,
+            multifile=False,
+        )
 
-    model = config_init.model
-    datamodule = config_init.data
-    pl.seed_everything(config_init.seed_everything)
+        config_init = parser.instantiate_classes(args_copy)
 
-    # drop config_init.trainer.logger if it exists
-    if "logger" in config_init.trainer:
-        config_init.trainer.pop("logger")
+        model = config_init.model
+        datamodule = config_init.data
+        pl.seed_everything(config_init.seed_everything)
 
-    trainer = pl.Trainer(logger=logger, **config_init.trainer)
+        # drop config_init.trainer.logger if it exists
+        if "logger" in config_init.trainer:
+            config_init.trainer.pop("logger")
 
-    # Handle checkpointing
-    ckpt_path = None
-    ckpt_list = sorted(checkpoint_dir.glob("*.ckpt"), key=os.path.getmtime)
-    if ckpt_list:
-        ckpt_path = checkpoint_dir / ckpt_list[-1]
-    if ckpt_path is not None:
-        print(">>>>> RUNNING WITH CHECKPOINT: ", ckpt_path)
-    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
+        trainer = pl.Trainer(logger=logger, **config_init.trainer)
 
-    # remove the subdirectory of the checkpoint
-    shutil.rmtree(checkpoint_dir)
+        # Handle checkpointing
+        ckpt_path = None
+        ckpt_list = sorted(checkpoint_dir.glob("*.ckpt"), key=os.path.getmtime)
+        if ckpt_list:
+            ckpt_path = checkpoint_dir / ckpt_list[-1]
+        if ckpt_path is not None:
+            print(">>>>> RUNNING WITH CHECKPOINT: ", ckpt_path)
+        trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
+
+        # remove the subdirectory of the checkpoint
+        shutil.rmtree(checkpoint_dir)
+    except Exception as e:
+        print("Exception:\n", e)
+        print(traceback.format_exc())
+        print("-----------")
+        raise e
 
 
 if __name__ == "__main__":
