@@ -7,6 +7,7 @@ library(devtools);
 install_github("https://github.com/cran/CAM");
 ```
 
+
 For `DAG LEARNING ON THE PERMUTAHEDRON`, you need to install the following:
 ```
 git clone git@github.com:vzantedeschi/DAGuerreotype.git
@@ -16,3 +17,6 @@ chmod +x linux-install.sh
 python setup.py install
 ```
 
+
+For `Differentiable Dag Sampling`, check the original repository [here](https://github.com/sharpenb/Differentiable-DAG-Sampling), and
+install the `src` package following the instructions in the repository.
