@@ -28,6 +28,7 @@ def build_args():
     parser.add_argument("--method", default='cam', type=str)
     parser.add_argument("--data_type", default="syntren", type=str)
     parser.add_argument("--data_num", default=0, type=int)
+    parser.add_argument("--order", default=None, type=str)
     args = parser.parse_args()
     return args
 
@@ -89,12 +90,17 @@ if __name__ == "__main__":
         data_config = get_data_config("syntren", the_args.data_num)
         df = pd.read_csv(SYNTREN_FILE)
         order = df[df['1dataset'] == the_args.data_num]['permutation'].item()
-        res = metrics(order, data_config, method=the_args.method)
-        res['name'] = 'syntren'
-        res['num'] = the_args.data_num
-        res['method'] = the_args.method
-        save_results(res)
-
-
+    elif the_args.data_type == "sachs":
+        data_config = get_data_config("sachs", the_args.data_num)
+        if the_args.order is not None:
+            order = the_args.order
+        else:
+            raise Exception("Not implemented")
     else:
         raise Exception("Not implemented")
+    
+    res = metrics(order, data_config, method=the_args.method)
+    res['name'] = the_args.data_type
+    res['num'] = the_args.data_num
+    res['method'] = the_args.method
+    save_results(res)

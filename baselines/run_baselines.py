@@ -18,10 +18,12 @@ sys.path.append("..")
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _REAL_WORLD_DIR = os.path.join(_DIR, "../experiments/data/real-world/")
-_SYNTHETIC_DIR = os.path.join(_DIR, "../experiments/data/synthetic-cherry-picked/")
+NON_PARAM_DIR = os.path.join(_DIR, "../experiments/data/non-parametric-small-sweep/")
+PARAM_DIR = os.path.join(_DIR, "../experiments/data/parametric-small-sweep/")
+BIG_SYNTH_DIR = os.path.join(_DIR, "../experiments/data/synthetic-large/")
 
 _RESULTS_FILE = "baseline_results.csv"
-_RESULTS_STRUCTURE_FILE = "diff_sample.csv"
+_RESULTS_STRUCTURE_FILE = "synthetic_baseline.csv"
 
 
 def build_args():
@@ -30,8 +32,8 @@ def build_args():
     parser.add_argument("--project", required=False, type=str)
     parser.add_argument("--baseline", default="CAM", type=str)
     parser.add_argument("--seed", default=42, type=int)
-    parser.add_argument("--data_type", default="synthetic", type=str)
-    parser.add_argument("--data_num", default=0, type=int)
+    parser.add_argument("--data_type", default="synth-param", type=str)
+    parser.add_argument("--Adata_num", default=0, type=int)
     parser.add_argument("--DAG", action="store_true")
     parser.add_argument("--linear", action="store_true")
     parser.add_argument("--standard", action="store_true")
@@ -39,6 +41,7 @@ def build_args():
     parser.add_argument("--permu_joint", action="store_true")
     parser.add_argument("--diff_max_epoch", default=100, type=int)
     parser.add_argument("--diff_order_type", default='topk', type=str)
+    parser.add_argument("--agent_count", default=1, type=int)
     parser.add_argument("--default_root_dir", type=str)
     args = parser.parse_args()
 
@@ -49,16 +52,23 @@ def build_args():
 
 
 def get_data_config(data_type, data_num):
-    if data_type == "synthetic":
-        paths = Path(_SYNTHETIC_DIR).glob("*.yaml")
+    if data_type == "synth-param":
+        paths = Path(PARAM_DIR).glob("*.yaml")
+    elif data_type == "synth-non-param":
+        paths = Path(NON_PARAM_DIR).glob("*.yaml")
+    elif data_type == "synth-big":
+        paths = Path(BIG_SYNTH_DIR).glob("*.yaml")
     elif data_type == "syntren":
         paths = Path(_REAL_WORLD_DIR).glob("data-syntren-*.yaml")
     else:
         paths = Path(_REAL_WORLD_DIR).glob("data-sachs.yaml")
     paths = sorted(list(paths))
-    data_path = paths[data_num]
-    data_config = yaml.load(open(data_path, "r"), Loader=yaml.FullLoader)["init_args"]
-    data_name = str(data_path).split("/")[-1].split(".")[0]
+    data_path = paths[data_num-1]
+    data_config = yaml.load(open(data_path, "r"), Loader=yaml.FullLoader)
+    if data_type == "synth-big" or data_type == "synth-param" or data_type == "synth-non-param":
+        data_config = data_config["data"]
+    data_config = data_config["init_args"]
+    data_name = data_config['dataset_args']['name']
     return data_config, data_name
 
 
@@ -79,7 +89,7 @@ def run_baseline(args, wandb_mode=None):
     config = vars(args)
     config.update(wandb.config)
 
-    data_config, data_name = get_data_config(args.data_type, args.data_num)
+    data_config, data_name = get_data_config(args.data_type, args.Adata_num)
     linear = args.linear
     baseline_cls = {'CAM': CAM, 'Score': Score, 'biLSNM': LSNM, 'DiffSample': DifferentiableDagSampling,
                     'Permutohedron': Permutohedron, 'VarSort': Var}[args.baseline]
@@ -110,6 +120,7 @@ if __name__ == "__main__":
     func_to_call = partial(run_baseline, args=the_args)
 
     if the_args.sweep_id and the_args.project:
-        wandb.agent(the_args.sweep_id, project=the_args.project, count=1, function=func_to_call)
+        wandb.agent(the_args.sweep_id, project=the_args.project, count=the_args.agent_count, 
+                    function=func_to_call)
     else:
         func_to_call(wandb_mode='disabled')

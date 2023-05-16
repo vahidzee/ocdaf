@@ -38,6 +38,6 @@ def pc_based_pruning(df: pd.DataFrame, ordering: th.List, independence_test: th.
                 list_all_edges.append((v, u))
     
     g = nx.DiGraph()
-    g.add_nodes_from(graph.nodes)
+    g.add_nodes_from(ordering)
     g.add_edges_from(list_all_edges)
     return g
