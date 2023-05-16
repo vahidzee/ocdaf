@@ -7,7 +7,7 @@ use_smart_trainer: True
 agent_run_args:
   count: 10000
 sweep_configuration:
-  method: random
+  method: grid
   metric:
     goal: minimize
     name: metrics/average-backward_relative_penalty

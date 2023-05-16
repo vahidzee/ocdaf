@@ -27,8 +27,8 @@ trainer:
   enable_checkpointing: true
   enable_model_summary: true
   enable_progress_bar: false
-  # max_epochs: 3200
-  max_epochs: 1
+  max_epochs: 3200
+  # max_epochs: 1
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
