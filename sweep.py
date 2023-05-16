@@ -65,6 +65,7 @@ class Sweep:
     run_when_instantiate: bool = False
     use_smart_trainer: bool = False
     resume: bool = False
+    count: th.Optional[int] = None
 
 
 compression_mapping = {}
@@ -561,11 +562,14 @@ if __name__ == "__main__":
             sweep_run(args=args)
         else:
             # If resuming is not enabled, then get a new configuration and run
+            param = args.sweep.agent_run_args
+            if args.sweep.count is not None:
+                param["count"] = args.sweep.count
             wandb.agent(
                 sweep_id,
                 function=functools.partial(sweep_run, args=args),
                 project=args.sweep.project,
-                **args.sweep.agent_run_args,
+                **param,
             )
 
     if args.sweep.sweep_id is not None:
