@@ -90,7 +90,7 @@ trainer:
         ignore_evaluation_metrics:
           - pc-shd
   fast_dev_run: false
-  max_epochs: 1500
+  max_epochs: 3000
   min_epochs: null
   max_steps: -1
   min_steps: null
@@ -176,17 +176,35 @@ model:
         permutation_type: hybrid-sparse-map-simulator
         maximum_basis_size: null
         gumbel_noise_std:
-          code:
-            "def func(self, training_module, **kwargs):\n  tot_epochs_on_exp =\
-            \ training_module.trainer.max_epochs / 180 * 80\n  step_size = 2.0 / tot_epochs_on_exp\n\
-            \  if not hasattr(training_module, 'last_std'):\n    training_module.last_std\
-            \ = 2.0\n  \n  # if you don't have the epoch from before then assign it\n\
-            \  flag = False\n  if not hasattr(training_module, 'last_epoch_std_sched'):\n\
-            \    flag = True\n    training_module.last_epoch_std_sched = training_module.current_epoch\n\
-            \  \n  if training_module.current_phase != 'maximization' and (flag or\
-            \ training_module.last_epoch_std_sched != training_module.current_epoch):\n\
-            \    training_module.last_std -= step_size\n  \n  training_module.last_epoch_std_sched\
-            \ = training_module.current_epoch\n\n  return training_module.last_std\n"
+          code: |
+            def func(self, training_module, **kwargs):
+              exp_epoch_limit = training_module.trainer.max_epochs
+              maximization_epoch_limit = training_module.trainer.max_epochs
+
+              callback = training_module.trainer.callbacks[1]
+              exp_epoch_limit = callback.expectation_epoch_limit
+              maximization_epoch_limit = callback.maximization_epoch_limit
+              
+              numer = exp_epoch_limit + maximization_epoch_limit
+
+              tot_epochs_on_exp = (training_module.trainer.max_epochs + numer - 1) / numer * exp_epoch_limit
+              step_size = 2.0 / tot_epochs_on_exp
+
+              flag = False
+              if not hasattr(training_module, 'last_std'):
+                flag = True
+                training_module.last_std = 2.0
+              
+              # if you don't have the epoch from before then assign it
+              if not hasattr(training_module, 'last_epoch_std_sched'):
+                training_module.last_epoch_std_sched = training_module.current_epoch
+              
+              if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                training_module.last_std = max(0, training_module.last_std - step_size)
+              
+              training_module.last_epoch_std_sched = training_module.current_epoch
+
+              return training_module.last_std
           function_of_interest: func
       base_distribution: torch.distributions.Normal
       base_distribution_args:

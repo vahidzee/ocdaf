@@ -12,6 +12,59 @@ sweep_configuration:
     goal: minimize
     name: metrics/average-backward_relative_penalty
   parameters:
-    seed_everything:
+    sweep_group_A_seed_everything:
       sweep: True
-      values: [100, 200, 300, 400, 500]
+      sweep_identifier: B_seed
+      sweep_alias:
+        - seed100
+        - seed200
+        - seed300
+        - seed400
+        - seed500
+      values:
+        - seed_everything: 100
+        - seed_everything: 200
+        - seed_everything: 300
+        - seed_everything: 400
+        - seed_everything: 500
+    sweep_group_B_epoch_scheduling:
+      sweep: True
+      sweep_identifier: A_scheduling
+      sweep_alias:
+        - fast3000
+        - slow6000
+      values:
+        - trainer:
+            max_epochs: 3000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 100
+                expectation_epoch_limit: 80
+                patience: 15
+                cooldown: 200
+          model:
+            init_args:
+              scheduler_args:
+                - factor: 0.5
+                  patience: 130
+                - factor: 0.5
+                  patience: 110
+        - trainer:
+            max_epochs: 6000
+            callbacks:
+              sweep_list_operations:
+                - sweep_overwrite: 0
+              init_args:
+                maximization_epoch_limit: 120
+                expectation_epoch_limit: 100
+                patience: 15
+                cooldown: 200
+          model:
+            init_args:
+              scheduler_args:
+                - factor: 0.5
+                  patience: 250
+                - factor: 0.5
+                  patience: 210
