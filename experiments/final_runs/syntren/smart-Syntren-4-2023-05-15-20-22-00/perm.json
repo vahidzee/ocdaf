@@ -1,0 +1,18 @@
+{
+    "metrics": {
+        "average": {
+            "backward_relative_penalty": 0.30434782608695654,
+            "count_backward": 7.0,
+            "posterior_parent_ratio": 0.25
+        },
+        "best": {
+            "backward_relative_penalty": 0.30434782608695654,
+            "count_backward": 7,
+            "posterior_parent_ratio": 0.25
+        }
+    },
+    "permutation_map": {
+        "11-15-10-5-0-14-2-8-1-9-6-7-3-17-12-19-4-18-13-16": 1.0
+    },
+    "most_common_permutation": "11-15-10-5-0-14-2-8-1-9-6-7-3-17-12-19-4-18-13-16"
+}
