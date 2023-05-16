@@ -282,6 +282,7 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_pat
                             args.pop(idx)
                         else:
                             raise Exception(f"Unknown sweep list operation: {op}")
+                    sweep_config[SWEEP_LIST_OPERATIONS] = ops
                 else:
                     for key, val in sweep_config.items():
                         args_key = int(key[len(IDX_INDICATOR) :])
@@ -369,6 +370,8 @@ def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_pat
         print("current_path:", current_path)
         print("Exception:\n", e)
         print(traceback.format_exc())
+        print("While overwriting the following")
+        pprint(sweep_config)
         print("-----------")
         raise e
     return args
