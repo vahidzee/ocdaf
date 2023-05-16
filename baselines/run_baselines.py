@@ -21,7 +21,7 @@ _REAL_WORLD_DIR = os.path.join(_DIR, "../experiments/data/real-world/")
 _SYNTHETIC_DIR = os.path.join(_DIR, "../experiments/data/synthetic-cherry-picked/")
 
 _RESULTS_FILE = "baseline_results.csv"
-_RESULTS_STRUCTURE_FILE = "baseline_structure_results.csv"
+_RESULTS_STRUCTURE_FILE = "diff_sample.csv"
 
 
 def build_args():
@@ -37,6 +37,8 @@ def build_args():
     parser.add_argument("--standard", action="store_true")
     parser.add_argument("--permu_sp_map", action="store_true")
     parser.add_argument("--permu_joint", action="store_true")
+    parser.add_argument("--diff_max_epoch", default=100, type=int)
+    parser.add_argument("--diff_order_type", default='topk', type=str)
     parser.add_argument("--default_root_dir", type=str)
     args = parser.parse_args()
 
@@ -86,10 +88,14 @@ def run_baseline(args, wandb_mode=None):
                      'Permutohedron': {'linear': linear, 'seed': args.seed, 'sp_map': args.permu_sp_map,
                                        'standardize': args.standard, 'joint': args.permu_joint},
                      'biLSNM': {'neural_network': not linear, 'standardize': args.standard},
-                     'DiffSample': {'seed': args.seed, 'standardize': args.standard},
+                     'DiffSample': {'seed': args.seed, 'standardize': args.standard, 'max_epochs': args.diff_max_epoch, 'pd_order_type': args.diff_order_type},
                      'VarSort': {'standardize': args.standard}}[args.baseline]
+    
 
     log = {'name': data_name, 'baseline': args.baseline, 'seed': args.seed, 'linear': linear, 'standard': args.standard, 'permu_sp_map': args.permu_sp_map, 'permu_joint': args.permu_joint}
+    if args.baseline == 'DiffSample':
+        log['max_epochs'] = args.diff_max_epoch
+        log['order_type'] = args.diff_order_type
     wandb.log(log)
     dataset_args = data_config["dataset_args"] if "dataset_args" in data_config else None
     baseline = baseline_cls(dataset=data_config["dataset"], dataset_args=dataset_args, **baseline_args)

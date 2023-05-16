@@ -86,4 +86,8 @@ def sparse_regression_based_pruning(df: pd.DataFrame, ordering: th.List, verbose
         for j in range(df_np.shape[1]):
             if dag[i, j] == 1:
                 all_edges.append((df.columns[i], df.columns[j]))
-    return nx.DiGraph(all_edges)
+
+    g = nx.DiGraph()
+    g.add_nodes_from(ordering)
+    g.add_edges_from(all_edges)
+    return g

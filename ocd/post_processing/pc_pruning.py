@@ -25,7 +25,7 @@ def pc_based_pruning(df: pd.DataFrame, ordering: th.List, independence_test: th.
     global indep_method
     if independence_test not in indep_method:
         raise Exception(f"Independence test {independence_test} is not supported")
-    cg = pc(df_np, 0.05, indep_method[independence_test], verbose=verbose)
+    cg = pc(df_np, alpha, indep_method[independence_test], verbose=verbose)
     graph = cg.G.graph
     list_all_edges = []
     for i, v in enumerate(ordering):
@@ -37,4 +37,7 @@ def pc_based_pruning(df: pd.DataFrame, ordering: th.List, independence_test: th.
             if graph[u_idx, v_idx] != 0 or graph[v_idx, u_idx] != 0:
                 list_all_edges.append((v, u))
     
-    return nx.DiGraph(list_all_edges)
+    g = nx.DiGraph()
+    g.add_nodes_from(graph.nodes)
+    g.add_edges_from(list_all_edges)
+    return g

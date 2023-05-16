@@ -44,7 +44,7 @@ class DifferentiableDagSampling(AbstractBaseline):
         pd_hard=True,  # same
         pd_order_type="topk",  # same
         pd_noise_factor=1.0,  # same
-        max_epochs=1000,  # input
+        max_epochs=100,  # input
         patience=10,  # same
         frequency=2,  # same
         ma_lr=1e-3,  # same

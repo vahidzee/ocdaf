@@ -1,8 +1,8 @@
 #!/bin/bash
 # Node resource configurations
 #SBATCH --job-name=baselines
-##SBATCH --account=deadline
-#SBATCH --qos=normal
+#SBATCH --account=deadline
+#SBATCH --qos=deadline
 #SBATCH --mem=12G
 #SBATCH --cpus-per-task=8
 #SBATCH --partition=a40,t4v2,rtx6000
@@ -15,4 +15,4 @@
 
 echo `date`: Job $SLURM_JOB_ID is allocated resource
 . $HOME/pytorch-2-env
-python3.9 run_baselines.py --project "ocd-baselines" --sweep_id 3tqke0wc
+python3.9 run_baselines.py --project "ocd-baselines" --sweep_id v2nnkruo
