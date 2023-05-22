@@ -40,13 +40,13 @@ class OCDAF(torch.nn.Module):
         permutation_learner_args: th.Optional[dict] = None,
         # general args
         device: th.Optional[torch.device] = None,
-        dtype: th.Optional[torch.dtype] = None
+        dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
         if in_features is None:
             warnings.warn("in_features is None, this might cause issues")
             in_features = 3
-        
+
         # populate features if necessary
         in_features = in_features if isinstance(in_features, int) else len(in_features)
         if populate_features:
@@ -62,7 +62,7 @@ class OCDAF(torch.nn.Module):
                             layers[i][j] = min(in_features * layers[i][j], layers_limit[i][j])
                         else:
                             layers[i][j] = in_features * layers[i][j]
-                        
+
         # get an IntTensor of 1 to N
         self.flow = AffineFlow(
             base_distribution=base_distribution,
@@ -126,10 +126,7 @@ class OCDAF(torch.nn.Module):
                 **kwargs,
             )
 
-        if (
-            self.permutation_model is not None
-            and self.permutation_model.permutation_type != "hybrid-sparse-map-simulator"
-        ):
+        if self.permutation_model is not None and self.permutation_model.permutation_type != "gumbel-topk":
             # This is an element-wise input whereby for each input
             # we have one permutation
             latent_permutation = permutation_results["perm_mat"]
@@ -148,21 +145,18 @@ class OCDAF(torch.nn.Module):
 
                 training_module.remember(log_prob_to_display=log_prob)
 
-        elif (
-            self.permutation_model is not None
-            and self.permutation_model.permutation_type == "hybrid-sparse-map-simulator"
-        ):
+        elif self.permutation_model is not None and self.permutation_model.permutation_type == "gumbel-topk":
             # This is the case where it is not Elementwise, for example,
             # this might happen for the hybrid-sparse-map-simulation
             # soft_perm_mat = permutation_results["soft_perm_mat"]
             hard_perm_mat = permutation_results["hard_perm_mat"]
             scores = permutation_results["scores"]
-            
+
             # Calculate all the log prob values
             inputs_repeated = torch.repeat_interleave(inputs, repeats=hard_perm_mat.shape[0], dim=0)
             hard_perm_mat_repeated = hard_perm_mat.repeat(inputs.shape[0], 1, 1)
             all_log_probs = self.flow.log_prob(inputs_repeated, perm_mat=hard_perm_mat_repeated)
-            
+
             log_prob_grid = all_log_probs.reshape(inputs.shape[0], hard_perm_mat.shape[0])
             # log_prob_for_permutations = torch.mean(log_prob_grid, dim=0)
             log_prob = torch.sum(log_prob_grid * scores, dim=-1)

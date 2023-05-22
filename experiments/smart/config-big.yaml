@@ -50,7 +50,7 @@ model:
       permutation_learner_args:
         gumbel_noise_std: >
           lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-        permutation_type: hybrid-sparse-map-simulator
+        permutation_type: gumbel-topk
         maximum_basis_size: 40
       # Base distribution arguments
       base_distribution: torch.distributions.Normal

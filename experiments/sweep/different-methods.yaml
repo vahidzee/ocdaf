@@ -22,10 +22,10 @@ sweep_configuration:
             values:
               - gumbel_noise_std: >
                   lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-                permutation_type: hybrid-sparse-map-simulator
+                permutation_type: gumbel-topk
               - gumbel_noise_std: >
                   lambda self, training_module, **kwargs: 1.9 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch) + 0.1
-                permutation_type: hybrid-quantization
+                permutation_type: straight-through
     sweep_group_standardization:
       sweep: True
       sweep_identifier: toggle_standardization

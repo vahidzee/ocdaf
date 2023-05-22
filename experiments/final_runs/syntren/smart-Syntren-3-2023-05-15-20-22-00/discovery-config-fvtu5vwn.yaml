@@ -184,7 +184,7 @@ model:
       use_permutation: true
       permutation_learner_cls: ocd.models.permutation.LearnablePermutation
       permutation_learner_args:
-        permutation_type: hybrid-sparse-map-simulator
+        permutation_type: gumbel-topk
         maximum_basis_size: null
         gumbel_noise_std:
           "lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs))

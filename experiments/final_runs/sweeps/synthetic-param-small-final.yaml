@@ -371,12 +371,12 @@ sweep_configuration:
             init_args:
               model_args:
                 permutation_learner_args:
-                  permutation_type: hybrid-sparse-map-simulator
+                  permutation_type: gumbel-topk
         - model:
             init_args:
               model_args:
                 permutation_learner_args:
-                  permutation_type: hybrid-quantization
+                  permutation_type: straight-through
           data:
             init_args:
               dataset_args:
@@ -386,7 +386,7 @@ sweep_configuration:
             init_args:
               model_args:
                 permutation_learner_args:
-                  permutation_type: hybrid-quantization
+                  permutation_type: straight-through
           data:
             init_args:
               dataset_args:

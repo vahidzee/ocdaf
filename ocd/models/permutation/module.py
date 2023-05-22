@@ -12,22 +12,22 @@ from ocd.models.permutation.utils import (
 )
 from lightning_toolbox import TrainingModule
 import functools
-from ocd.models.permutation.hybrid import (
-    sparse_map_approx,
-    straight_through_soft_permutation,
+from ocd.models.permutation.methods import (
+    gumbel_topk,
+    straight_through,
 )
 
 PERMUTATION_TYPE_OPTIONS = th.Literal[
     "soft",
     "hard",
-    "hybrid-sparse-map-simulator",
-    "hybrid-sparse-map-simulator-noisy",
-    "hybrid-straight-through",
+    "gumbel-topk",
+    "gumbel-topk-noisy",
+    "straight-through",
 ]
 HYBRID_METHODS = {
-    "hybrid-sparse-map-simulator": sparse_map_approx,  # TODO: rename to gumbel-topk
-    "hybrid-sparse-map-simulator-noisy": sparse_map_approx,  # TODO: rename to gumbel-topk-noisy
-    "hybrid-straight-through": straight_through_soft_permutation,  # TODO: rename to
+    "gumbel-topk": gumbel_topk,
+    "gumbel-topk-noisy": gumbel_topk,
+    "straight-through": straight_through,
 }
 
 
@@ -42,7 +42,7 @@ class LearnablePermutation(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
         num_samples: int = -1,  # -1 for batch size, 0 for no sampling
         num_hard_samples: int = -1,  # -1 for batch size, 0 for no sampling
-        hard_from_softs: bool = False,  # hard samples are generated from the same soft samples
+        hard_from_softs: bool = True,  # hard samples are generated from the same soft samples
         buffer_size: int = 0,  # 0 for no buffer
         buffer_replay_prob: float = 1.0,  # out of num_hard_samples portion of samples to be drawn from scratch
         buffer_replace_prob: float = 0.0,  # probability of using a new sample instead of a sample from the buffer
@@ -142,14 +142,11 @@ class LearnablePermutation(torch.nn.Module):
             return self._soft_permutations_results
         elif permutation_type == "hard":
             return self._hard_permutations_results
-        elif permutation_type.startswith("hybrid"):
-            if permutation_type not in HYBRID_METHODS:
-                raise Exception(f"Unknown hybrid permutation method: {permutation_type}.")
-            return functools.partial(
-                self.hybrid_permutation, method=HYBRID_METHODS[permutation_type.replace("-noisy", "")]
-            )
-        else:
-            raise Exception(f"Unknown permutation type: {permutation_type}.")
+        elif permutation_type not in HYBRID_METHODS:
+            raise Exception(f"Unknown permutation method: {permutation_type}.")
+        return functools.partial(
+            self.hybrid_permutation, method=HYBRID_METHODS[permutation_type.replace("-noisy", "")]
+        )
 
     def _soft_permutations_results(
         self,
@@ -218,6 +215,11 @@ class LearnablePermutation(torch.nn.Module):
         # general parameters
         **kwargs,
     ):
+        """
+        Caller function for hybrid methods (that combine hard and soft permutations). This function
+        prepares the soft and hard permutations and calls the given method (e.g. gumbel_topk). To
+        see the details of the method, see the corresponding function in `ocd/models/permutation/methods.py`.
+        """
         if self.permutation_type.endswith("-noisy"):
             soft_permutations = self.soft_permutation(
                 gamma=gamma,
@@ -296,7 +298,7 @@ class LearnablePermutation(torch.nn.Module):
         num_samples = self.num_samples if self.num_samples >= 0 else batch_size
         num_hard_samples = self.num_hard_samples if self.num_hard_samples >= 0 else batch_size
 
-        if not self.hard_from_softs and perm_type.startswith("hybrid"):
+        if not self.hard_from_softs and perm_type in HYBRID_METHODS:
             # hybrid methods use both soft and hard samples
             # thus, if hard_from_softs is False, we don't want to create hard samples from the same soft samples
             # and we need to create more soft samples
@@ -329,7 +331,7 @@ class LearnablePermutation(torch.nn.Module):
     # todo: does not work with the current version of dypy (make it a property later)
     @dyw.method
     def parameterized_gamma(self):
-        if self.permutation_type == "hybrid-sparse-map-simulator":
+        if self.permutation_type == "gumbel-topk":
             return torch.sigmoid(self.gamma)
         else:
             return -torch.nn.functional.logsigmoid(self.gamma)

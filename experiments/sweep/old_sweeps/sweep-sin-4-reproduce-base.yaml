@@ -53,18 +53,19 @@ data:
         graph_generator_args: { graph_type: full, n: 4, seed: 867 }
         noise_parameters: { loc: 0.0, scale: 1.0 }
         noise_type: normal
-        s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                      \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+        s_function:
+          { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+              \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
         s_function_signature: softplus
         seed: 573
-        t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                      \ + x", function_of_interest: func }
+        t_function:
+          { function_descriptor: "def func(x):\n    return numpy.sin(x)\
+              \ + x", function_of_interest: func }
         t_function_signature: sin_plus_x
-        weight_s: [ 0.5, 1.5 ]
-        weight_t: [ 0.5, 1.5 ]
+        weight_s: [0.5, 1.5]
+        weight_t: [0.5, 1.5]
       seed: 828
     val_size: 0.1
-
 
 model:
   class_path: ocd.training.module.OCDafTrainingModule
@@ -78,14 +79,14 @@ model:
       permutation_learner_args:
         gumbel_noise_std: >
           lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-        permutation_type: hybrid-sparse-map-simulator
+        permutation_type: gumbel-topk
       # Base distribution arguments
       base_distribution: torch.distributions.Normal
       base_distribution_args:
         loc: 0.0
         scale: 1.0
       # The flow model arguments
-      layers: [ 5, 15, 5 ]
+      layers: [5, 15, 5]
       populate_features: True
       num_transforms: 1
       additive: False
@@ -102,9 +103,8 @@ model:
       activation_args:
         negative_slope: 0.1
 
-
     # the optimizer
-    optimizer: [ torch.optim.AdamW, torch.optim.AdamW ]
+    optimizer: [torch.optim.AdamW, torch.optim.AdamW]
     optimizer_args:
       - weight_decay: 0.01
       - weight_decay: 0.01
@@ -125,4 +125,3 @@ model:
             res = t['log_prob']
             return -res.mean()
         function_of_interest: func
-

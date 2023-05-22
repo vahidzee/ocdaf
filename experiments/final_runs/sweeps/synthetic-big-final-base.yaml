@@ -74,7 +74,7 @@ model:
 
               return training_module.last_std
           function_of_interest: func
-        permutation_type: hybrid-sparse-map-simulator
+        permutation_type: gumbel-topk
       # Base distribution arguments
       base_distribution: torch.distributions.Normal
       base_distribution_args:

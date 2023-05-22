@@ -2,7 +2,7 @@ import torch
 import typing as th
 
 
-def straight_through_soft_permutation(
+def straight_through(
     soft_permutations: torch.Tensor, hard_permutations: torch.Tensor, return_matrix: bool = True, **kwargs
 ):
     """
@@ -18,7 +18,7 @@ def straight_through_soft_permutation(
     return results
 
 
-def sparse_map_approx(
+def gumbel_topk(
     soft_permutations: torch.Tensor,
     hard_permutations: torch.Tensor,
     maximum_basis_size: th.Optional[int] = None,

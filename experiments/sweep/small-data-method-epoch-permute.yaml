@@ -15,7 +15,7 @@ sweep_configuration:
     trainer:
       callbacks:
         - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
-    
+
     sweep_group_0:
       sweep_identifier: MaxEpoch-Scheduler
       sweep: True
@@ -65,14 +65,14 @@ sweep_configuration:
             sweep_alias:
               - SimilarityTrick
               - Soft
-              - Hybrid-Quantization
+              - straight-through
             values:
               - permutation_learner_args:
-                  permutation_type: hybrid-sparse-map-simulator
+                  permutation_type: gumbel-topk
               - permutation_learner_args:
                   permutation_type: soft
               - permutation_learner_args:
-                  permutation_type: hybrid-quantization
+                  permutation_type: straight-through
         sweep_group_2:
           sweep_identifier: WeightDecay
           sweep: True
@@ -102,17 +102,18 @@ sweep_configuration:
               - scm_generator: ocd.data.synthetic.GaussianProcessBasedSCMGeberator
                 scm_generator_args:
                   s_gamma_rbf_kernel: 1.0
-                  s_mean_function_activation: { function_descriptor: "def func(x):\n    x[x\
-                                      \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x",
-                                                function_of_interest: func }
+                  s_mean_function_activation:
+                    { function_descriptor: "def func(x):\n    x[x\
+                        \ < 100] = numpy.log(1 + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
                   s_mean_function_activation_signature: softplus
-                  s_mean_function_weights: [ 0.01, 0.1 ]
+                  s_mean_function_weights: [0.01, 0.1]
                   s_variance_rbf_kernel: 1.0
                   seed: 95
-                  t_mean_function_activation: { function_descriptor: "def func(x):\n    return\
-                                      \ numpy.sin(x) + x", function_of_interest: func }
+                  t_mean_function_activation:
+                    { function_descriptor: "def func(x):\n    return\
+                        \ numpy.sin(x) + x", function_of_interest: func }
                   t_mean_function_activation_signature: sin_plus_x
-                  t_mean_function_weights: [ 0.01, 0.1 ]
+                  t_mean_function_weights: [0.01, 0.1]
                   t_variance_rbf_kernel: 1.0
                 seed: 210
               - scm_generator: ocd.data.synthetic.ParametricSCMGenerator
@@ -121,15 +122,25 @@ sweep_configuration:
                     loc: 0.0
                     scale: 1.0
                   noise_type: normal
-                  s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                  s_function:
+                    {
+                      function_descriptor:
+                        "def func(x):\n    x[x < 100] = numpy.log(1\
+                        \ + numpy.exp(x[x < 100]))\n    return x",
+                      function_of_interest: func,
+                    }
                   s_function_signature: softplus
                   seed: 780
-                  t_function: { function_descriptor: "def func(x):\n    return numpy.sin(x)\
-                                      \ + x", function_of_interest: func }
+                  t_function:
+                    {
+                      function_descriptor:
+                        "def func(x):\n    return numpy.sin(x)\
+                        \ + x",
+                      function_of_interest: func,
+                    }
                   t_function_signature: sin_plus_x
-                  weight_s: [ 0.5, 1.5 ]
-                  weight_t: [ 0.5, 1.5 ]
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
                 seed: 64
               - scm_generator: ocd.data.synthetic.ParametricSCMGenerator
                 scm_generator_args:
@@ -137,25 +148,34 @@ sweep_configuration:
                     loc: 0.0
                     scale: 1.0
                   noise_type: normal
-                  s_function: { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
-                                \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
+                  s_function:
+                    {
+                      function_descriptor:
+                        "def func(x):\n    x[x < 100] = numpy.log(1\
+                        \ + numpy.exp(x[x < 100]))\n    return x",
+                      function_of_interest: func,
+                    }
                   s_function_signature: softplus
                   seed: 519
-                  t_function: { function_descriptor: "def func(x):\n    x[x > 100] = 100\n\
-                                      \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
-                                      \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
-                                      \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret",
-                                function_of_interest: func }
+                  t_function:
+                    {
+                      function_descriptor:
+                        "def func(x):\n    x[x > 100] = 100\n\
+                        \    x[x < -100] = -100\n    x_mean = numpy.mean(x)\n    x_std\
+                        \ = numpy.std(x)\n    if x_std == 0:\n        x_std = 1\n    x\
+                        \ = (x - x_mean) / x_std\n    ret = x**3 + 7\n    return ret",
+                      function_of_interest: func,
+                    }
                   t_function_signature: cube_and_dislocate
-                  weight_s: [ 0.5, 1.5 ]
-                  weight_t: [ 0.5, 1.5 ]
+                  weight_s: [0.5, 1.5]
+                  weight_t: [0.5, 1.5]
                 seed: 387
 
           sweep_group_4:
             sweep_identifier: GraphType
             sweep: True
             sweep_alias:
-              - Erdos                
+              - Erdos
               - Full
               - Chain
             values:
@@ -201,7 +221,5 @@ sweep_configuration:
                   graph_generator_args:
                     n: 5
                     enforce_ordering: [0, 1, 2, 3, 4]
-         
+
     seed_everything: 42
-
-

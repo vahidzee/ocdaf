@@ -10,7 +10,7 @@ init_args:
     permutation_learner_args:
       gumbel_noise_std: >
         lambda self, training_module, **kwargs: 2 - (1.9 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-      permutation_type: hybrid-sparse-map-simulator
+      permutation_type: gumbel-topk
     # The flow model arguments
     layers: [33, 99, 33]
     num_transforms: 1
@@ -19,15 +19,14 @@ init_args:
     bias: true
     scale_transform: true
     scale_transform_s_args:
-            pre_act_scale: 0.2
-            post_act_scale: 10.
+      pre_act_scale: 0.2
+      post_act_scale: 10.
     scale_transform_t_args:
-            pre_act_scale: 0.002
-            post_act_scale: 1000.
+      pre_act_scale: 0.002
+      post_act_scale: 1000.
     activation: torch.nn.LeakyReLU
     activation_args:
       negative_slope: 0.1
-
 
   # the optimizer
   optimizer: [torch.optim.AdamW, torch.optim.AdamW]
@@ -37,7 +36,7 @@ init_args:
     - model.flow
     - model.permutation_model
   optimizer_is_active:
-    - > 
+    - >
       lambda training_module: training_module.current_phase == 'maximization' if hasattr(training_module, 'current_phase') else True
     - >
       lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True

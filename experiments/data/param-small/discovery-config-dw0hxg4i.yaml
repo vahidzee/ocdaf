@@ -179,7 +179,7 @@ model:
           * (training_module.current_epoch)
 
           '
-        permutation_type: hybrid-quantization
+        permutation_type: straight-through
       base_distribution: torch.distributions.Normal
       base_distribution_args:
         loc: 0.0
