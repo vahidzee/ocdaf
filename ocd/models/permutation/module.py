@@ -8,10 +8,7 @@ from ocd.models.permutation.utils import (
     sinkhorn,
     sample_gumbel_noise,
     listperm2matperm,
-    evaluate_permutations,
     translate_idx_ordering,
-    is_permutation,
-    is_doubly_stochastic,
 )
 from lightning_toolbox import TrainingModule
 import functools
@@ -25,13 +22,12 @@ from ocd.models.permutation.hybrid import (
 PERMUTATION_TYPE_OPTIONS = th.Literal[
     "soft",
     "hard",
-    "hybrid-dot-similarity",
     "hybrid-quantization",
     "hybrid-sparse-map-simulator",
     "hybrid-sparse-map-simulator-noisy",
+    "hybrid-straight-through",
 ]
 HYBRID_METHODS = {
-    "hybrid-dot-similarity": dot_similarity,  # TODO: remove NOT USED IN THE PAPER
     "hybrid-quantization": quantize_soft_permutation,  # TODO: remove NOT USED IN THE PAPER
     "hybrid-sparse-map-simulator": sparse_map_approx,  # TODO: rename to gumbel-topk
     "hybrid-sparse-map-simulator-noisy": sparse_map_approx,  # TODO: rename to gumbel-topk-noisy

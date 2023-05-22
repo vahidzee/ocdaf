@@ -48,23 +48,6 @@ def straight_through_soft_permutation(
     return results
 
 
-# TODO: remove NOT IN THE PAPER
-def dot_similarity(
-    soft_permutations: torch.Tensor, hard_permutations: torch.Tensor, return_matrix: bool = True, **kwargs
-) -> torch.Tensor:
-    """
-    Single point approximator for the `sparse_map_approx` method. Didn't end up in the paper.
-    """
-    results = dict()
-    assert soft_permutations.shape == hard_permutations.shape
-    dot_prods = torch.sum(soft_permutations * hard_permutations, dim=-1)
-    dot_prods = torch.sum(dot_prods, dim=-1)
-    results["perm_mat"] = hard_permutations if return_matrix else hard_permutations.argmax(-2)
-    results["scores"] = dot_prods
-    results["soft_perm_mats"] = soft_permutations
-    return results
-
-
 def sparse_map_approx(
     soft_permutations: torch.Tensor,
     hard_permutations: torch.Tensor,
