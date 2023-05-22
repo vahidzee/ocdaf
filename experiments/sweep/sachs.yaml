@@ -5,14 +5,19 @@ count: 10000
 # BASE configuration which is being used
 base_config:
   # lightning.pytorch==2.0.2
-  seed_everything: 100
+  seed_everything: true
   trainer:
     accelerator: gpu
     strategy: auto
     devices: 1
     num_nodes: 0
+    precision: 32-true
     callbacks:
       - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+        init_args:
+          image_size: null
+          show_functions_in_dag: true
+          show_original_statistics_on_histograms: true
       - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
         init_args:
           starting_phase: maximization
@@ -28,22 +33,44 @@ base_config:
           log_onto_logger: true
       - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
         init_args:
+          save_every_n_epochs: null
           log_every_n_epochs: 5
           num_samples: 5000
           log_into_logger: true
-    max_epochs: 3000
+          evaluation_metrics: null
+          ignore_evaluation_metrics:
+            - pc-shd
+    fast_dev_run: false
+    min_epochs: null
+    max_steps: -1
+    min_steps: null
+    max_time: null
+    limit_train_batches: null
+    limit_val_batches: null
+    limit_test_batches: null
+    limit_predict_batches: null
+    overfit_batches: 0.0
+    val_check_interval: null
     check_val_every_n_epoch: 1
+    num_sanity_val_steps: null
     log_every_n_steps: 1
     enable_checkpointing: true
     enable_progress_bar: false
     enable_model_summary: true
     accumulate_grad_batches: 1
+    gradient_clip_val: null
+    gradient_clip_algorithm: null
+    deterministic: null
+    benchmark: null
     inference_mode: true
     use_distributed_sampler: true
+    profiler: null
     detect_anomaly: false
     barebones: false
+    plugins: null
     sync_batchnorm: false
     reload_dataloaders_every_n_epochs: 0
+    default_root_dir: null
   data:
     class_path: lightning_toolbox.DataModule
     init_args:
@@ -93,16 +120,33 @@ base_config:
       model: null
       model_cls: ocd.models.ocdaf.OCDAF
       model_args:
-        in_features: 11
         use_permutation: true
         permutation_learner_cls: ocd.models.permutation.LearnablePermutation
         permutation_learner_args:
           permutation_type: gumbel-topk
-          maximum_basis_size: null
           gumbel_noise_std:
             code: |
               def func(self, training_module, **kwargs):
-                return 2.0 - (2.0 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
+                
+                callback = training_module.trainer.callbacks[1]
+                ratio = 1.0 * callback.expectation_epoch_limit / (callback.maximization_epoch_limit + callback.expectation_epoch_limit)
+
+                tot_epochs_on_exp = training_module.trainer.max_epochs * ratio
+                step_size = 2.0 / tot_epochs_on_exp
+                if not hasattr(training_module, 'last_std'):
+                  training_module.last_std = 2.0 
+                # if you don't have the epoch from before then assign it
+                flag = False
+                if not hasattr(training_module, 'last_epoch_std_sched'):
+                  flag = True
+                  training_module.last_epoch_std_sched = training_module.current_epoch
+
+                if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                  training_module.last_std -= step_size
+                
+                training_module.last_epoch_std_sched = training_module.current_epoch
+
+                return training_module.last_std
             function_of_interest: func
         base_distribution: torch.distributions.Normal
         base_distribution_args:
@@ -131,6 +175,7 @@ base_config:
         activation: torch.nn.LeakyReLU
         activation_args:
           negative_slope: 0.1
+        in_features: 11
       objective: null
       objective_cls: lightning_toolbox.Objective
       objective_args:
@@ -172,13 +217,9 @@ base_config:
         - 1
       scheduler_args:
         - mode: min
-          factor: 0.5
-          patience: 200
           min_lr: 0.0001
           threshold: 0.0001
         - mode: min
-          factor: 0.5
-          patience: 180
           min_lr: 0.0001
           threshold: 0.0001
       scheduler_interval: epoch
@@ -189,7 +230,6 @@ base_config:
       scheduler_strict: null
       save_hparams: true
       initialize_superclass: true
-
 sweep_configuration:
   method: grid
   metric:
@@ -231,9 +271,9 @@ sweep_configuration:
               init_args:
                 scheduler_args:
                   - factor: 0.5
-                    patience: 130
+                    patience: 200
                   - factor: 0.5
-                    patience: 110
+                    patience: 180
           - trainer:
               max_epochs: 3000
               callbacks:
