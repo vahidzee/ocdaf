@@ -507,34 +507,6 @@ class LearnablePermutation(torch.nn.Module):
         self.update_buffer(new_perms, apply_unique=apply_unique)
         return torch.cat([new_perms, old_perms], dim=0)
 
-    def evaluate_permutations(
-        self,
-        samples: th.Optional[torch.Tensor] = None,
-        num_samples: th.Optional[int] = 1000,
-        threshold: float = 1e-3,
-        reduce: bool = True,
-        **kwargs,
-    ) -> th.Dict[str, torch.Tensor]:
-        """
-        Checks whether the model forward results in doubly stochastic matrices.
-
-        Args:
-            num_samples: the number of samples to check
-            threshold: the threshold for the check
-            return_percentage: whether to return the percentage of doubly stochastic matrices
-                or the boolean tensor and the samples
-            reduce: whether to reduce the results (take the mean)
-            **kwargs: keyword arguments to the model forward
-
-        Returns:
-            A dictionary with evaluation results. See the documentation of the
-            :func:`evaluate_permutations` function for more details.
-        """
-        samples = (
-            samples if samples is not None else self(num_samples=num_samples, soft=True, return_matrix=True, **kwargs)
-        )
-        return evaluate_permutations(samples, threshold=threshold, reduce=reduce)
-
     def extra_repr(self) -> str:
         forced = (
             f', force=[{",".join(str(i)for i in self.force_permutation)}]'
