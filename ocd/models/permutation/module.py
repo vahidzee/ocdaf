@@ -303,7 +303,7 @@ class LearnablePermutation(torch.nn.Module):
             # thus, if hard_from_softs is False, we don't want to create hard samples from the same soft samples
             # and we need to create more soft samples
             num_samples = num_samples + num_hard_samples
-            # the first num_hard_samples of the noises will be used for creating hard permutations
+            # the last num_hard_samples of the noises will be used for creating hard permutations
             # the rest of the noises will be used for creating soft permutations
 
         # Generate gumbel noise values and subsequently the soft permutation matrices

@@ -50,5 +50,5 @@ def gumbel_topk(
     score_grid = torch.nn.functional.softmax(scores, dim=-1)
     results["soft_perm_mat"] = soft_permutations
     results["hard_perm_mat"] = hard_perm_mats if return_matrix else hard_perm_mats.argmax(-2)
-    results["score_grid"] = score_grid
+    results["scores"] = score_grid
     return results
