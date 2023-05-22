@@ -6,7 +6,6 @@ from jsonargparse import ArgumentParser
 from jsonargparse.actions import ActionConfigFile
 from pathlib import Path
 from lightning.pytorch import LightningModule, LightningDataModule
-from smart_trainer import change_config_for_causal_discovery
 import traceback
 from dysweep import dysweep_run_resume, ResumableSweepConfig
 from lightning.pytorch.cli import LightningArgumentParser

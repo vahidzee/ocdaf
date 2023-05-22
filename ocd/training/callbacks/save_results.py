@@ -75,16 +75,9 @@ class SavePermutationResultsCallback(Callback):
         evaluation_metrics: th.Optional[th.List[str]] = None,
         ignore_evaluation_metrics: th.Optional[th.List[str]] = ['pc-shd'],
     ):
-        if save_path is None:
-            # TODO: This can have side-effects
-            # send a warning that the save_path is not set
-            # and that the results will not be saved
-            warnings.warn("save_path is not set, results will not be saved [This might cause issues]")
-            return
         self.save_path = save_path
-        print(">>>>", self.save_path)
         # create save_path if it does not exist
-        if not os.path.exists(save_path):
+        if self.save_path is not None and not os.path.exists(save_path):
             os.makedirs(save_path)
 
         self.save_every_n_epochs = save_every_n_epochs
@@ -147,6 +140,9 @@ class SavePermutationResultsCallback(Callback):
         return ret
 
     def _save_results(self, pl_module: TrainingModule, filename: th.Optional[str] = None) -> None:
+        if self.save_path is None:
+            return
+        
         filename = filename if filename is not None else f"results-epoch-{self.epoch_counter}"
         filename += ".json"
 
