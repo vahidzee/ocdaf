@@ -1,531 +1,99 @@
-import wandb
 import lightning.pytorch as pl
-from ruamel import yaml
-from pathlib import Path
-from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.cli import LightningArgumentParser
 import typing as th
 from jsonargparse import ActionConfigFile
-from lightning.pytorch import LightningModule, LightningDataModule
-import functools
-from dataclasses import dataclass
-from smart_trainer import convert_to_dict, get_callbacks_with_class_path
 from pprint import pprint
 import os
-from jsonargparse import Namespace
+from jsonargparse import Namespace, ArgumentParser
+from jsonargparse.actions import ActionConfigFile
+from pathlib import Path
+
+from lightning.pytorch import LightningModule, LightningDataModule
+
 from smart_trainer import change_config_for_causal_discovery
-from datetime import timedelta
-import copy
-import shutil
-from wandb.sdk.wandb_config import Config
-import json
-from random_word import RandomWords
-import dypy as dy
-import re
 import traceback
+from dysweep import dysweep_run_resume, ResumableSweepConfig
 
-SEPARATOR = "__CUSTOM_SEPERATOR__"
-IDX_INDICATOR = "__IDX__"
+from lightning.pytorch.cli import LightningArgumentParser
 
-SWEEP_INDICATION = "sweep"
-UNIQUE_NAME_IDENT = "sweep_identifier"
-VALUES_DISPLAY_NAME = "sweep_alias"
-SWEEP_GROUP = "sweep_group"
-SWEEP_LIST_OPERATIONS = "sweep_list_operations"
-SWEEP_LIST_INSERT = "sweep_insert"
-SWEEP_LIST_REMOVE = "sweep_remove"
-SWEEP_LIST_OVERWRITE = "sweep_overwrite"
-SWEEP_OPERATION_VAL = "sweep_eval"
-SPLIT = "-"
+from smart_trainer import convert_to_dict
 
-# Create a sweep dataclass to store the sweep configuration
-@dataclass
-class SweepMetric:
-    goal: str
-    name: str
-
-
-@dataclass
-class SweepConfigurations:
-    method: str
-    metric: SweepMetric
-    parameters: dict
-
-
-@dataclass
-class Sweep:
-    project: str
-    agent_run_args: dict
-    sweep_configuration: SweepConfigurations
-    run_name: th.Optional[str] = None
-    checkpoint_interval: int = 3600
-    default_root_dir: th.Union[Path, str] = "experiments/sweep"
-    sweep_id: th.Optional[th.Union[int, str]] = None
-    wandb_id_file_path: th.Optional[th.Union[Path, str]] = None
-    run_when_instantiate: bool = False
-    use_smart_trainer: bool = False
-    resume: bool = False
-    count: th.Optional[int] = None
-
-
-compression_mapping = {}
-value_compression_mapping = {}
-
-
-def compress_parameter_config(parameter_config):
-    current_tri = {}
-
-    global compression_mapping
-    global value_compression_mapping
-
-    # if unique identifiers are provided in the sweep config, use them
-    for key, val in parameter_config.items():
-        if isinstance(val, dict):
-            inner_dict = val.copy()
-            if UNIQUE_NAME_IDENT in inner_dict:
-                compression_mapping[key] = inner_dict[UNIQUE_NAME_IDENT]
-                inner_dict.pop(UNIQUE_NAME_IDENT)
-            if VALUES_DISPLAY_NAME in inner_dict and "values" in inner_dict:
-                new_values = []
-                for idx, value in enumerate(inner_dict["values"]):
-                    if inner_dict[VALUES_DISPLAY_NAME][idx] in value_compression_mapping:
-                        raise Exception(
-                            f"Value {inner_dict[VALUES_DISPLAY_NAME][idx]} is already used in the sweep config"
-                        )
-                    value_compression_mapping[inner_dict[VALUES_DISPLAY_NAME][idx]] = value
-                    new_values.append(inner_dict[VALUES_DISPLAY_NAME][idx])
-                inner_dict["values"] = new_values
-                inner_dict.pop(VALUES_DISPLAY_NAME)
-            parameter_config[key] = inner_dict
-
-    all_keys = list(parameter_config.keys())
-    for key in all_keys:
-        to_path = key.split(SEPARATOR)
-        # reverse to_path
-        from_path = to_path[::-1]
-        current_node = current_tri
-        current_path = None
-        for p in from_path:
-            current_path = f"{p}.{current_path}" if current_path is not None else p
-            if p not in current_node:
-                current_node[p] = {}
-                if key not in compression_mapping:
-                    compression_mapping[key] = current_path
-                break
-
-    ret = {}
-    for key, val in parameter_config.items():
-        ret[compression_mapping[key]] = val
-    return ret
-
-
-def decompress_parameter_config(parameter_config):
-    global compression_mapping
-    global value_compression_mapping
-
-    ret = {}
-    decompression_mapping = {v: k for k, v in compression_mapping.items()}
-
-    for key, val in parameter_config.items():
-        t = val
-        if isinstance(t, str) and t in value_compression_mapping:
-            t = value_compression_mapping[t]
-        ret[decompression_mapping[key]] = t
-    return ret
-
-
-def build_parser(with_sweep: bool = True):
-    # Setup the parser without any instantiation of the class
-    parser = LightningArgumentParser()
-
-    # Setup a lightning seed everything argument for reproducing results
-    parser.add_argument(
-        "--seed_everything",
-        type=th.Union[bool, int],
-        default=True,
-        help=(
-            "Set to an int to run seed_everything with this value before classes instantiation."
-            "Set to True to use a random seed."
-        ),
-    )
-
-    if with_sweep:
-        parser.add_class_arguments(
-            Sweep,
-            nested_key="sweep",
-            fail_untyped=False,
-            sub_configs=True,
-        )
-    # parser.add_argument("--sweep", action=ActionConfigFile, help="Path to sweep configuration file")
-
-    parser.add_lightning_class_args(pl.Trainer, "trainer", required=False)
-    parser.add_lightning_class_args(LightningModule, "model", subclass_mode=True, required=False)
-    parser.add_lightning_class_args(LightningDataModule, "data", subclass_mode=True, required=False)
-
+def build_args():
+    parser = ArgumentParser()
+    parser.add_class_arguments(
+        ResumableSweepConfig,
+        fail_untyped=False,
+        sub_configs=True,
+    ) 
     parser.add_argument(
         "-c", "--config", action=ActionConfigFile, help="Path to a configuration file in json or yaml format."
     )
-    return parser
-
-
-def build_args():
-    parser = build_parser()
     args = parser.parse_args()
-
-    args.sweep.default_root_dir = Path.cwd() / args.sweep.default_root_dir
-
-    # if the path does not exists then create it
-    if not os.path.exists(args.sweep.default_root_dir):
-        os.makedirs(args.sweep.default_root_dir)
-
-    return args
-
-
-def unflatten_sweep_config(flat_conf: dict):
-    conf = {}
-    for key, val in flat_conf.items():
-        path_to_key = key.split(SEPARATOR)
-        cur = conf
-        for path in path_to_key[:-1]:
-            if path not in cur:
-                cur[path] = {}
-            cur = cur[path]
-        cur[path_to_key[-1]] = val
-    return conf
-
-
-def flatten_sweep_config(tree_conf: dict):
-    global compression_mapping
-    global value_compression_mapping
-
-    def postprocess_inner_sweep(inner_conf: dict):
-        t = inner_conf.copy()
-        t.pop(SWEEP_INDICATION)
-        return t
     
-    # Define a flattening method for the tree
-    def flatten_tree(
-        tree_dict: th.Union[dict, th.List],
-        sweep_seen: bool = False
-    ) -> dict:
-        ret = {}
-        has_something_to_iterate_over = False
-        if isinstance(tree_dict, list):
-            for idx, val in enumerate(tree_dict):
-                if isinstance(val, dict) or isinstance(val, list):
-                    if isinstance(val, dict) and SWEEP_INDICATION in val:
-                        # pass a version of val without the sweep indication
-                        ret[IDX_INDICATOR + str(idx)] = postprocess_inner_sweep(val)
-                        has_something_to_iterate_over = True
-                    else:
-                        flattened, has_something = flatten_tree(val)
-                        if has_something or sweep_seen:
-                            has_something_to_iterate_over = True
-                            for subkey, subval in flattened.items():
-                                ret[SEPARATOR.join([IDX_INDICATOR + str(idx), subkey])] = subval
-        elif isinstance(tree_dict, dict):
-            if SWEEP_INDICATION in tree_dict:
-                for key, val in tree_dict.items():
-                    if key != SWEEP_INDICATION:
-                        ret[key] = val
-            else:
-                for key, val in tree_dict.items():
-                    if isinstance(val, dict) or isinstance(val, list):
-                        if SWEEP_INDICATION in val:
-                            ret[key] = postprocess_inner_sweep(val)
-                            has_something_to_iterate_over = True
-                        else:
-                            flattened, has_something = flatten_tree(val)
-                            if has_something or sweep_seen:
-                                has_something_to_iterate_over = True
-                                for subkey, subval in flattened.items():
-                                    ret[SEPARATOR.join([key, subkey])] = subval
-        return ret, has_something_to_iterate_over
+    # set the lightning logger to true
+    args.use_lightning_logger = True
+    
+    # set the default root dir to the current working directory
+    args.default_root_dir = Path.cwd() / args.default_root_dir
+    # if the path does not exists then create it
+    if not os.path.exists(args.default_root_dir):
+        os.makedirs(args.default_root_dir)
 
-    flattened = flatten_tree(tree_conf)[0]
-    conf_parameters = {}
-    for key, val in flattened.items():
-        conf_parameters[key] = val
-    return conf_parameters
-
-
-# overwrite args recursively
-def overwrite_args(args: th.Union[Namespace, th.List], sweep_config, current_path: th.List[str] = None):
-    # try and catch an exception and add "line" to the exception and then re-raise it
-    if current_path is None:
-        current_path = []
-    try:
-        if isinstance(args, list): 
-            if isinstance(sweep_config, dict):   
-                if SWEEP_LIST_OPERATIONS in sweep_config:
-                    ops = sweep_config.pop(SWEEP_LIST_OPERATIONS)
-                    for op in ops:
-                        if len(op.keys()) != 1:
-                            raise Exception("Any sweep list operation should be a dictionary with a single key")
-                        if SWEEP_LIST_INSERT in op:
-                            idx = op[SWEEP_LIST_INSERT]
-                            if not isinstance(idx, int):
-                                raise Exception(f"Expected an integer for {SWEEP_LIST_INSERT} but got: {idx}")
-                            if idx == -1:
-                                args.append(sweep_config)
-                            else:
-                                args.insert(idx, sweep_config)
-                        elif SWEEP_LIST_OVERWRITE in op:
-                            idx = op[SWEEP_LIST_OVERWRITE]
-                            if not isinstance(idx, int):
-                                raise Exception(f"Expected an integer for {SWEEP_LIST_OVERWRITE} but got: {idx}")
-                            new_arg = overwrite_args(args[idx], sweep_config, current_path + [str(idx)])
-                            args[idx] = new_arg
-                        elif SWEEP_LIST_REMOVE in op:
-                            idx = op[SWEEP_LIST_REMOVE]
-                            if not isinstance(idx, int):
-                                raise Exception(f"Expected an integer for {SWEEP_LIST_REMOVE} but got: {idx}")
-                            args.pop(idx)
-                        else:
-                            raise Exception(f"Unknown sweep list operation: {op}")
-                    sweep_config[SWEEP_LIST_OPERATIONS] = ops
-                else:
-                    for key, val in sweep_config.items():
-                        args_key = int(key[len(IDX_INDICATOR) :])
-                        if isinstance(val, dict) or isinstance(val, list):
-                            new_args = overwrite_args(args[args_key], val, current_path + [str(args_key)])
-                            args[args_key] = new_args
-                            
-                        elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                            args[args_key] = val
-                        else:
-                            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                            func_to_eval = re.search(pat, val).group(1)
-                            args[args_key] = dy.eval(func_to_eval)(args[args_key])
-            elif isinstance(sweep_config, list):
-                if len(sweep_config) != len(args):
-                    raise Exception(f"Expected a list of length {len(args)} but got a list of length {len(sweep_config)}")
-                for idx, val in enumerate(sweep_config):
-                    if isinstance(val, dict) or isinstance(val, list):
-                        new_args = overwrite_args(args[idx], val, current_path + [str(idx)])
-                        args[idx] = new_args
-                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                        args[idx] = val
-                    else:
-                        pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                        func_to_eval = re.search(pat, val).group(1)
-                        args[idx] = dy.eval(func_to_eval)(args[idx])
-                        
-        else:
-            all_sweep_group_keys = []
-            if isinstance(args, Namespace):
-                for key, val in sweep_config.items():
-                    if key.startswith(SWEEP_GROUP):
-                        all_sweep_group_keys.append(key)
-                        continue
-                    if not hasattr(args, key):
-                        setattr(args, key, Namespace())
-                    elif isinstance(val, dict) or isinstance(val, list):
-                        new_args = overwrite_args(getattr(args, key), val, current_path + [str(key)])
-                        setattr(args, key, new_args)
-                    elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1:
-                        setattr(args, key, val)
-                    else:
-                        pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                        func_to_eval = re.search(pat, val).group(1)
-                        setattr(args, key, dy.eval(func_to_eval)(getattr(args, key)))
-            elif isinstance(args, dict):
-                is_list_pretender = True
-                for key in args.keys():
-                    if not key.startswith(IDX_INDICATOR):
-                        is_list_pretender = False
-                if is_list_pretender:
-                    true_args = [None for _ in range(len(args.keys()))]
-                    for key in args.keys():
-                        true_args[int(key[len(IDX_INDICATOR) :])] = args[key]
-                    return overwrite_args(true_args, sweep_config, current_path)
-                else:
-                    for key, val in sweep_config.items():
-                        if key.startswith(SWEEP_GROUP):
-                            all_sweep_group_keys.append(key)
-                            continue
-                        if key not in args:
-                            args[key] = None
-                        if isinstance(val, dict) or isinstance(val, list):
-                            new_args = overwrite_args(args[key] if key in args else None, val, current_path + [str(key)])
-                            args[key] = new_args
-                        elif not isinstance(val, str) or val.find(SWEEP_OPERATION_VAL) == -1: 
-                            args[key] = val
-                        else:
-                            pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                            func_to_eval = re.search(pat, val).group(1)
-                            args[key] = dy.eval(func_to_eval)(args[key])
-            elif isinstance(sweep_config, str) and sweep_config.find(SWEEP_OPERATION_VAL) != -1:
-                pat = f"{SWEEP_OPERATION_VAL}\((.*)\)"
-                func_to_eval = re.search(pat, sweep_config).group(1)
-                return dy.eval(func_to_eval)(args)
-            else:
-                return sweep_config
-            # sort all_sweep_group_keys 
-            all_sweep_group_keys.sort()
-            for key in all_sweep_group_keys:
-                val = sweep_config[key]
-                new_args = overwrite_args(args, val, current_path + [f"{key}"])
-                args = new_args
-    except Exception as e:
-        print("current_path:", current_path)
-        print("Exception:\n", e)
-        print(traceback.format_exc())
-        print("While overwriting the following")
-        pprint(sweep_config)
-        print("-----------")
-        raise e
     return args
 
 
-def check_checkpoint_exists(checkpoint_dir: Path) -> bool:
-    all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
-    return len(all_subdirs) > 0
-
-
-def init_or_resume_wandb_run(
-    checkpoint_dir: Path,
-    project_name: th.Optional[str] = None,
-    run_name: th.Optional[str] = None,
-    resume: bool = False,
-):
-    """Detect the run id if it exists and resume
-    from there, otherwise write the run id to file.
-
-    Returns the config, if it's not None it will also update it first
-
-    NOTE:
-        Make sure that wandb_id_file_path.parent exists before calling this function
-    """
+def run(conf, logger, checkpoint_dir):
     try:
-        # check if the checkpoint_dir contains any subdirectories or not
-        all_subdirs = [d for d in checkpoint_dir.iterdir() if d.is_dir()]
-        # sort all_subdirs by their name lexically
-        all_subdirs = sorted(all_subdirs, key=lambda x: int(x.name.split(SPLIT)[0]))
-
-        if run_name is not None:
-            r = RandomWords()
-            w = r.get_random_word()
-            run_name = run_name + '-' + w 
-
-        if len(all_subdirs) > 0 and resume:
-            dir_name = all_subdirs[0].name
-            resume_id = SPLIT.join(dir_name.split(SPLIT)[1:])
-            logger = WandbLogger(project=project_name, name=run_name, id=resume_id, resume="must")
-            with open(checkpoint_dir / dir_name / "sweep_config.json", "r") as f:
-                sweep_config = json.load(f)
-            mx = int(all_subdirs[-1].name.split(SPLIT)[0])
-            new_dir_name = f"{mx+1}{SPLIT}{resume_id}"
-            # Change the name of the directory dir_name to new_dir_name
-            shutil.copytree(checkpoint_dir / dir_name, checkpoint_dir / new_dir_name)
-            shutil.rmtree(checkpoint_dir / dir_name)
-            new_checkpoint_dir = checkpoint_dir / new_dir_name
+        # TODO: remove this
+        conf, _ = change_config_for_causal_discovery(
+            conf, bypass_logger=True, 
+        )
+        
+        # Add a lightning checkpointing callback for when we are trying to resume the last 
+        # configuration. In this case, we will only keep the top 1 epoch.
+        new_callback = {
+            "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
+            "init_args": {
+                "dirpath": checkpoint_dir,
+                "verbose": True,
+                "save_top_k": 1,
+            },
+        }
+        
+        # If a callback exists with that specification overwrite it, otherwise add it
+        if len(conf["trainer"]["callbacks"]) > 0 and \
+            conf['trainer']['callbacks'][-1]['class_path'] == "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint":
+            conf["trainer"]["callbacks"][-1] = new_callback
         else:
-            # if the run_id doesn't exist, then create a new run
-            # and create the subdirectory
-            logger = WandbLogger(project=project_name, name=run_name)
-
-            mx = 0 if len(all_subdirs) == 0 else int(all_subdirs[-1].name.split(SPLIT)[0])
-            new_dir_name = f"{mx+1}{SPLIT}{logger.experiment.id}"
-
-            os.makedirs(checkpoint_dir / new_dir_name)
-            sweep_config = dict(logger.experiment.config)
-            # dump a json in checkpoint_dir/run_id containing the sweep config
-            with open(checkpoint_dir / new_dir_name / "sweep_config.json", "w") as f:
-                json.dump(sweep_config, f)
-
-            new_checkpoint_dir = checkpoint_dir / new_dir_name
-    except Exception as e:
-        print("Exception:\n", e)
-        print(traceback.format_exc())
-        print("-----------")
-        raise e
-    return logger, sweep_config, new_checkpoint_dir
-
-
-def sweep_run(args):
-    try:
-        # Setup the checkpoint directory
-        parent_checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
-        # if the path does not exists then create it
-        if not os.path.exists(parent_checkpoint_dir):
-            os.makedirs(parent_checkpoint_dir)
-
-        logger, sweep_config, checkpoint_dir = init_or_resume_wandb_run(
-            checkpoint_dir=parent_checkpoint_dir,
-            project_name=args.sweep.project,
-            run_name=args.sweep.run_name,
-            resume=args.sweep.resume,
+            conf["trainer"]["callbacks"].append(new_callback)
+        
+        # Create a lightning parser to turn the configuration into a lightning configuration
+        # we facilitate the instantiate_classses function that LightningCLI has provided
+        # to turn all the init_args and class_path values into actual classes and arguments
+        lightning_parser = LightningArgumentParser()
+        lightning_parser.add_argument(
+            "--seed_everything",
+            type=th.Union[bool, int],
+            default=True,
+            help=(
+                "Set to an int to run seed_everything with this value before classes instantiation."
+                "Set to True to use a random seed."
+            ),
         )
+        lightning_parser.add_lightning_class_args(pl.Trainer, "trainer", required=False)
+        lightning_parser.add_lightning_class_args(LightningModule, "model", subclass_mode=True, required=False)
+        lightning_parser.add_lightning_class_args(LightningDataModule, "data", subclass_mode=True, required=False)
+        config_init = lightning_parser.instantiate_classes(lightning_parser.parse_object(conf))
         
-        sweep_config = decompress_parameter_config(sweep_config)
-        sweep_config = unflatten_sweep_config(sweep_config)
-        # make a copy of args
-        args_copy = copy.deepcopy(args)
-        sweep_save = copy.deepcopy(args.sweep)
-        use_smart_trainer = sweep_save.use_smart_trainer
-        # throwaway the sweep config
-        delattr(args_copy, "sweep")
-        args_copy = overwrite_args(args_copy, sweep_config)
-
-        if use_smart_trainer:
-            new_conf, _ = change_config_for_causal_discovery(
-                args_copy, bypass_logger=True, 
-            )
-            # ind = get_callbacks_with_class_path(new_conf["trainer"]["callbacks"], "ocd.training.callbacks.save_results.SavePermutationResultsCallback")[0]
-            # subdir = f"saves-{args.sweep.sweep_id}"
-            # if not os.path.exists(args_copy.sweep.default_root_dir / subdir):
-            #     os.makedirs(args_copy.sweep.default_root_dir / subdir)
-            # new_conf["trainer"]["callbacks"][ind]["init_args"]["save_path"] = args_copy.sweep.default_root_dir / subdir / f"results-{logger.experiment.id}"
-            args_copy = overwrite_args(args_copy, new_conf)
-        
-        args_copy.sweep = sweep_save
-        # Add a checkpointing callback to the trainer
-        if not checkpoint_dir.exists():
-            checkpoint_dir.mkdir(parents=True)
-        
-        new_callback = Namespace(
-            {
-                "class_path": "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint",
-                "init_args": {
-                    "dirpath": checkpoint_dir,
-                    "verbose": True,
-                    "train_time_interval": timedelta(seconds=args_copy.sweep.checkpoint_interval),
-                    "save_top_k": 1,
-                },
-            }
-        )
-        
-        if len(new_conf["trainer"]["callbacks"]) > 0 and new_conf['trainer']['callbacks'][-1]['class_path'] == "ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint":
-            new_conf["trainer"]["callbacks"][-1] = new_callback
-        else:
-            new_conf["trainer"]["callbacks"].append(new_callback)
-        
-        parser = build_parser()
-        args_copy = parser.parse_object(args_copy)
-
-        # create a copy of args and drop the sweep configurations
-        new_parser = build_parser(with_sweep=False)
-        args_copy_copy = copy.deepcopy(args_copy)
-        delattr(args_copy_copy, "sweep")
-        new_parser.save(
-            args_copy_copy,
-            os.path.join(parent_checkpoint_dir, f"discovery-config-{logger.experiment.id}.yaml"),
-            skip_none=False,
-            overwrite=True,
-            multifile=False,
-        )
-
-        config_init = parser.instantiate_classes(args_copy)
-
+        # After getting the entire lightning init we then extract the model and datamodule, seed_everything
+        # get the checkpoint if it exists and run the trainer
         model = config_init.model
         datamodule = config_init.data
         pl.seed_everything(config_init.seed_everything)
 
-        # drop config_init.trainer.logger if it exists
+        # create the trainer, if logger existed in the config, then remove it and 
+        # then create the trainer using the logger in the input
         if "logger" in config_init.trainer:
             config_init.trainer.pop("logger")
-
         trainer = pl.Trainer(logger=logger, **config_init.trainer)
 
         # Handle checkpointing
@@ -536,9 +104,7 @@ def sweep_run(args):
         if ckpt_path is not None:
             print(">>>>> RUNNING WITH CHECKPOINT: ", ckpt_path)
         trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path)
-
-        # remove the subdirectory of the checkpoint
-        shutil.rmtree(checkpoint_dir)
+        
     except Exception as e:
         print("Exception:\n", e)
         print(traceback.format_exc())
@@ -548,34 +114,4 @@ def sweep_run(args):
 
 if __name__ == "__main__":
     args = build_args()
-
-    parameter_config = flatten_sweep_config(args.sweep.sweep_configuration.parameters)
-    parameter_config = compress_parameter_config(parameter_config)
-    # turn the args.sweep.sweep_configuration into a dictionary
-    sweep_conf_dict = convert_to_dict(args.sweep.sweep_configuration)
-    sweep_conf_dict["parameters"] = parameter_config
-    
-    def custom_run():
-        checkpoint_dir = args.sweep.default_root_dir / f"checkpoints-{args.sweep.sweep_id}"
-        if args.sweep.resume and check_checkpoint_exists(checkpoint_dir):
-            # If resuming is enabled and a checkpoint file exists, then resume from there
-            sweep_run(args=args)
-        else:
-            # If resuming is not enabled, then get a new configuration and run
-            param = args.sweep.agent_run_args
-            if args.sweep.count is not None:
-                param["count"] = args.sweep.count
-            wandb.agent(
-                sweep_id,
-                function=functools.partial(sweep_run, args=args),
-                project=args.sweep.project,
-                **param,
-            )
-
-    if args.sweep.sweep_id is not None:
-        sweep_id = args.sweep.sweep_id
-        custom_run()
-    else:
-        sweep_id = wandb.sweep(sweep_conf_dict, project=args.sweep.project)
-        if args.sweep.run_when_instantiate:
-            custom_run()
+    dysweep_run_resume(args, run)
