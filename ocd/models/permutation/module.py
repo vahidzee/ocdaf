@@ -35,7 +35,7 @@ HYBRID_METHODS = {
     "hybrid-quantization": quantize_soft_permutation,  # TODO: remove NOT USED IN THE PAPER
     "hybrid-sparse-map-simulator": sparse_map_approx,  # TODO: rename to gumbel-topk
     "hybrid-sparse-map-simulator-noisy": sparse_map_approx,  # TODO: rename to gumbel-topk-noisy
-    "hybrid-straight-through": straight_through_soft_permutation,  # TODO: rename to 
+    "hybrid-straight-through": straight_through_soft_permutation,  # TODO: rename to
 }
 
 
@@ -45,8 +45,6 @@ class LearnablePermutation(torch.nn.Module):
         self,
         num_features: int,
         force_permutation: th.Optional[th.Union[th.List[int], torch.IntTensor]] = None,
-        eps_ignore_permutation_matrix: th.Optional[float] = None,
-        eps_ignore_doubly_stochastic: th.Optional[float] = None,
         permutation_type: th.Optional[PERMUTATION_TYPE_OPTIONS] = "soft",
         device: th.Optional[torch.device] = None,
         dtype: th.Optional[torch.dtype] = None,
@@ -81,10 +79,6 @@ class LearnablePermutation(torch.nn.Module):
                 For example if `num_features = 3`, then `force_permutation = [2, 0, 1]` means that the third feature
                 should be the first, the first should be the second, and the second should be the third.
                 Or [[2, 0, 1], [1, 2, 0]] results in a batch of two permutations.
-            eps_ignore_permutation_matrix: the threshold for ignoring soft permutation matrices that have values
-                that are not in [eps_permutation, 1 - eps_permutation] (default: None)
-            eps_ignore_doubly_stochastic: the threshold for ignoring soft permutation matrices that are not doubly
-                stochastic (default: None) (i.e. the row and column sums are in [1 - eps, 1 + eps])
             permutation_type: the type of permutation to use (default: "soft")
                 "soft": soft permutation matrices
                 "hard": hard permutation matrices
@@ -104,8 +98,6 @@ class LearnablePermutation(torch.nn.Module):
         self.num_features = num_features
         self.device = device
         self.force_permutation = None
-        self.eps_ignore_permutation_matrix = eps_ignore_permutation_matrix
-        self.eps_ignore_doubly_stochastic = eps_ignore_doubly_stochastic
         self.permutation_type = permutation_type
         self.num_samples = num_samples
         self.num_hard_samples = num_hard_samples
@@ -404,8 +396,6 @@ class LearnablePermutation(torch.nn.Module):
         gumbel_noise: th.Optional[torch.Tensor] = None,
         sinkhorn_temp: th.Optional[float] = None,
         sinkhorn_num_iters: th.Optional[int] = None,
-        eps_ignore_permutation_matrix: th.Optional[float] = None,
-        eps_ignore_doubly_stochastic: th.Optional[float] = None,
         **kwargs,  # for sinkhorn num_iters and temp dynamic methods
     ) -> torch.Tensor:
         """
@@ -414,8 +404,6 @@ class LearnablePermutation(torch.nn.Module):
             gumbel_noise: the gumbel noise (if None, no noise is added)
             sinkhorn_temp: the temperature (if None, the dynamic method sinkhorn_temp is used)
             sinkhorn_num_iters: the number of iterations (if None, the dynamic method sinkhorn_num_iters is used)
-            eps_ignore_permutation_matrix: the threshold for the permutation matrix check (see ignore_outlier_soft_permutations)
-            eps_ignore_doubly_stochastic: the threshold for the doubly stochastic check (see ignore_outlier_soft_permutations)
             **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
 
         Returns:
@@ -427,67 +415,7 @@ class LearnablePermutation(torch.nn.Module):
             sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(**kwargs)
         )
         noise = gumbel_noise if gumbel_noise is not None else 0.0
-        results = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
-        return self.ignore_outlier_soft_permutations(
-            results, eps_ignore_permutation_matrix, eps_ignore_doubly_stochastic
-        )
-
-    def ignore_outlier_soft_permutations(
-        self,
-        permutations: torch.Tensor,
-        eps_ignore_doubly_stochastic: th.Optional[float] = None,
-        eps_ignore_permutation_matrix: th.Optional[float] = None,
-    ) -> torch.Tensor:
-        """
-        Ignore outlier matrices and replace them with matrices obtained from the Hungarian algorithm.
-
-        An outlier matrix is one that is too far away from the Birkhoff polytope vertices
-        this will be caused in two cases:
-            1. The matrix is not doubly stochastic
-            2. The matrix is not permutation matrix
-        Where the first condition is more strict.
-
-        Args:
-            permutations: the soft permutations to check
-            eps_ignore_doubly_stochastic: the threshold for the doubly stochastic check (if None, the
-                self.eps_ignore_doubly_stochastic is used) (default: None)
-                if the resulting value is evaluated to be True, then the matrices are evaluated.
-            eps_ignore_permutation_matrix: the threshold for the permutation matrix check (if None, the
-                self.eps_ignore_permutation_matrix is used) (default: None)
-                if the resulting value is evaluated to be True, then the matrices are evaluated.
-
-        Returns:
-            The resulting permutation matrices.
-        """
-        # idx is a boolean tensor that is True for matrices that are OK
-        idx = None
-        eps_ignore_doubly_stochastic = (
-            eps_ignore_doubly_stochastic
-            if eps_ignore_doubly_stochastic is not None
-            else self.eps_ignore_doubly_stochastic
-        )
-        eps_ignore_permutation_matrix = (
-            eps_ignore_permutation_matrix
-            if eps_ignore_permutation_matrix is not None
-            else self.eps_ignore_permutation_matrix
-        )
-        # ensure matrices have row sum or columns sums in [1 - eps, 1 + eps]
-        if eps_ignore_doubly_stochastic:
-            idx = is_doubly_stochastic(permutations, threshold=eps_ignore_doubly_stochastic)
-
-        # ensure the matrices have elements between [eps_permutation, 1 - eps_permutation]
-        if eps_ignore_permutation_matrix:
-            cond = is_permutation(permutations, threshold=eps_ignore_permutation_matrix)
-            idx = cond if idx is None else idx & cond
-
-        # For idx we set them using a hard permutation
-        if idx is not None and torch.any(~idx):
-            hard_permutations = self.hard_permutation(gamma=permutations[~idx])
-            results = torch.zeros_like(permutations)
-            results[~idx] = hard_permutations
-            results[idx] = permutations[idx]
-            return results
-        return permutations
+        return sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
 
     def hard_permutation(
         self,
