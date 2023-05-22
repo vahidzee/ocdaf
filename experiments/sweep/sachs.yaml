@@ -1,0 +1,280 @@
+project: sachs-dysweep
+default_root_dir: experiments/sweep
+count: 10
+
+# BASE configuration which is being used
+base_config:
+  # lightning.pytorch==2.0.2
+  seed_everything: true
+  trainer:
+    accelerator: gpu
+    strategy: auto
+    devices: 1
+    num_nodes: 0
+    callbacks:
+      - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
+      - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
+        init_args:
+          starting_phase: maximization
+          monitor_validation: false
+          monitor_training: true
+          maximization_epoch_limit: 100
+          expectation_epoch_limit: 80
+          patience: 15
+          threshold: 0.0001
+          cooldown: 200
+          reset_optimizers: false
+          reinitialize_weights_on_maximization: false
+          log_onto_logger: true
+      - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
+        init_args:
+          save_path: experiments/final_runs/sachs/final-sweep
+          log_every_n_epochs: 5
+          num_samples: 5000
+          log_into_logger: true
+    max_epochs: 3000
+    check_val_every_n_epoch: 1
+    log_every_n_steps: 1
+    enable_checkpointing: true
+    enable_progress_bar: false
+    enable_model_summary: true
+    accumulate_grad_batches: 1
+    inference_mode: true
+    use_distributed_sampler: true
+    detect_anomaly: false
+    barebones: false
+    sync_batchnorm: false
+    reload_dataloaders_every_n_epochs: 0
+  data:
+    class_path: lightning_toolbox.DataModule
+    init_args:
+      dataset: ocd.data.real_world.sachs.SachsOCDDataset
+      dataset_args:
+        name: sachs_standardized_linear_short
+        standardization: true
+        reject_outliers_n_far_from_mean: 5
+      train_dataset: null
+      train_dataset_args: null
+      val_size: 0.01
+      val_dataset: null
+      val_dataset_args: null
+      test_dataset: null
+      test_dataset_args: null
+      transforms: null
+      train_transforms: null
+      val_transforms: null
+      test_transforms: null
+      batch_size: 128
+      train_batch_size: null
+      val_batch_size: null
+      test_batch_size: null
+      pin_memory: true
+      train_pin_memory: null
+      val_pin_memory: null
+      test_pin_memory: null
+      train_shuffle: true
+      val_shuffle: false
+      test_shuffle: false
+      num_workers: 0
+      train_num_workers: null
+      val_num_workers: null
+      test_num_workers: null
+      seed: 0
+      save_hparams: true
+      initialize_superclass: true
+  model:
+    class_path: ocd.training.module.OCDafTrainingModule
+    init_args:
+      maximization_specifics: null
+      expectation_specifics: null
+      grad_clip_val: 1.0
+      phases:
+        - maximization
+        - expectation
+      model: null
+      model_cls: ocd.models.ocdaf.OCDAF
+      model_args:
+        in_features: 11
+        use_permutation: true
+        permutation_learner_cls: ocd.models.permutation.LearnablePermutation
+        permutation_learner_args:
+          permutation_type: gumbel-topk
+          maximum_basis_size: null
+          gumbel_noise_std:
+            code: |
+              def func(self, training_module, **kwargs):
+                exp_epoch_limit = training_module.trainer.max_epochs
+                maximization_epoch_limit = training_module.trainer.max_epochs
+
+                callback = training_module.trainer.callbacks[1]
+                exp_epoch_limit = callback.expectation_epoch_limit
+                maximization_epoch_limit = callback.maximization_epoch_limit
+                
+                numer = exp_epoch_limit + maximization_epoch_limit
+
+                tot_epochs_on_exp = (training_module.trainer.max_epochs + numer - 1) / numer * exp_epoch_limit
+                step_size = 2.0 / tot_epochs_on_exp
+
+                flag = False
+                if not hasattr(training_module, 'last_std'):
+                  flag = True
+                  training_module.last_std = 2.0
+                
+                # if you don't have the epoch from before then assign it
+                if not hasattr(training_module, 'last_epoch_std_sched'):
+                  training_module.last_epoch_std_sched = training_module.current_epoch
+                
+                if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                  training_module.last_std = max(0, training_module.last_std - step_size)
+                
+                training_module.last_epoch_std_sched = training_module.current_epoch
+
+                return training_module.last_std
+            function_of_interest: func
+        base_distribution: torch.distributions.Normal
+        base_distribution_args:
+          loc: 0.0
+          scale: 1.0
+        layers:
+          - 30
+          - 10
+          - 10
+        populate_features: true
+        layers_limit:
+          - 300
+          - 100
+          - 50
+        num_transforms: 1
+        additive: false
+        residual: false
+        bias: true
+        scale_transform: true
+        scale_transform_s_args:
+          pre_act_scale: 0.1
+          post_act_scale: 10.0
+        scale_transform_t_args:
+          pre_act_scale: 0.01
+          post_act_scale: 100.0
+        activation: torch.nn.LeakyReLU
+        activation_args:
+          negative_slope: 0.1
+      objective: null
+      objective_cls: lightning_toolbox.Objective
+      objective_args:
+        nll:
+          code:
+            "def func(training_module, batch):\n  t = training_module.forward(batch)\n\
+            \  res = t['log_prob']\n  return -res.mean()\n"
+          function_of_interest: func
+      optimizer:
+        - torch.optim.AdamW
+        - torch.optim.AdamW
+      optimizer_frequency: null
+      optimizer_is_active:
+        - "lambda training_module: training_module.current_phase == 'maximization' if
+          hasattr(training_module, 'current_phase') else True
+
+          "
+        - "lambda training_module: training_module.current_phase == 'expectation' if
+          hasattr(training_module, 'current_phase') else True
+
+          "
+      optimizer_parameters:
+        - model.flow
+        - model.permutation_model
+      optimizer_args:
+        - weight_decay: 0.1
+        - weight_decay: 0.01
+      lr:
+        - 0.01
+        - 0.01
+      scheduler:
+        - torch.optim.lr_scheduler.ReduceLROnPlateau
+        - torch.optim.lr_scheduler.ReduceLROnPlateau
+      scheduler_name:
+        - lr_scheduler_maximization
+        - lr_scheduler_expectation
+      scheduler_optimizer:
+        - 0
+        - 1
+      scheduler_args:
+        - mode: min
+          factor: 0.5
+          patience: 200
+          min_lr: 0.0001
+          threshold: 0.0001
+        - mode: min
+          factor: 0.5
+          patience: 180
+          min_lr: 0.0001
+          threshold: 0.0001
+      scheduler_interval: epoch
+      scheduler_frequency: 1
+      scheduler_monitor:
+        - loss
+        - loss
+      scheduler_strict: null
+      save_hparams: true
+      initialize_superclass: true
+
+sweep_configuration:
+  method: grid
+  metric:
+    goal: minimize
+    name: metrics/best-backward_relative_penalty
+  parameters:
+    upsert:
+      - sweep: True
+        sweep_identifier: B_seed
+        sweep_alias:
+          - seed100
+          - seed200
+          - seed300
+          - seed400
+          - seed500
+        values:
+          - seed_everything: 100
+          - seed_everything: 200
+          - seed_everything: 300
+          - seed_everything: 400
+          - seed_everything: 500
+      - sweep: True
+        sweep_identifier: A_scheduling
+        sweep_alias:
+          - fast3000
+          - slow6000
+        values:
+          - trainer:
+              max_epochs: 3000
+              callbacks:
+                sweep_list_operations:
+                  - sweep_overwrite: 1
+                init_args:
+                  maximization_epoch_limit: 100
+                  expectation_epoch_limit: 80
+                  patience: 15
+                  cooldown: 200
+            model:
+              init_args:
+                scheduler_args:
+                  - factor: 0.5
+                    patience: 130
+                  - factor: 0.5
+                    patience: 110
+          - trainer:
+              max_epochs: 6000
+              callbacks:
+                sweep_list_operations:
+                  - sweep_overwrite: 1
+                init_args:
+                  maximization_epoch_limit: 120
+                  expectation_epoch_limit: 100
+                  patience: 15
+                  cooldown: 200
+            model:
+              init_args:
+                scheduler_args:
+                  - factor: 0.5
+                    patience: 250
+                  - factor: 0.5
+                    patience: 210

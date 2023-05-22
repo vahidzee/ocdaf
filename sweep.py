@@ -10,7 +10,7 @@ from smart_trainer import change_config_for_causal_discovery
 import traceback
 from dysweep import dysweep_run_resume, ResumableSweepConfig
 from lightning.pytorch.cli import LightningArgumentParser
-
+from pprint import pprint
 
 def build_args():
     parser = ArgumentParser()
