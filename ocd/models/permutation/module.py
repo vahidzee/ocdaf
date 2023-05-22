@@ -173,7 +173,7 @@ class LearnablePermutation(torch.nn.Module):
                     raise ValueError(
                         "For hybrid Quantization num_hard_samples and num_soft_samples should be set to 0."
                     )
-                
+
                 # A trick for straight through estimator
                 diff = hard_perm_mats - soft_perm_mats
                 # turn the gradient off for diff
@@ -207,21 +207,21 @@ class LearnablePermutation(torch.nn.Module):
                 )
                 # make all the hard_perm_mats unique to obtain H_k which is the the approximate Boltzmann support
                 hard_perm_mats = torch.unique(hard_perm_mats, dim=0)
-                
+
                 # Calculate the energies of the Boltzmann support
                 vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
                 vectorized_gamma = self.parameterized_gamma().reshape(-1)
                 scores = torch.sum(vectorized_gamma * vectorized_hard_mats, dim=-1)
-                
+
                 if self.maximum_basis_size is not None and len(hard_perm_mats) > self.maximum_basis_size:
                     # keep the indices of the top-self.maximum_basis_size elements of the scores
                     _, indices = torch.topk(scores, self.maximum_basis_size)
                     hard_perm_mats = hard_perm_mats[indices]
                     scores = scores[indices]
-                
+
                 # Approximate the actual pmf using softmax
                 scores = torch.nn.functional.softmax(scores, dim=-1)
-                
+                results["soft_perm_mat"] = self.parameterized_gamma()
                 results["hard_perm_mat"] = hard_perm_mats
                 results["scores"] = scores
             else:
@@ -317,9 +317,15 @@ class LearnablePermutation(torch.nn.Module):
             The resulting permutation matrices, and the percentage of ones that are replaced by hard ones.
         """
         gamma = gamma if gamma is not None else self.parameterized_gamma()
-        sinkhorn_temp = sinkhorn_temp if sinkhorn_temp is not None else self.sinkhorn_temp(training_module=training_module, **kwargs)
+        sinkhorn_temp = (
+            sinkhorn_temp
+            if sinkhorn_temp is not None
+            else self.sinkhorn_temp(training_module=training_module, **kwargs)
+        )
         sinkhorn_num_iters = (
-            sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(training_module=training_module, **kwargs)
+            sinkhorn_num_iters
+            if sinkhorn_num_iters is not None
+            else self.sinkhorn_num_iters(training_module=training_module, **kwargs)
         )
         # transform gamma with log-sigmoid and temperature
         # gamma = torch.nn.functional.logsigmoid(gamma)

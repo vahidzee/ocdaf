@@ -15,15 +15,27 @@ from ocd.models.permutation.utils import (
 )
 from lightning_toolbox import TrainingModule
 import functools
-from ocd.models.permutation._hybrid_debugging import dot_similarity, quantize_soft_permutation, sparse_map_approx
+from ocd.models.permutation._hybrid_debugging import (
+    dot_similarity,
+    quantize_soft_permutation,
+    sparse_map_approx,
+    straight_through_soft_permutation,
+)
 
 PERMUTATION_TYPE_OPTIONS = th.Literal[
-    "soft", "hard", "hybrid-dot-similarity", "hybrid-quantization", "hybrid-sparse-map-simulator"
+    "soft",
+    "hard",
+    "hybrid-dot-similarity",
+    "hybrid-quantization",
+    "hybrid-sparse-map-simulator",
+    "hybrid-sparse-map-simulator-noisy",
 ]
 HYBRID_METHODS = {
-    "hybrid-dot-similarity": dot_similarity,
-    "hybrid-quantization": quantize_soft_permutation,
-    "hybrid-sparse-map-simulator": sparse_map_approx,
+    "hybrid-dot-similarity": dot_similarity,  # TODO: remove NOT USED IN THE PAPER
+    "hybrid-quantization": quantize_soft_permutation,  # TODO: remove NOT USED IN THE PAPER
+    "hybrid-sparse-map-simulator": sparse_map_approx,  # TODO: rename to gumbel-topk
+    "hybrid-sparse-map-simulator-noisy": sparse_map_approx,  # TODO: rename to gumbel-topk-noisy
+    "hybrid-straight-through": straight_through_soft_permutation,  # TODO: rename to 
 }
 
 
@@ -44,6 +56,8 @@ class LearnablePermutation(torch.nn.Module):
         buffer_size: int = 0,  # 0 for no buffer
         buffer_replay_prob: float = 1.0,  # out of num_hard_samples portion of samples to be drawn from scratch
         buffer_replace_prob: float = 0.0,  # probability of using a new sample instead of a sample from the buffer
+        # TODO: clean up these parameters
+        maximum_basis_size: th.Optional[int] = None,
     ):
         """
         Learnable permutation matrices.
@@ -80,7 +94,11 @@ class LearnablePermutation(torch.nn.Module):
             buffer_size: the size of the buffer (default: 0) (used for saving hard permutations)
             buffer_replay_prob: the probability of replaying a sample from the buffer (default: 0.0)
             buffer_replace_prob: the probability of replacing a sample in the buffer (default: 0.0)
-
+            num_samples: the number of samples to draw (default: -1), -1 means using the batch size
+            num_hard_samples: the number of hard samples to draw (default: -1), -1 means using the batch size
+            hard_from_softs: whether to generate hard samples from the same soft samples (default: False)
+            maximum_basis_size: the maximum number of basis to use for the sparse map approximation using
+                 topk algorithm (default: None)
         """
         super().__init__()
         self.num_features = num_features
@@ -96,6 +114,7 @@ class LearnablePermutation(torch.nn.Module):
         self.buffer_replace_prob = buffer_replace_prob
         self.hard_from_softs = hard_from_softs
         self.buffer_commits = 0
+        self.maximum_basis_size = maximum_basis_size
 
         if force_permutation is None:
             # initialize gamma for learnable permutation
@@ -142,7 +161,9 @@ class LearnablePermutation(torch.nn.Module):
         elif permutation_type.startswith("hybrid"):
             if permutation_type not in HYBRID_METHODS:
                 raise Exception(f"Unknown hybrid permutation method: {permutation_type}.")
-            return functools.partial(self.hybrid_permutation, method=HYBRID_METHODS[permutation_type])
+            return functools.partial(
+                self.hybrid_permutation, method=HYBRID_METHODS[permutation_type.replace("-noisy", "")]
+            )
         else:
             raise Exception(f"Unknown permutation type: {permutation_type}.")
 
@@ -213,15 +234,18 @@ class LearnablePermutation(torch.nn.Module):
         # general parameters
         **kwargs,
     ):
-        soft_permutations = self.soft_permutation(
-            gamma=gamma,
-            gumbel_noise=(
-                gumbel_noise[: len(gumbel_noise) - num_hard_samples] if not self.hard_from_softs else gumbel_noise
-            ),
-            sinkhorn_temp=sinkhorn_temp,
-            sinkhorn_num_iters=sinkhorn_num_iters,
-            return_matrix=True,
-        )
+        if self.permutation_type.endswith("-noisy"):
+            soft_permutations = self.soft_permutation(
+                gamma=gamma,
+                gumbel_noise=(
+                    gumbel_noise[: len(gumbel_noise) - num_hard_samples] if not self.hard_from_softs else gumbel_noise
+                ),
+                sinkhorn_temp=sinkhorn_temp,
+                sinkhorn_num_iters=sinkhorn_num_iters,
+                return_matrix=True,
+            )
+        else:
+            soft_permutations = self.parameterized_gamma() if gamma is None else gamma
 
         hard_permutations = self.sample_hard_permutations(
             num_samples=num_hard_samples,
@@ -233,6 +257,7 @@ class LearnablePermutation(torch.nn.Module):
         return method(
             soft_permutations=soft_permutations if not self.hard_from_softs else soft_permutations,
             hard_permutations=hard_permutations,
+            maximum_basis_size=self.maximum_basis_size,
             return_matrix=return_matrix,
         )
 
@@ -320,7 +345,10 @@ class LearnablePermutation(torch.nn.Module):
     # todo: does not work with the current version of dypy (make it a property later)
     @dyw.method
     def parameterized_gamma(self):
-        return self.gamma
+        if self.permutation_type == "hybrid-sparse-map-simulator":
+            return torch.sigmoid(self.gamma)
+        else:
+            return -torch.nn.functional.logsigmoid(self.gamma)
 
     @dyw.method
     def sinkhorn_num_iters(self, training_module=None, **kwargs) -> int:
@@ -334,7 +362,7 @@ class LearnablePermutation(torch.nn.Module):
         Returns:
             The number of iterations for the Sinkhorn algorithm.
         """
-        return 10
+        return 50
 
     @dyw.method
     def sinkhorn_temp(self, training_module=None, **kwargs) -> float:
@@ -386,6 +414,8 @@ class LearnablePermutation(torch.nn.Module):
             gumbel_noise: the gumbel noise (if None, no noise is added)
             sinkhorn_temp: the temperature (if None, the dynamic method sinkhorn_temp is used)
             sinkhorn_num_iters: the number of iterations (if None, the dynamic method sinkhorn_num_iters is used)
+            eps_ignore_permutation_matrix: the threshold for the permutation matrix check (see ignore_outlier_soft_permutations)
+            eps_ignore_doubly_stochastic: the threshold for the doubly stochastic check (see ignore_outlier_soft_permutations)
             **kwargs: keyword arguments to dynamic methods (might be empty, depends on the caller)
 
         Returns:
@@ -396,8 +426,6 @@ class LearnablePermutation(torch.nn.Module):
         sinkhorn_num_iters = (
             sinkhorn_num_iters if sinkhorn_num_iters is not None else self.sinkhorn_num_iters(**kwargs)
         )
-        # transform gamma with log-sigmoid and temperature
-        gamma = torch.nn.functional.logsigmoid(gamma)
         noise = gumbel_noise if gumbel_noise is not None else 0.0
         results = sinkhorn((gamma + noise) / sinkhorn_temp, num_iters=sinkhorn_num_iters)
         return self.ignore_outlier_soft_permutations(
