@@ -2,36 +2,6 @@ import torch
 import typing as th
 
 
-# TODO: remove NOT IN THE PAPER
-class HybridJoin(torch.autograd.Function):
-    """
-    This function simply passes the backward inputs to both of the inputs
-    """
-
-    @staticmethod
-    def forward(ctx: th.Any, soft_permutations: torch.Tensor, hard_permutations: torch.Tensor) -> th.Any:
-        return hard_permutations
-
-    @staticmethod
-    def backward(ctx: th.Any, grad_outputs) -> th.Any:
-        return grad_outputs, None
-
-
-# TODO: remove NOT IN THE PAPER
-def quantize_soft_permutation(
-    soft_permutations: torch.Tensor, hard_permutations: torch.Tensor, return_matrix: bool = True, **kwargs
-) -> torch.Tensor:
-    """
-    Experimental method which didn't end up in the paper.
-    """
-    assert soft_permutations.shape == hard_permutations.shape
-    results = dict()
-    perm_mat = HybridJoin.apply(soft_permutations, hard_permutations)
-    results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
-    results["soft_perm_mats"] = soft_permutations
-    return results
-
-
 def straight_through_soft_permutation(
     soft_permutations: torch.Tensor, hard_permutations: torch.Tensor, return_matrix: bool = True, **kwargs
 ):

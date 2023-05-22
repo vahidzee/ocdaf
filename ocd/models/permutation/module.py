@@ -13,8 +13,6 @@ from ocd.models.permutation.utils import (
 from lightning_toolbox import TrainingModule
 import functools
 from ocd.models.permutation.hybrid import (
-    dot_similarity,
-    quantize_soft_permutation,
     sparse_map_approx,
     straight_through_soft_permutation,
 )
@@ -22,13 +20,11 @@ from ocd.models.permutation.hybrid import (
 PERMUTATION_TYPE_OPTIONS = th.Literal[
     "soft",
     "hard",
-    "hybrid-quantization",
     "hybrid-sparse-map-simulator",
     "hybrid-sparse-map-simulator-noisy",
     "hybrid-straight-through",
 ]
 HYBRID_METHODS = {
-    "hybrid-quantization": quantize_soft_permutation,  # TODO: remove NOT USED IN THE PAPER
     "hybrid-sparse-map-simulator": sparse_map_approx,  # TODO: rename to gumbel-topk
     "hybrid-sparse-map-simulator-noisy": sparse_map_approx,  # TODO: rename to gumbel-topk-noisy
     "hybrid-straight-through": straight_through_soft_permutation,  # TODO: rename to
