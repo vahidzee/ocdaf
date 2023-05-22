@@ -1,7 +1,0 @@
-class_path: lightning_toolbox.DataModule
-init_args:
-    batch_size: 128
-    dataset: ocd.data.real_world.syntren.SyntrenOCDDataset
-    val_size: 0.01
-    dataset_args:
-      data_id: 6

@@ -1,21 +1,16 @@
 import lightning.pytorch as pl
 import typing as th
 from jsonargparse import ActionConfigFile
-from pprint import pprint
 import os
-from jsonargparse import Namespace, ArgumentParser
+from jsonargparse import ArgumentParser
 from jsonargparse.actions import ActionConfigFile
 from pathlib import Path
-
 from lightning.pytorch import LightningModule, LightningDataModule
-
 from smart_trainer import change_config_for_causal_discovery
 import traceback
 from dysweep import dysweep_run_resume, ResumableSweepConfig
-
 from lightning.pytorch.cli import LightningArgumentParser
 
-from smart_trainer import convert_to_dict
 
 def build_args():
     parser = ArgumentParser()
@@ -43,11 +38,6 @@ def build_args():
 
 def run(conf, logger, checkpoint_dir):
     try:
-        # TODO: remove this
-        conf, _ = change_config_for_causal_discovery(
-            conf, bypass_logger=True, 
-        )
-        
         # Add a lightning checkpointing callback for when we are trying to resume the last 
         # configuration. In this case, we will only keep the top 1 epoch.
         new_callback = {
