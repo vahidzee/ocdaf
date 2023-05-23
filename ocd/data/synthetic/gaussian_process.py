@@ -47,38 +47,38 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
             noise_type (Literal['laplace', 'uniform'], optional): The type of noise. Defaults to 'laplace'.
         """
         super().__init__(graph_generator, graph_generator_args, seed)
-        self.noise_std = noise_std if not isinstance(noise_std, float) else (noise_std, noise_std)
-        self.noise_mean = noise_mean if not isinstance(noise_mean, float) else (noise_mean, noise_mean)
+        self.noise_std = noise_std if (not isinstance(noise_std, float) and not isinstance(noise_std, int)) else (noise_std, noise_std)
+        self.noise_mean = noise_mean if (not isinstance(noise_mean, float) and not isinstance(noise_mean, int)) else (noise_mean, noise_mean)
         dy.register_context(numpy)
         self.s_gamma_rbf_kernel = (
             s_gamma_rbf_kernel
-            if not isinstance(s_gamma_rbf_kernel, float)
+            if (not isinstance(s_gamma_rbf_kernel, float) and not isinstance(s_gamma_rbf_kernel, int))
             else (s_gamma_rbf_kernel, s_gamma_rbf_kernel)
         )
         self.s_variance_rbf_kernel = (
             s_variance_rbf_kernel
-            if not isinstance(s_variance_rbf_kernel, float)
+            if (not isinstance(s_variance_rbf_kernel, float) and not isinstance(s_variance_rbf_kernel, int))
             else (s_variance_rbf_kernel, s_variance_rbf_kernel)
         )
         self.s_mean_function_weights = (
             s_mean_function_weights
-            if not isinstance(s_mean_function_weights, float)
+            if (not isinstance(s_mean_function_weights, float) and not isinstance(s_mean_function_weights, int))
             else (s_mean_function_weights, s_mean_function_weights)
         )
 
         self.t_gamma_rbf_kernel = (
             t_gamma_rbf_kernel
-            if not isinstance(t_gamma_rbf_kernel, float)
+            if (not isinstance(t_gamma_rbf_kernel, float) and not isinstance(t_gamma_rbf_kernel, int))
             else (t_gamma_rbf_kernel, t_gamma_rbf_kernel)
         )
         self.t_variance_rbf_kernel = (
             t_variance_rbf_kernel
-            if not isinstance(t_variance_rbf_kernel, float)
+            if (not isinstance(t_variance_rbf_kernel, float) and not isinstance(t_variance_rbf_kernel, int))
             else (t_variance_rbf_kernel, t_variance_rbf_kernel)
         )
         self.t_mean_function_weights = (
             t_mean_function_weights
-            if not isinstance(t_mean_function_weights, float)
+            if (not isinstance(t_mean_function_weights, float) and not isinstance(t_mean_function_weights, int))
             else (t_mean_function_weights, t_mean_function_weights)
         )
         # Setup activation functions:
@@ -137,6 +137,7 @@ class GaussianProcessBasedSCMGeberator(SCMGenerator):
 
     def generate_noise_functional_parameters(self, dag: nx.DiGraph, node: int, seed: int) -> th.Dict[str, th.Any]:
         numpy.random.seed(seed)
+        
         avg = numpy.random.uniform(self.noise_mean[0], self.noise_mean[1])
         std = numpy.random.uniform(self.noise_std[0], self.noise_std[1])
         return {"mean": avg, "std": std}

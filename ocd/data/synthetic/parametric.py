@@ -69,16 +69,16 @@ class ParametricSCMGenerator(SCMGenerator):
         super().__init__(graph_generator, graph_generator_args, seed)
         
         # Handle the weights
-        if isinstance(weight_t, float):
+        if isinstance(weight_t, float) or isinstance(weight_t, int):
             weight_t = (weight_t, weight_t)
-        if isinstance(weight_s, float):
+        if isinstance(weight_s, float) or isinstance(weight_s, int):
             weight_s = (weight_s, weight_s)
         self.weight_t = weight_t
         self.weight_s = weight_s
         
         # Handle the noise parameters
         for key, item in noise_parameters.items():
-            if isinstance(item, float):
+            if isinstance(item, float) or isinstance(item, int):
                 noise_parameters[key] = (item, item)
         self.noise_type = noise_type
         self.noise_parameters = noise_parameters          

@@ -27,6 +27,7 @@ from ocd.visualization.birkhoff import visualize_exploration
 import networkx as nx
 from ocd.evaluation import backward_relative_penalty
 from scipy.optimize import linear_sum_assignment
+from lightning.pytorch import Trainer
 
 MARKERS = ["^", "o", "x"]
 
@@ -173,29 +174,23 @@ class BirkhoffCallback(LoggingCallback):
     def __init__(
         self,
         evaluate_every_n_epochs: int = 1,
-        # TODO: Change this into a method with dynamize
         evaluate_every_n_epoch_logic: th.Optional[str] = None,
         epoch_buffer_size: int = 1,
         log_training: bool = True,
         log_validation: bool = False,
-        permutation_size: th.Optional[int] = None,
-        seed: th.Optional[int] = None,
+        seed: th.Optional[int] = 666,
         # PCA setting
         fit_every_time: bool = False,
         # loss values printed
-        write_cost_values: bool = False,
-        write_permutation_names: bool = False,
+        write_cost_values: bool = True,
+        write_permutation_names: bool = True,
         loss_cluster_count: int = 100,
         core_points_has_birkhoff_vertices: bool = True,
         core_points_has_birkhoff_edges: bool = False,
-        # Including correct orderings
-        ordering_to_score_mapping: th.Optional[th.Dict[str, int]] = None,
         # Include permutation names
-        add_permutation_to_name: bool = False,
+        add_permutation_to_name: bool = True,
         # Reject outlier cost values
-        reject_outlier_factor: th.Optional[float] = None,
-        # The causal graph
-        causal_graph: th.Optional[nx.DiGraph] = None,
+        reject_outlier_factor: th.Optional[float] = 0.1,
     ) -> None:
         """
         This is a lightning callback that visualizes how the model explores and behaves.
@@ -227,10 +222,6 @@ class BirkhoffCallback(LoggingCallback):
             log_training=log_training,
             log_validation=log_validation,
         )
-        # Infer permutation size from scm if not given
-        if permutation_size is None:
-            return
-        self.permutation_size = permutation_size
 
         self.fit_every_time = fit_every_time
         self.pca = PCA(n_components=2)
@@ -249,6 +240,36 @@ class BirkhoffCallback(LoggingCallback):
         self.polytope = None
         self.transformed_polytope = None
 
+
+        # If we have to log the losses as well, we should get a set of core points
+        # and save them
+        self.write_cost_values = write_cost_values
+        self.write_permutation_names = write_permutation_names
+        self.loss_cluster_count = loss_cluster_count
+        self.core_points_has_birkhoff_vertices = core_points_has_birkhoff_vertices
+        self.core_points_has_birkhoff_edges = core_points_has_birkhoff_edges
+        
+    def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
+        if not hasattr(pl_module, "current_phase"):
+            raise ValueError(
+                "The Birkhoff callback only sits on top of a training module that has a current_phase attribute\nConsider adding a PhaseChangerCallback to your callbacks"
+            )
+    
+    def on_train_start(self, trainer: Trainer, pl_module: TrainingModule) -> None:
+        
+        causal_graph = trainer.datamodule.data.dag
+        permutation_size = causal_graph.number_of_nodes()
+        self.permutation_size = permutation_size
+        
+        if self.write_cost_values:
+            self.cluster_count = self.loss_cluster_count
+            self.core_points = get_core_points(
+                permutation_size,
+                self.cluster_count,
+                birkhoff_vertices=self.core_points_has_birkhoff_vertices,
+                birkhoff_edges=self.core_points_has_birkhoff_edges,
+            )
+            
         if not self.fit_every_time:
             self.polytope = get_birkhoff_samples(permutation_size)
             # train a PCA on all the elements of the polytope
@@ -256,19 +277,7 @@ class BirkhoffCallback(LoggingCallback):
             self.transformed_polytope = self.pca.transform(
                 self.polytope.reshape(-1, permutation_size * permutation_size)
             )
-
-        # If we have to log the losses as well, we should get a set of core points
-        # and save them
-        self.write_cost_values = write_cost_values
-        if self.write_cost_values:
-            self.cluster_count = loss_cluster_count
-            self.core_points = get_core_points(
-                permutation_size,
-                self.cluster_count,
-                birkhoff_vertices=core_points_has_birkhoff_vertices,
-                birkhoff_edges=core_points_has_birkhoff_edges,
-            )
-
+        
         # For each of the vertex points which are the permutation
         # set their delimiters according to the number of backward edges
         # they have. If something has a low number of backward edges, then
@@ -284,30 +293,15 @@ class BirkhoffCallback(LoggingCallback):
             ordering = perm.argmax(-2).tolist()
             ordering_str = "-".join([str(x) for x in ordering])
             self.birkhoff_vertex_names.append(ordering_str)
-
-            if ordering_to_score_mapping is None:
-                if causal_graph is None:
-                    # ignore in this case and just add -1
-                    self.birkhoff_vertex_scores.append(-1)
-                else:
-                    self.birkhoff_vertex_scores.append(backward_relative_penalty(ordering, causal_graph))
-            else:
-                if ordering_str not in ordering_to_score_mapping:
-                    raise ValueError(
-                        "The ordering {} was not found in the ordering_to_score_mapping".format(ordering_str)
-                    )
-                else:
-                    self.birkhoff_vertex_scores.append(ordering_to_score_mapping[ordering_str])
-        if not write_permutation_names:
+            self.birkhoff_vertex_scores.append(backward_relative_penalty(ordering, causal_graph))
+        
+        if not self.write_permutation_names:
             self.birkhoff_vertex_names = None
         self.birkhoff_vertex_scores = np.array(self.birkhoff_vertex_scores)
 
-    def on_fit_start(self, trainer: pl.Trainer, pl_module: TrainingModule) -> None:
-        if not hasattr(pl_module, "current_phase"):
-            raise ValueError(
-                "The Birkhoff callback only sits on top of a training module that has a current_phase attribute\nConsider adding a PhaseChangerCallback to your callbacks"
-            )
-
+        
+        return super().on_fit_end(trainer, pl_module)
+    
     def _print_unique_permutations(self, logged_permutations):
         real_logged_permutations = logged_permutations.argmax(axis=-2)
         # get the unique rows and the number of times they appear

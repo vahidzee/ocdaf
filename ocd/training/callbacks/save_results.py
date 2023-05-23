@@ -71,30 +71,19 @@ class SavePermutationResultsCallback(Callback):
         save_every_n_epochs: th.Optional[int] = None,
         log_every_n_epochs: th.Optional[int] = None,
         num_samples: int = 1000,
-        ordering_to_score_mapping: th.Optional[th.Dict[str, th.Union[float, int]]] = None,
-        causal_graph: th.Optional[th.Union[str, nx.DiGraph]] = None,
         log_into_logger: bool = True,
         evaluation_metrics: th.Optional[th.List[str]] = None,
         ignore_evaluation_metrics: th.Optional[th.List[str]] = ['pc-shd'],
     ):
-        if save_path is None:
-            # TODO: This can have side-effects
-            # send a warning that the save_path is not set
-            # and that the results will not be saved
-            warnings.warn("save_path is not set, results will not be saved [This might cause issues]")
-            return
         self.save_path = save_path
         # create save_path if it does not exist
-        if not os.path.exists(save_path):
+        if self.save_path is not None and not os.path.exists(save_path):
             os.makedirs(save_path)
 
         self.save_every_n_epochs = save_every_n_epochs
         self.log_every_n_epochs = log_every_n_epochs
         self.epoch_counter = 0
         self.num_samples = num_samples
-
-        self.ordering_to_score_mapping = ordering_to_score_mapping
-        self.causal_graph = causal_graph
 
         self.log_into_logger = log_into_logger
         
@@ -109,7 +98,10 @@ class SavePermutationResultsCallback(Callback):
             for metric_name in ignore_evaluation_metrics:
                 self.evaluation_metrics.pop(metric_name, None)
             
-
+    def on_train_start(self, trainer: Trainer, pl_module: TrainingModule) -> None:
+        # Save the causal graph in the callback from the corresponding datamodule
+        self.causal_graph = trainer.datamodule.data.dag
+    
     def _get_res_dict(self, pl_module: TrainingModule):
         # save the results
         perm_model = pl_module.model.permutation_model
@@ -132,34 +124,25 @@ class SavePermutationResultsCallback(Callback):
         ret["metrics"] = {"average": {}, "best": {}}
 
         # Calculate all the metrics
-        if self.causal_graph is not None:
-            for metric_name, metric_func in self.evaluation_metrics.items():
-                sm = 0
-                running_avg = 0
-                for perm, c in permutation_map.items():
-                    perm_int = [int(i) for i in perm.split("-")]
-                    score = metric_func(perm_int, self.causal_graph)
-                    running_avg = (running_avg * sm + score * c) / (sm + c)
-                    sm += c
-                ret["metrics"]["average"][metric_name] = running_avg
-                ret["metrics"]["best"][metric_name] = metric_func(perm=best_permutation, dag=self.causal_graph)
-
-        if self.ordering_to_score_mapping is not None:
-            score = 0.0
-            cnt_cumul = 0.0
+        for metric_name, metric_func in self.evaluation_metrics.items():
+            sm = 0
+            running_avg = 0
             for perm, c in permutation_map.items():
-                if perm not in self.ordering_to_score_mapping:
-                    raise ValueError(f"Permutation {perm} not in ordering_to_score_mapping")
-                score += c * self.ordering_to_score_mapping[perm]
-                cnt_cumul += c
-            ret["avg_score"] = score / cnt_cumul
-            ret["best_score"] = self.ordering_to_score_mapping[mx]
+                perm_int = [int(i) for i in perm.split("-")]
+                score = metric_func(perm_int, self.causal_graph)
+                running_avg = (running_avg * sm + score * c) / (sm + c)
+                sm += c
+            ret["metrics"]["average"][metric_name] = running_avg
+            ret["metrics"]["best"][metric_name] = metric_func(perm=best_permutation, dag=self.causal_graph)
 
         ret["permutation_map"], ret["most_common_permutation"] = permutation_map, mx
 
         return ret
 
     def _save_results(self, pl_module: TrainingModule, filename: th.Optional[str] = None) -> None:
+        if self.save_path is None:
+            return
+        
         filename = filename if filename is not None else f"results-epoch-{self.epoch_counter}"
         filename += ".json"
 
