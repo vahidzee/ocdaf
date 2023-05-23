@@ -10,9 +10,11 @@ init_args:
       loc: 0.0
       scale: 1.0
     # The flow model arguments
-    in_features: 10
+    in_features: 3
+    # layers: [[60, 40, 20], [60, 40, 20], [20, 10, 5]]
+    # layers: [[60, 60, 60], [60, 60, 60], [20, 20, 20]]
     layers: [15, 15, 5]
-    populate_features: True
+    populate_features: true
     scale_transform: true
     scale_transform_s_args:
       pre_act_scale: 0.2

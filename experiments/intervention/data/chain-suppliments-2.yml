@@ -13,5 +13,5 @@ init_args:
     s_func: >
       lambda self, x: 0.15 - 0.12 * torch.exp(-0.5 * torch.abs(x))
     t_func: >
-      lambda self, x: torch.sin(x*1.5) + torch.cos(x*1.25) + x
+      lambda self, x: torch.sin(x/1.5) + torch.sin(1.5*x)
   val_size: 0.1
