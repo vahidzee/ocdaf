@@ -10,7 +10,7 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         self,
         n: int,
         num_samples: int = 1000,
-        base_distribution: str = "torch.distributions.Laplace",
+        base_distribution: str = "torch.distributions.Normal",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),
         dislocate: bool = False,
         transient: bool = True,
