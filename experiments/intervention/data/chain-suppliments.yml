@@ -1,0 +1,16 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+  batch_size: 128
+  dataset: ocd.data.InterventionChainDataset
+  dataset_args:
+    transient: false
+    n: 3
+    num_samples: 5000
+    seed: 6406
+    weight_s: 1
+    weight_t: 1
+    s_func: >
+      lambda self, x: 0.15 * (1 - (1 / (1 + (x/2.5)**2)))
+    t_func: >
+      lambda self, x: torch.sin(x/1.5) + torch.sin(1.5*x)
+  val_size: 0.1

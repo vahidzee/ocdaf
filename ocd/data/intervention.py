@@ -57,7 +57,6 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         for i in range(self.n):
             noise = base_noise[:, i]
             if self.transient:
-                print(self.s_weight[:i])
                 scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
                 transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
             else:
