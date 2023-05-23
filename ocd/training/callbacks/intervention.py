@@ -83,10 +83,13 @@ def draw_grid(
     limit_y=0.9,
     limit_ys=None,
     icis=None,
+    fignaxes=None,
 ):
     targets = target if target is not None else list(range(n))
-    nrows = len(targets)
-    fig, axs = plt.subplots(1, nrows, figsize=(8 * nrows, 8))  # Adjust the figure size as necessary
+    if fignaxes is None:
+        fig, axs = plt.subplots(1, len(targets), figsize=(8 * len(targets), 8))  # Adjust the figure size as necessary
+    else:
+        fig, axs = fignaxes
 
     for i, target in enumerate(targets):
         _draw_ax(
@@ -104,7 +107,8 @@ def draw_grid(
             limit_ys=limit_ys,
             icis=icis,
         )
-    return fig
+
+    return fig, axs
 
 
 def draw(
@@ -186,6 +190,8 @@ class InterventionCallback(pl.Callback):
         percentile: float = 0.9,
         limit_y: float = 0.9,  # 0 means no limit
         limit_ys: th.Optional[th.List[float]] = None,
+        title: str = "Interventions",
+        caption: str = "Interventions",
     ):
         super().__init__()
         self.every_n_epochs = every_n_epochs
@@ -197,6 +203,8 @@ class InterventionCallback(pl.Callback):
         self.limit_ys = limit_ys
         self.target = target
         self.percentile = percentile
+        self.title = title
+        self.caption = caption
         self.flow = None  # read it on fit
         self.data = None  # read it on fit
 
@@ -231,7 +239,10 @@ class InterventionCallback(pl.Callback):
             data_stds = gt_samples.std(-2)
 
         if self.target is None or isinstance(self.target, list):
-            draw_grid(
+            targets = self.target if self.target is not None else list(range(n))
+            nrows = len(targets)
+            fig, axes = draw_grid(
+                fignaxes=plt.subplots(1, len(targets), figsize=(8 * nrows, 8)),  # Adjust the figure size as necessary
                 n=n,
                 k=self.k,
                 values=values,
@@ -269,5 +280,5 @@ class InterventionCallback(pl.Callback):
         image_flat = np.frombuffer(canvas.tostring_rgb(), dtype="uint8")  # (H * W * 3,)
         plot = image_flat.reshape(*fig.canvas.get_width_height(), 3)  # (H, W, 3)
 
-        trainer.logger.log_image("Interventions", images=[plot], caption=["intervention"])
+        trainer.logger.log_image(self.title, images=[plot], caption=[self.caption])
         return return_value

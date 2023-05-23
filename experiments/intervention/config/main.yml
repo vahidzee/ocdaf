@@ -72,6 +72,7 @@ trainer:
       init_args:
         every_n_epochs: 250
         k: 8
+        target: -1
         num_samples: 10
         num_interventions: 100
   accelerator: cpu
