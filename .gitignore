@@ -183,6 +183,6 @@ baselines/results/
 experiments/sweep/checkpoints-*
 experiments/sweep/phase-changing-save-path/*
 results/*
-final-results.json
+results-epoch-*.json
 *.slrm 
 

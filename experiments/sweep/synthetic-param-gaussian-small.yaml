@@ -134,74 +134,6 @@ sweep_configuration:
   parameters:
     dy__upsert:
       - sweep: True
-        sweep_identifier: A_linearity
-        sweep_alias:
-          - non_lienar
-          - linear
-        values:
-          - data:
-              init_args:
-                dataset_args:
-                  name: >
-                    dy__eval(lambda x: f"{x}_non_linear")
-                  scm_generator_args:
-                    s_function: >
-                      dy__eval(lambda x: x)
-          - data:
-              init_args:
-                dataset_args:
-                  name: >
-                    dy__eval(lambda x: f"{x}_linear")
-                  scm_generator_args:
-                    s_function:
-                      # we perform normalization for same variance not to work
-                      function_descriptor: |
-                        def func(x):
-                          numpy.random.seed(int(numpy.mean(x)))
-                          return numpy.random.uniform() * numpy.ones_like(x)
-                      function_of_interest: func
-                    s_function_signature: steady
-                    t_function:
-                      # we perform normalization for varsort not to work
-                      function_descriptor: |
-                        def func(x):
-                          x[x > 100] = 100
-                          x[x < -100] = -100
-                          x_mean = numpy.mean(x)
-                          x_std = numpy.std(x)
-                          if x_std == 0:
-                            x_std = 1
-                          x = (x - x_mean) / x_std
-                          return x
-                      function_of_interest: func
-                    t_function_signature: ident_normalize
-      - sweep: True
-        sweep_identifier: B_additive_affine
-        sweep_alias:
-          - affine
-          - additive
-        values:
-          - data:
-              init_args:
-                dataset_args:
-                  name: >
-                    dy__eval(lambda x: f"{x}_affine")
-                  scm_generator_args:
-                    s_function: >
-                      dy__eval(lambda x: x)
-          - data:
-              init_args:
-                dataset_args:
-                  name: >
-                    dy__eval(lambda x: f"{x}_additive")
-                  scm_generator_args:
-                    s_function:
-                      function_descriptor: |
-                        def func(x):
-                          return numpy.ones_like(x)
-                      function_of_interest: func
-                    s_function_signature: one
-      - sweep: True
         sweep_identifier: C_graph_size_and_scheduling
         sweep_alias:
           - n3
@@ -360,6 +292,74 @@ sweep_configuration:
                       function_of_interest: func
                     t_function_signature: cube_and_dislocate
       - sweep: True
+        sweep_identifier: A_linearity
+        sweep_alias:
+          - non_lienar
+          - linear
+        values:
+          - data:
+              init_args:
+                dataset_args:
+                  name: >
+                    dy__eval(lambda x: f"{x}_non_linear")
+                  scm_generator_args:
+                    s_function: >
+                      dy__eval(lambda x: x)
+          - data:
+              init_args:
+                dataset_args:
+                  name: >
+                    dy__eval(lambda x: f"{x}_linear")
+                  scm_generator_args:
+                    s_function:
+                      # we perform normalization for same variance not to work
+                      function_descriptor: |
+                        def func(x):
+                          numpy.random.seed(int(numpy.mean(x)))
+                          return numpy.random.uniform() * numpy.ones_like(x)
+                      function_of_interest: func
+                    s_function_signature: steady
+                    t_function:
+                      # we perform normalization for varsort not to work
+                      function_descriptor: |
+                        def func(x):
+                          x[x > 100] = 100
+                          x[x < -100] = -100
+                          x_mean = numpy.mean(x)
+                          x_std = numpy.std(x)
+                          if x_std == 0:
+                            x_std = 1
+                          x = (x - x_mean) / x_std
+                          return x
+                      function_of_interest: func
+                    t_function_signature: ident_normalize
+      - sweep: True
+        sweep_identifier: B_additive_affine
+        sweep_alias:
+          - affine
+          - additive
+        values:
+          - data:
+              init_args:
+                dataset_args:
+                  name: >
+                    dy__eval(lambda x: f"{x}_affine")
+                  scm_generator_args:
+                    s_function: >
+                      dy__eval(lambda x: x)
+          - data:
+              init_args:
+                dataset_args:
+                  name: >
+                    dy__eval(lambda x: f"{x}_additive")
+                  scm_generator_args:
+                    s_function:
+                      function_descriptor: |
+                        def func(x):
+                          return numpy.ones_like(x)
+                      function_of_interest: func
+                    s_function_signature: one
+      - sweep: True
         sweep_identifier: F_graph_type
         sweep_alias:
           - erdos
@@ -459,8 +459,8 @@ sweep_configuration:
         sweep_identifier: H_methods
         sweep_alias:
           - gumbel_top_k
-          - straight_through_sinkhorn_no_standard
           - straight_through_sinkhorn_with_standard
+          - soft
         values:
           - model:
               init_args:
@@ -475,15 +475,10 @@ sweep_configuration:
             data:
               init_args:
                 dataset_args:
-                  standardization: False
-                  reject_outliers_n_far_from_mean: null
+                  standardization: True
+                  reject_outliers_n_far_from_mean: 5
           - model:
               init_args:
                 model_args:
                   permutation_learner_args:
-                    permutation_type: straight-through
-            data:
-              init_args:
-                dataset_args:
-                  standardization: True
-                  reject_outliers_n_far_from_mean: 5
+                    permutation_type: soft
