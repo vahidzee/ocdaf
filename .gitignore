@@ -185,4 +185,6 @@ experiments/sweep/phase-changing-save-path/*
 results/*
 final-results.json
 *.slrm 
-
+ocd/post_processing/tmp_*
+baselines/saved_model
+baselines/launch_baseline.slrm

@@ -21,6 +21,7 @@ _REAL_WORLD_DIR = os.path.join(_DIR, "../experiments/data/real-world/")
 NON_PARAM_DIR = os.path.join(_DIR, "../experiments/data/non-parametric-small-sweep/")
 PARAM_DIR = os.path.join(_DIR, "../experiments/data/parametric-small-sweep/")
 BIG_SYNTH_DIR = os.path.join(_DIR, "../experiments/data/synthetic-large/")
+RERUN_DIR = os.path.join(_DIR, "../experiments/data/param-small/")
 
 _RESULTS_FILE = "baseline_results.csv"
 _RESULTS_STRUCTURE_FILE = "synthetic_baseline.csv"
@@ -39,7 +40,7 @@ def build_args():
     parser.add_argument("--standard", action="store_true")
     parser.add_argument("--permu_sp_map", action="store_true")
     parser.add_argument("--permu_joint", action="store_true")
-    parser.add_argument("--diff_max_epoch", default=100, type=int)
+    parser.add_argument("--diff_max_epoch", default=1000, type=int)
     parser.add_argument("--diff_order_type", default='topk', type=str)
     parser.add_argument("--agent_count", default=1, type=int)
     parser.add_argument("--default_root_dir", type=str)
@@ -60,12 +61,14 @@ def get_data_config(data_type, data_num):
         paths = Path(BIG_SYNTH_DIR).glob("*.yaml")
     elif data_type == "syntren":
         paths = Path(_REAL_WORLD_DIR).glob("data-syntren-*.yaml")
+    elif data_type == "param-rerun":
+        paths = Path(RERUN_DIR).glob("*.yaml")
     else:
         paths = Path(_REAL_WORLD_DIR).glob("data-sachs.yaml")
     paths = sorted(list(paths))
     data_path = paths[data_num-1]
     data_config = yaml.load(open(data_path, "r"), Loader=yaml.FullLoader)
-    if data_type == "synth-big" or data_type == "synth-param" or data_type == "synth-non-param":
+    if data_type == "synth-big" or data_type == "synth-param" or data_type == "synth-non-param" or data_type == "param-rerun":
         data_config = data_config["data"]
     data_config = data_config["init_args"]
     data_name = data_config['dataset_args']['name']
