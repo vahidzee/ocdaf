@@ -6,6 +6,7 @@ count: 10000
 base_config:
   seed_everything: 111
   trainer:
+    max_epochs: 1500
     accelerator: gpu
     devices: 1
     num_nodes: 0
@@ -16,11 +17,11 @@ base_config:
           starting_phase: maximization
           monitor_validation: false
           monitor_training: true
-          maximization_epoch_limit: 150
-          expectation_epoch_limit: 50
+          maximization_epoch_limit: 100
+          expectation_epoch_limit: 80
           patience: 15
+          cooldown: 200
           threshold: 0.0001
-          cooldown: 100
           reset_optimizers: false
           reinitialize_weights_on_maximization: false
           log_onto_logger: true
@@ -50,36 +51,8 @@ base_config:
         permutation_learner_args:
           permutation_type: gumbel-topk
           # change this if cuda out of limit happens
-          gumbel_noise_std:
-            code: |
-              def func1(self, training_module, **kwargs):
-                
-                callback = training_module.trainer.callbacks[1]
-                a = callback.maximization_epoch_limit
-                b = callback.expectation_epoch_limit
-                tot_epochs_on_exp = (training_module.trainer.max_epochs // (a + b)) * b
-                rem = training_module.trainer.max_epochs - (training_module.trainer.max_epochs // (a + b)) * (a + b)
-                if callback.starting_phase == 'maximization':
-                  tot_epochs_on_exp += max(0, rem - a)
-                else:
-                  tot_epochs_on_exp += min(rem, b)
-                  
-                if not hasattr(training_module, 'last_std'):
-                  training_module.last_std = 0 
-                # if you don't have the epoch from before then assign it
-                flag = False
-                if not hasattr(training_module, 'last_epoch_std_sched'):
-                  flag = True
-                  training_module.last_epoch_std_sched = training_module.current_epoch
-
-                if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
-                  training_module.last_std += 1
-                training_module.last_epoch_std_sched = training_module.current_epoch
-
-                x = max(min(training_module.last_std / tot_epochs_on_exp, 1.0), 0.0)            
-                return 2.0 * (1 - x**3)
-
-            function_of_interest: func1
+          gumbel_noise_std: |
+            lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
         base_distribution: torch.distributions.Normal
         base_distribution_args:
           loc: 0.0
@@ -145,13 +118,13 @@ base_config:
         - 1
       scheduler_args:
         - mode: min
-          factor: 0.8
+          factor: 0.5
           patience: 200
           min_lr: 1.0e-4
           threshold: 0.0001
         - mode: min
-          factor: 0.8
-          patience: 200
+          factor: 0.5
+          patience: 180
           min_lr: 1.0e-4
           threshold: 0.0001
       scheduler_interval: epoch
@@ -169,46 +142,6 @@ sweep_configuration:
     name: metrics/best-backward_relative_penalty
   parameters:
     dy__upsert:
-      - sweep: True
-        sweep_identifier: A_scheduling
-        sweep_alias:
-          - fast1500
-          - slow3000
-        values:
-          - trainer:
-              max_epochs: 1500
-              callbacks:
-                dy__list__operations:
-                  - dy__overwrite: 1
-                init_args:
-                  maximization_epoch_limit: 100
-                  expectation_epoch_limit: 80
-                  patience: 15
-                  cooldown: 200
-            model:
-              init_args:
-                scheduler_args:
-                  - factor: 0.5
-                    patience: 200
-                  - factor: 0.5
-                    patience: 180
-          - trainer:
-              max_epochs: 3000
-              callbacks:
-                dy__list__operations:
-                  - dy__overwrite: 1
-                init_args:
-                  maximization_epoch_limit: 120
-                  expectation_epoch_limit: 100
-                  patience: 15
-                  cooldown: 200
-            model:
-              init_args:
-                scheduler_args:
-                  - factor: 0.5
-                    patience: 250
-                  - factor: 0.5
-                    patience: 210
       - sweep: True
         sweep_identifier: B_dataset
         sweep_alias:
@@ -372,6 +305,6 @@ sweep_configuration:
                 dy__eval:
                   expression: |
                     def func(conf):
-                      return f"experiments/saves/syntren/data-{conf['data']['init_args']['dataset_args']['data_id']}-maxepoch-{conf['trainer']['max_epochs']}"
+                      return f"experiments/saves/syntren/data-{conf['data']['init_args']['dataset_args']['data_id']}"
                   function_of_interest: func
               save_every_n_epochs: 500

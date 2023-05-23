@@ -231,7 +231,7 @@ sweep_configuration:
         sweep_identifier: A_scheduling
         sweep_alias:
           - fast1500
-          - slow3000
+          - slow3100
         values:
           - trainer:
               max_epochs: 1500
@@ -251,13 +251,13 @@ sweep_configuration:
                   - factor: 0.5
                     patience: 180
           - trainer:
-              max_epochs: 3000
+              max_epochs: 3100
               callbacks:
                 dy__list__operations:
                   - dy__overwrite: 1
                 init_args:
-                  maximization_epoch_limit: 120
-                  expectation_epoch_limit: 100
+                  maximization_epoch_limit: 100
+                  expectation_epoch_limit: 80
                   patience: 15
                   cooldown: 200
             model:
