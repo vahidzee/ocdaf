@@ -124,30 +124,6 @@ base_config:
         permutation_learner_cls: ocd.models.permutation.LearnablePermutation
         permutation_learner_args:
           permutation_type: gumbel-topk
-          gumbel_noise_std:
-            code: |
-              def func(self, training_module, **kwargs):
-                
-                callback = training_module.trainer.callbacks[1]
-                ratio = 1.0 * callback.expectation_epoch_limit / (callback.maximization_epoch_limit + callback.expectation_epoch_limit)
-
-                tot_epochs_on_exp = training_module.trainer.max_epochs * ratio
-                step_size = 2.0 / tot_epochs_on_exp
-                if not hasattr(training_module, 'last_std'):
-                  training_module.last_std = 2.0 
-                # if you don't have the epoch from before then assign it
-                flag = False
-                if not hasattr(training_module, 'last_epoch_std_sched'):
-                  flag = True
-                  training_module.last_epoch_std_sched = training_module.current_epoch
-
-                if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
-                  training_module.last_std -= step_size
-                
-                training_module.last_epoch_std_sched = training_module.current_epoch
-
-                return training_module.last_std
-            function_of_interest: func
         base_distribution: torch.distributions.Normal
         base_distribution_args:
           loc: 0.0
@@ -291,6 +267,116 @@ sweep_configuration:
                     patience: 250
                   - factor: 0.5
                     patience: 210
+      - sweep: True
+        sweep_identifier: C_gumbel_scheduling
+        sweep_alias:
+          - Linear
+          - FastFirst
+          - FastLast
+        values:
+          - model:
+              init_args:
+                model_args:
+                  permutation_learner_args:
+                    gumbel_noise_std:
+                      code: |
+                        def func1(self, training_module, **kwargs):
+                          
+                          callback = training_module.trainer.callbacks[1]
+                          a = callback.maximization_epoch_limit
+                          b = callback.expectation_epoch_limit
+                          tot_epochs_on_exp = (training_module.trainer.max_epochs // (a + b)) * b
+                          rem = training_module.trainer.max_epochs - (training_module.trainer.max_epochs // (a + b)) * (a + b)
+                          if callback.starting_phase == 'maximization':
+                            tot_epochs_on_exp += max(0, rem - a)
+                          else:
+                            tot_epochs_on_exp += min(rem, b)
+                            
+                          if not hasattr(training_module, 'last_std'):
+                            training_module.last_std = 0 
+                          # if you don't have the epoch from before then assign it
+                          flag = False
+                          if not hasattr(training_module, 'last_epoch_std_sched'):
+                            flag = True
+                            training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                            training_module.last_std += 1
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          x = max(min(training_module.last_std / tot_epochs_on_exp, 1.0), 0.0)            
+                          return 2.0 - 2.0 * x
+
+                      function_of_interest: func1
+          - model:
+              init_args:
+                model_args:
+                  permutation_learner_args:
+                    gumbel_noise_std:
+                      code: |
+                        def func2(self, training_module, **kwargs):
+                          
+                          callback = training_module.trainer.callbacks[1]
+                          a = callback.maximization_epoch_limit
+                          b = callback.expectation_epoch_limit
+                          tot_epochs_on_exp = (training_module.trainer.max_epochs // (a + b)) * b
+                          rem = training_module.trainer.max_epochs - (training_module.trainer.max_epochs // (a + b)) * (a + b)
+                          if callback.starting_phase == 'maximization':
+                            tot_epochs_on_exp += max(0, rem - a)
+                          else:
+                            tot_epochs_on_exp += min(rem, b)
+                            
+                          if not hasattr(training_module, 'last_std'):
+                            training_module.last_std = 0 
+                          # if you don't have the epoch from before then assign it
+                          flag = False
+                          if not hasattr(training_module, 'last_epoch_std_sched'):
+                            flag = True
+                            training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                            training_module.last_std += 1
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          x = max(min(training_module.last_std / tot_epochs_on_exp, 1.0), 0.0)            
+                          return 2.0 * (1 - x) ** 3
+
+                      function_of_interest: func2
+          - model:
+              init_args:
+                model_args:
+                  permutation_learner_args:
+                    gumbel_noise_std:
+                      code: |
+                        def func3(self, training_module, **kwargs):
+                          
+                          callback = training_module.trainer.callbacks[1]
+                          a = callback.maximization_epoch_limit
+                          b = callback.expectation_epoch_limit
+                          tot_epochs_on_exp = (training_module.trainer.max_epochs // (a + b)) * b
+                          rem = training_module.trainer.max_epochs - (training_module.trainer.max_epochs // (a + b)) * (a + b)
+                          if callback.starting_phase == 'maximization':
+                            tot_epochs_on_exp += max(0, rem - a)
+                          else:
+                            tot_epochs_on_exp += min(rem, b)
+                            
+                          if not hasattr(training_module, 'last_std'):
+                            training_module.last_std = 0 
+                          # if you don't have the epoch from before then assign it
+                          flag = False
+                          if not hasattr(training_module, 'last_epoch_std_sched'):
+                            flag = True
+                            training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          if training_module.current_phase != 'maximization' and (flag or training_module.last_epoch_std_sched != training_module.current_epoch):
+                            training_module.last_std += 1
+                          training_module.last_epoch_std_sched = training_module.current_epoch
+
+                          x = max(min(training_module.last_std / tot_epochs_on_exp, 1.0), 0.0)            
+                          return 2.0 * (1 - x**3)
+
+                      function_of_interest: func3
+
       - trainer:
           callbacks:
             dy__list__operations:
@@ -300,6 +386,6 @@ sweep_configuration:
                 dy__eval:
                   expression: |
                     def func(conf):
-                      return f"experiments/saves/sachs/seed-{conf['seed_everything']}-maxepoch-{conf['trainer']['max_epochs']}"
+                      return f"experiments/saves/sachs/seed-{conf['seed_everything']}-maxepoch-{conf['trainer']['max_epochs']}-sched-{conf['model']['init_args']['model_args']['permutation_learner_args']['gumbel_noise_std']['function_of_interest']}"
                   function_of_interest: func
               save_every_n_epochs: 500
