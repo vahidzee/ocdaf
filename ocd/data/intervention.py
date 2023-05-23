@@ -13,6 +13,7 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         base_distribution: str = "torch.distributions.Laplace",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),
         dislocate: bool = False,
+        transient: bool = True,
         seed: int = 0,
         weight_s: th.Union[th.Tuple[float, float], float] = 0.1,
         weight_t: th.Union[th.Tuple[float, float], float] = 0.1,
@@ -23,6 +24,7 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         self.n = n
         self.seed = seed
         self.dislocate = dislocate
+        self.transient = transient
         torch.manual_seed(seed)
         if isinstance(weight_s, (list, tuple)):
             self.s_weight = torch.rand(n) * (weight_s[1] - weight_s[0]) + weight_s[0]
@@ -54,14 +56,13 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         means, stds = torch.empty(self.n), torch.empty(self.n)
         for i in range(self.n):
             noise = base_noise[:, i]
-            # scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
-            # transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
-            scale = (
-                torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
-            )  # .sum(dim=1)
-            transform = (
-                torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
-            )  # .sum(dim=1)
+            if self.transient:
+                print(self.s_weight[:i])
+                scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
+                transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+            else:
+                scale = torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
+                transform = torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
 
             x_i = noise * self.s_func(scale) + self.t_func(transform)
             means[i] = x_i.mean()
@@ -78,8 +79,12 @@ class InterventionChainDataset(torch.utils.data.Dataset):
                 x_i = (torch.ones(num_samples) * value).reshape(-1, 1)
             else:
                 noise = base_noise[:, i]
-                scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
-                transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+                if self.transient:
+                    scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
+                    transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+                else:
+                    scale = torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
+                    transform = torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
                 x_i = noise * self.s_func(scale) + self.t_func(transform)
                 if self.dislocate:
                     x_i = (x_i - self.means[i]) / self.stds[i]
