@@ -12,6 +12,7 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         num_samples: int = 1000,
         base_distribution: str = "torch.distributions.Laplace",
         base_distribution_args: dict = dict(loc=0.0, scale=1.0),
+        dislocate: bool = False,
         seed: int = 0,
         weight_s: th.Union[th.Tuple[float, float], float] = 0.1,
         weight_t: th.Union[th.Tuple[float, float], float] = 0.1,
@@ -21,6 +22,7 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         self.num_samples = num_samples
         self.n = n
         self.seed = seed
+        self.dislocate = dislocate
         torch.manual_seed(seed)
         if isinstance(weight_s, (list, tuple)):
             self.s_weight = torch.rand(n) * (weight_s[1] - weight_s[0]) + weight_s[0]
@@ -52,12 +54,20 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         means, stds = torch.empty(self.n), torch.empty(self.n)
         for i in range(self.n):
             noise = base_noise[:, i]
-            scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
-            transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+            # scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
+            # transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+            scale = (
+                torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
+            )  # .sum(dim=1)
+            transform = (
+                torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
+            )  # .sum(dim=1)
+
             x_i = noise * self.s_func(scale) + self.t_func(transform)
             means[i] = x_i.mean()
             stds[i] = x_i.std()
-            x_i = (x_i - means[i]) / stds[i]
+            if self.dislocate:
+                x_i = (x_i - means[i]) / stds[i]
             results = torch.cat([results, x_i.reshape(-1, 1)], dim=1) if i > 0 else x_i.reshape(-1, 1)
         return results, means, stds
 
@@ -71,7 +81,8 @@ class InterventionChainDataset(torch.utils.data.Dataset):
                 scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
                 transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
                 x_i = noise * self.s_func(scale) + self.t_func(transform)
-                x_i = (x_i - self.means[i]) / self.stds[i]
+                if self.dislocate:
+                    x_i = (x_i - self.means[i]) / self.stds[i]
             results = torch.cat([results, x_i.reshape(-1, 1)], dim=1) if i > 0 else x_i.reshape(-1, 1)
         return results
 
