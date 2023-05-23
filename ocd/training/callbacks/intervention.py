@@ -182,7 +182,7 @@ class InterventionCallback(pl.Callback):
         num_samples: int = 100,
         num_interventions: int = 250,
         k: float = 5,
-        target: th.Union[int, th.List[int], None] = -1,
+        target: th.Union[int, th.List[int], None] = None,
         percentile: float = 0.9,
         limit_y: float = 0.9,  # 0 means no limit
         limit_ys: th.Optional[th.List[float]] = None,
