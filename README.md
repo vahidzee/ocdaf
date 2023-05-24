@@ -16,7 +16,7 @@ To ensure compatibility, consider using the `frozen-requirements.txt`, which inc
 Single experiments can be conducted by defining a configuration file. For instance, the Birkhoff polytope figure in our paper can be reproduced with the following command:
 
 ```bash
-python trainer.py fit --config experiments/configs/birkhoff-gumbel-sinkhorn --seed_everything=555
+python trainer.py fit --config experiments/configs/birkhoff-gumbel-sinkhorn.yaml --seed_everything=555
 ```
 
 We have provided a sample configuration file with extensive documentation [here]((./experiments/configs/example.yaml)) to familiarize you with the components of our configurations. Furthermore, the `trainer.py` file is a standard [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) runnable file that runs the causal discovery on a specific configuration defined. You can define and run your configuration files in the `experiments/configs` directory.
@@ -27,19 +27,19 @@ Our experiments leverage [dysweep](https://github.com/HamidrezaKmK/dysweep) to e
 
 To initiate a specific sweep, use the following command:
 
-```
+```bash
 python sweep.py --config path/to/sweep-config.yaml
 ```
 
 This generates a sweep object in the designated project with a unique ID. Subsequently, execute the following command across multiple machines to simultaneously run each configuration:
 
-```
+```bash
 python sweep.py --entity=<Wandb-Entity> --project=<Wandb-Project> --sweep_id=<Wandb-Sweep-id> --count=<#-of-configurations-to-run>
 ```
 
 Alternatively, simply add the `sweep_id` option to the initial command. Since we use `jsonargparse` this will simply rewrite the `sweep_id` on the previous configuration and seamlessly starts the sweep.
 
-```
+```bash
 python sweep.py --config path/to/sweep-config.yaml --sweep_id=<Wandb-Sweep-id>
 ```
 
