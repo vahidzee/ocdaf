@@ -1,10 +1,8 @@
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch import LightningModule, LightningDataModule
 from lightning_toolbox import TrainingModule
-import os
 from lightning.pytorch.callbacks import ModelCheckpoint
-import logging
-from pprint import pprint
+import os
 
 
 def main():
@@ -15,8 +13,6 @@ def main():
         subclass_mode_data=True,
         auto_configure_optimizers=False,
     )
-
-    # cli.trainer.fit(cli.model, datamodule=cli.datamodule)  # , ckpt_path="experiments/simple/checkpoints/last.ckpt")
 
 
 if __name__ == "__main__":
