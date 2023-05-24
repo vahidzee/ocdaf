@@ -14,7 +14,7 @@ model:
         scale: 1.0
       # The flow model arguments
       in_features: 3
-      layers: [15, 15, 5]
+      layers: [30, 20, 10]
       populate_features: true
       scale_transform: true
       scale_transform_s_args:
@@ -88,6 +88,6 @@ trainer:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
       project: intervention
-      name: supplements
+      name: supplements-big
   gradient_clip_val: 1.0
   gradient_clip_algorithm: value
