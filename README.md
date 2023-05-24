@@ -10,21 +10,6 @@ cd ocd
 pip install -r requirements.txt # install dependencies
 ```
 
-## Reproducing the experiments
-
-Notebooks for reproducing the experiments in the paper are available in the `notebooks` folder:
-- [Visualizing Birkhoff Polytope](notebooks/birkhoff.ipynb)
-- [Sanity check for log-likelihoods](notebooks/sanity_check.ipynb)
-- [Pruning of causal orders](notebooks/pruning.ipynb)
-- [Ordered Causal Discovery with MADE](notebooks/ocd.ipynb)
-- [Generating Generic SCMs](notebooks/scm_tutorial.ipynb)
-- [Working with the datamodule for observational and interventional data creation](notebooks/datamodule_test.ipynb)
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-## Citation
-
-If you use OCD in your research, please cite this repository as described in [CITATION.cff](CITATION.cff).
-
