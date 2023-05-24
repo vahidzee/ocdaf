@@ -14,7 +14,7 @@ model:
         scale: 1.0
       # The flow model arguments
       in_features: 5
-      layers: [15, 15, 5]
+      layers: [5, 3]
       populate_features: true
       scale_transform: true
       scale_transform_s_args:
@@ -60,7 +60,7 @@ trainer:
     # checkpointing
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        dirpath: experiments/intervention/checkpoints/main
+        dirpath: experiments/intervention/checkpoints/mainnewsmall
         verbose: true
         save_top_k: -1 # save all models
         every_n_epochs: 250 # save on phase change
@@ -88,6 +88,6 @@ trainer:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
       project: intervention
-      name: main
+      name: main-new-small
   gradient_clip_val: 1.0
   gradient_clip_algorithm: value

@@ -8,8 +8,8 @@ init_args:
     n: 5
     num_samples: 4000
     seed: 6406
-    weight_s: [0.3, 0.5]
-    weight_t: [0.15, 0.3]
+    weight_s: 1
+    weight_t: 0.5
     s_func: >
       lambda self, x: 0.15 - 0.12 * torch.exp(-0.5 * torch.abs(x))
     t_func: >
