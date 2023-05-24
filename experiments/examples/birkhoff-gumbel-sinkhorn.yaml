@@ -1,52 +1,29 @@
+# example configuration to produce the Birkhoff Polytope plots for the Straight-Through permutation learning method
 data:
-  # The data configuration
   class_path: lightning_toolbox.DataModule
   init_args:
-    # batch size being used
     batch_size: 128
     dataset: ocd.data.SyntheticOCDDataset
     dataset_args:
-      # Standardization of the data generating process
       standardization: True
-      # Reject the rows of data that have values outside of [median(x(v)) - 5.0, median(x(v)) + 5.0]
       reject_outliers_n_far_from_mean: 5.0
-
-      # A synthetic dataset configuration with a path graph, specific seed and Polynomial function form
-      # x(v) = t_function(linear_combination(Pa(x(v)))) + s_function(linear_combination(Pa(x(v)))) * Noise
-      name: synthetic_parametric_non_linear_affine_n3_CubeDislocate_tournament
-      # The number of simulations or the rows in the dataset
+      name: synthetic_parametric_non_linear_affine_n3_CubeDislocate_chain_seed4
       observation_size: 1000
       scm_generator: ocd.data.synthetic.ParametricSCMGenerator
       scm_generator_args:
         graph_generator: ocd.data.scm.GraphGenerator
-        # The graph generator (defining a tournament with 3 vertices)
         graph_generator_args: { graph_type: full, n: 3, seed: 689 }
-        # Define the noise type of the model
         noise_type: normal
         noise_parameters:
           scale: 1.0
           loc: 0.0
-
-        ## We can write generic code blocks in YAML thanks to the Dypy package capabilities
-
-        # A generic s_function generator that simply applies a softplus on top of the input linear combination
         s_function:
-          function_descriptor: |
-            import numpy
-            def func(x):
-              x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
-              return x
-          function_of_interest: func
+          { function_descriptor: "def func(x):\n    x[x < 100] = numpy.log(1\
+              \ + numpy.exp(x[x < 100]))\n    return x", function_of_interest: func }
         s_function_signature: softplus
-
-        # seed for reproducing the SCM
         seed: 870
-
-        # A generic t_function generator that simply applies a polynomial x^3 + 6 on top of the parent linear combination
-        # this also performs normalization
         t_function:
           function_descriptor: |
-            import numpy
             def func(x):
               x[x > 100] = 100
               x[x < -100] = -100
@@ -58,15 +35,10 @@ data:
               ret = x**3 + 6
               return ret
           function_of_interest: func
-        t_function_signature: cube_dislocate
-
-        # The linear coefficients are sampled uniformly from the following range for s and t functions separately
+        t_function_signature: sin_plus_x
         weight_s: [0.5, 1.5]
         weight_t: [0.5, 1.5]
-
-      # seed for reproducing the data generation process
       seed: 139
-    # the validation split (this is not used in the final model)
     val_size: 0.1
 model:
   class_path: ocd.training.module.OCDafTrainingModule
@@ -78,53 +50,39 @@ model:
       use_permutation: True
       permutation_learner_cls: ocd.models.permutation.LearnablePermutation
       permutation_learner_args:
-        # Scheduling the Gumbel noises in a linear decaying fashion
         gumbel_noise_std: >
           lambda self, training_module, **kwargs: 2 - (2 / (training_module.trainer.max_epochs)) * (training_module.current_epoch)
-        # Use the straight-through estimator of the Gumbel-Sinkhorn
         permutation_type: straight-through-noisy
-      # Base distribution arguments, we set it to the Normal distribution
+      # Base distribution arguments
       base_distribution: torch.distributions.Normal
       base_distribution_args:
         loc: 0.0
         scale: 1.0
       # The flow model arguments
-      # The size of the layers
       layers: [10, 5, 5]
-      # When this option is turned on, all the layer sizes are multiplied by the
-      # number of covariates, allowing scaling
       populate_features: True
-      # For the layers not to explode, the final result is clamped with the following
-      # values
       layers_limit: [100, 300, 50]
-      # The number of transforms in the flow model
       num_transforms: 1
-      # If this is turned on, then the s_function will be automatically skipped (additive flows)
       additive: False
-      # For gradient flow
       residual: False
-      # The biases existing or not in the Masked MLP
       bias: true
-      # activations in the Masked-MLP
+      # activations
       activation: torch.nn.LeakyReLU
       activation_args:
         negative_slope: 0.1
-      # scale transform is off by default
+      # scale transform is off for non-parametric
       scale_transform: false
 
-    # the optimizer (two parts)
+    # the optimizer
     optimizer_parameters:
       - model.flow
       - model.permutation_model
-    # Activating the optimizer depending on the current phase
     optimizer_is_active:
       - >
         lambda training_module: training_module.current_phase == 'maximization' if hasattr(training_module, 'current_phase') else True
       - >
         lambda training_module: training_module.current_phase == 'expectation' if hasattr(training_module, 'current_phase') else True
-    # Gradient clipping for model stability
     grad_clip_val: 1.0
-    # Learning rate scheduling (self explanatory)
     lr: [0.01, 0.01]
     optimizer: [torch.optim.AdamW, torch.optim.AdamW]
     optimizer_args:
@@ -143,10 +101,8 @@ model:
     scheduler_name: ["lr_scheduler_maximization", "lr_scheduler_expectation"]
     scheduler_optimizer: [0, 1]
     scheduler_monitor: ["loss", "loss"]
-
-    # The final objective written in dypy Objective format
     objective_args:
-      nll: # the negative log likelihood
+      nll:
         code: >
           def func(training_module, batch):
             t = training_module.forward(batch)
@@ -157,67 +113,46 @@ model:
 trainer:
   # callbacks
   callbacks:
-    # This callback visualizes the data on wandb, it provides a histogram
-    # as well as the causal graph with captions summarizing the data generating process
     - class_path: ocd.training.callbacks.data_visualizer.DataVisualizer
-    # This callback controls the phase changing between maximization and expectation
     - class_path: ocd.training.callbacks.phase_changer.PhaseChangerCallback
       init_args:
-        # (1) starting phase
         starting_phase: maximization
-        # The (maximum) number of epochs on each step
+        # Set to higher value for faster results
+        # The settings regarding epoch limit values
         maximization_epoch_limit: 70
         expectation_epoch_limit: 70
-        # The phase changing is also coded in an adaptive way
-        # however, for all our experiments, we set the cooldown
-        # value to a large value so that the maximization_epoch_limit
-        # and expectation_epoch_limit deterministically handle
-        # how the phase changing is done
+        # The settings regarding the generalization gap
         patience: 25
         threshold: 0.0001
         cooldown: 200
-        # Reset the optimizers in each phase change or not
         reset_optimizers: True
-        # Reinitialize the weights of the flow or not
         reinitialize_weights_on_maximization: False
-    # The following callback visualizes the data generating process
-    # using a PCA representation of the Birkhoff polytope
     - class_path: ocd.training.callbacks.birkhoff_visualizer.BirkhoffCallback
       init_args:
         epoch_buffer_size: 1
         evaluate_every_n_epochs: 5
-    # The folllowing callback saves the permutation output and metrics throughout
-    # the training process
     - class_path: ocd.training.callbacks.save_results.SavePermutationResultsCallback
       init_args:
         save_path: experiments/simple/my-saves
         num_samples: 1000
         log_every_n_epochs: 5
-        save_every_n_epochs: 100
-    # This is used for model checkpointing (Lightning checkpoint module has a bug when
-    # using manual_optimization; therefore, we inheritted it and fixed the bug!)
+        save_every_n_epochs: 5
     - class_path: ocd.training.callbacks.checkpointing.DebuggedModelCheckpoint
       init_args:
-        # The directory of the checkpoints
-        dirpath: experiments/configs/checkpoints
+        dirpath: experiments/simple/checkpoints
         save_last: true
         verbose: true
         every_n_epochs: 1
-
-  # The number of epochs
-  max_epochs: 1500
-  # WandB logger
-  logger:
-    class_path: lightning.pytorch.loggers.WandbLogger
-    init_args:
-      project: simple-trainer
-
-  # Lightning trainer configurations
   accelerator: gpu
   devices: 1
   num_nodes: 0
+  max_epochs: 1500 # SWEEP on this
   log_every_n_steps: 1
   check_val_every_n_epoch: 1
   enable_checkpointing: true
   enable_model_summary: true
   enable_progress_bar: false
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: simple-trainer

@@ -20,7 +20,7 @@ Single experiments can be conducted by defining a configuration file. For instan
 python trainer.py fit --config experiments/configs/birkhoff-gumbel-sinkhorn.yaml --seed_everything=555
 ```
 
-We have provided a sample configuration file with extensive documentation [here]((./experiments/configs/example.yaml)) to familiarize you with the components of our configurations. Furthermore, the `trainer.py` file is a standard [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) runnable file that runs the causal discovery on a specific configuration defined. You can define and run your configuration files in the `experiments/configs` directory.
+We have provided a sample configuration file with extensive documentation [here]((./experiments/examples/example-discovery.yaml)) to familiarize you with the components of our configurations. Furthermore, the `trainer.py` file is a standard [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) runnable file that runs the causal discovery on a specific configuration defined. 
 
 ### Conducting Sweeps
 
