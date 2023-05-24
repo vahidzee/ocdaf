@@ -1,0 +1,5 @@
+class_path: lightning_toolbox.DataModule
+init_args:
+  batch_size: 128
+  dataset: ocd.data.real_world.sachs.SachsOCDDataset
+  val_size: 0.01
