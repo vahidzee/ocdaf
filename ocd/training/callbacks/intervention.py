@@ -87,7 +87,7 @@ def draw_grid(
 ):
     targets = target if target is not None else list(range(n))
     if fignaxes is None:
-        fig, axs = plt.subplots(1, len(targets), figsize=(8 * len(targets), 8))  # Adjust the figure size as necessary
+        fig, axs = plt.subplots(1, len(targets), figsize=(9 * len(targets), 8))  # Adjust the figure size as necessary
     else:
         fig, axs = fignaxes
 
