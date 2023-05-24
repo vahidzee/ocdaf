@@ -143,9 +143,6 @@ temp/*
 # experimental log files
 *lightning_logs
 
-notebooks/test_hamid.ipynb
-notebooks/test_vahid.ipynb
-
 # Remote logs and env
 notebook_output-*.log
 python3.9-env
