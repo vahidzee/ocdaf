@@ -151,11 +151,13 @@ def visualize_exploration(
             )
         # count the number of unique values in the clusters
         uni_c = np.unique(clusters)
-        if len(uni_c) <= 30:
+        if 10 <= len(uni_c) <= 30:
             pos = ax.get_position()
             ax.set_position([pos.x0, pos.y0, pos.width, pos.height * 0.85])
             ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.35), ncol=3)
-
+        elif len(uni_c) <= 10:
+            ax.legend()
+            
         # draw everything to the figure for conversion
         fig.canvas.draw()
         # convert the figure to a numpy array
