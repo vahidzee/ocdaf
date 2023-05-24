@@ -23,11 +23,13 @@ PERMUTATION_TYPE_OPTIONS = th.Literal[
     "gumbel-topk",
     "gumbel-topk-noisy",
     "straight-through",
+    "straight-through-noisy",
 ]
 HYBRID_METHODS = {
     "gumbel-topk": gumbel_topk,
     "gumbel-topk-noisy": gumbel_topk,
     "straight-through": straight_through,
+    "straight-through-noisy": straight_through,
 }
 
 

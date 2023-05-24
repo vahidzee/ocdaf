@@ -14,7 +14,8 @@ def straight_through(
     # turn the gradient off for diff
     perm_mat = soft_permutations + diff.detach()
     results["perm_mat"] = perm_mat if return_matrix else perm_mat.argmax(-2)
-    results["soft_perm_mats"] = soft_permutations
+    if not (soft_permutations.shape[0] == 1 or soft_permutations.ndim == 2):
+        results["soft_perm_mats"] = soft_permutations
     return results
 
 
