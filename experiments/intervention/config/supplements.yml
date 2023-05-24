@@ -1,0 +1,93 @@
+seed_everything: 4944
+
+model:
+  class_path: lightning_toolbox.TrainingModule
+  init_args:
+    # the model
+    model_cls: ocd.models.ocdaf.OCDAF
+    model_args:
+      use_permutation: False
+      # Base distribution arguments
+      base_distribution: torch.distributions.Normal
+      base_distribution_args:
+        loc: 0.0
+        scale: 1.0
+      # The flow model arguments
+      in_features: 3
+      layers: [15, 15, 5]
+      populate_features: true
+      scale_transform: true
+      scale_transform_s_args:
+        pre_act_scale: 0.2
+        post_act_scale: 10.
+      scale_transform_t_args:
+        pre_act_scale: 0.002
+        post_act_scale: 1000.
+      num_transforms: 1
+      additive: False
+      residual: False
+      bias: true
+      activation: torch.nn.LeakyReLU
+      activation_args:
+        negative_slope: 0.1
+    # optimizer
+    optimizer: [torch.optim.AdamW]
+    optimizer_args:
+      - weight_decay: 0.1
+    optimizer_parameters:
+      - model.flow
+
+    # learning rate and scheduling
+    lr: [0.01]
+    scheduler: [torch.optim.lr_scheduler.ReduceLROnPlateau]
+    scheduler_args:
+      - mode: "min"
+        factor: 0.75
+        patience: 75
+        min_lr: 0.0001
+    scheduler_interval: ["epoch"]
+    scheduler_name: ["lr_scheduler"]
+    scheduler_monitor: ["loss/train"]
+    scheduler_optimizer: [0]
+
+    # training objective
+    objective_args:
+      nll: >
+        lambda training_module, batch: -training_module.forward(batch)['log_prob'].mean()
+
+trainer:
+  callbacks:
+    # checkpointing
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: experiments/intervention/checkpoints/supplements
+        verbose: true
+        save_top_k: -1 # save all models
+        every_n_epochs: 250 # save on phase change
+    # logging and monitoring
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: epoch
+    - class_path: ocd.training.callbacks.intervention.InterventionCallback
+      init_args:
+        every_n_epochs: 250
+        k: 8
+        target: -1
+        num_samples: 10
+        num_interventions: 100
+  accelerator: cpu
+  devices: 1
+  num_nodes: 0
+  max_epochs: 3000
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: true
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: intervention
+      name: supplements
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: value

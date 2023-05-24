@@ -3,10 +3,10 @@ init_args:
   batch_size: 200
   dataset: ocd.data.InterventionChainDataset
   dataset_args:
-    transient: false
-    dislocate: true
+    transient: false # use a transient graph
+    dislocate: true # normalize at each step
     n: 3
-    num_samples: 2000
+    num_samples: 4000
     seed: 6406
     weight_s: 1
     weight_t: 1
@@ -15,3 +15,4 @@ init_args:
     t_func: >
       lambda self, x: torch.sin(x/1.5) + torch.sin(1.5*x)
   val_size: 0.1
+# seed 2419926770
