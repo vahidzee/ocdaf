@@ -1,4 +1,18 @@
-# Causal Order Discovery with Autoregressive Flows (CODaf)
+# Ordered Causal Discovery with Autoregressive Flows (OCDaf)
+
+![main_fig](https://github.com/vahidzee/ocd/assets/33608325/2352686b-965b-44d9-bd88-ee8b20ce7588)
+
+<p align="center" markdown="1">
+    <img src="https://img.shields.io/badge/Python-3.10-green.svg" alt="Python Version" height="18">
+    <a href="https://arxiv.org/"><img src="https://img.shields.io/badge/arXiv-TODO-blue.svg" alt="arXiv" height="18"></a>
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#experiments">Experiments</a> •
+  <a href="#license">License</a>
+</p>
+
 This repository provides the codebase for conducting experiments in our paper, built on top of the  [lightning-toolbox](https://github.com/vahidzee/lightning-toolbox) and [dypy](https://github.com/vahidzee/dypy). These tools facilitate dynamic training processes and model designs for our experiments. For large-scale benchmarking and hyperparameter tuning, we utilize the [dysweep](https://github.com/HamidrezaKmK/dysweep) package
 
 ## Installation
@@ -12,6 +26,8 @@ pip install -r requirements.txt # install dependencies
 To ensure compatibility, consider using the `frozen-requirements.txt`, which includes the versions of the dependencies last confirmed to work with our code.
 
 ## Experiments
+
+The details for all the experiments mentioned in the paper can be found [`experiments`](https://github.com/vahidzee/ocd/tree/main/experiments/). Please read through the following for a big picture guide line on how to navigate the experimental details, and reproduce the results:
 ### Running Single Experiments
 
 Single experiments can be conducted by defining a configuration file. For instance, the Birkhoff polytope figure in our paper can be reproduced with the following command:
