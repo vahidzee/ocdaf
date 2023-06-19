@@ -1,6 +1,6 @@
-# Ordered Causal Discovery with Autoregressive Flows (OCDaf)
+# Ordered Causal Discovery with Autoregressive Flows
 
-![main_fig](https://github.com/vahidzee/ocd/assets/33608325/2352686b-965b-44d9-bd88-ee8b20ce7588)
+![main_fig](https://github.com/vahidzee/ocdaf/assets/33608325/2352686b-965b-44d9-bd88-ee8b20ce7588)
 
 <p align="center" markdown="1">
     <img src="https://img.shields.io/badge/Python-3.10-green.svg" alt="Python Version" height="18">
@@ -18,8 +18,8 @@ This repository provides the codebase for conducting experiments in our paper, b
 ## Installation
 Begin by cloning the repository and navigating to the root directory. In a python (>=3.9) environment, run the following commands:
 ```bash
-git clone https://github.com/vahidzee/ocd.git # clone the repository
-cd ocd
+git clone https://github.com/vahidzee/ocdaf.git # clone the repository
+cd ocdaf
 pip install -r requirements.txt # install dependencies
 ```
 
@@ -27,7 +27,7 @@ To ensure compatibility, consider using the `frozen-requirements.txt`, which inc
 
 ## Experiments
 
-The details for all the experiments mentioned in the paper can be found [`experiments`](https://github.com/vahidzee/ocd/tree/main/experiments/). Please read through the following for a big picture guide line on how to navigate the experimental details, and reproduce the results:
+The details for all the experiments mentioned in the paper can be found [`experiments`](https://github.com/vahidzee/ocdaf/tree/main/experiments/). Please read through the following for a big picture guide line on how to navigate the experimental details, and reproduce the results:
 ### Running Single Experiments
 
 Single experiments can be conducted by defining a configuration file. For instance, the Birkhoff polytope figure in our paper can be reproduced with the following command:
