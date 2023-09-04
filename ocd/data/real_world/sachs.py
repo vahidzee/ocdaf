@@ -14,7 +14,7 @@ class SachsOCDDataset(OCDDataset):
                  reject_outliers_n_far_from_mean: th.Optional[float] = None,
                  name: th.Optional[str] = None):
         # load csv file into pandas dataframe
-        df = pd.read_csv(os.path.join(_DATA_DIR, "sachs_cd3cd28.csv"))
+        df = pd.read_csv(os.path.join(_DATA_DIR, "sachs/sachs.csv"))
         label_mapping = {
             0: "Raf",
             1: "Mek",
