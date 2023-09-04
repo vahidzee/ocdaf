@@ -38,9 +38,10 @@ python trainer.py fit --config experiments/configs/birkhoff-gumbel-sinkhorn.yaml
 
 We have provided a sample configuration file with extensive documentation [here]((./experiments/examples/example-discovery.yaml)) to familiarize you with the components of our configurations. Furthermore, the `trainer.py` file is a standard [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) runnable file that runs the causal discovery on a specific configuration defined. 
 
-### Conducting Sweeps
+### Benchmarking
 
-Our experiments leverage [dysweep](https://github.com/HamidrezaKmK/dysweep) to employ the Weights and Biases API for executing comprehensive experiments across different configurations. Each sweep configuration is a `.yaml` file located in the `experiments/sweep` directory.
+Our experiments leverage the framework described by [dysweep](https://github.com/HamidrezaKmK/dysweep) for large-scale benchmarking.
+As mentioned, all of our experiments are given in a hierarchical format written as a `yaml` file and `dysweep` gives us the capability to generate different configurations to run our experiments. In particular, [the sweep directory]((./experiments/sweep)) contains a set of **meta-configurations** that generate a specific group of configurations which are then fed to our main trainer function.
 
 To initiate a specific sweep, use the following command:
 
