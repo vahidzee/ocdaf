@@ -151,7 +151,7 @@ trainer:
   check_val_every_n_epoch: 1
   enable_checkpointing: true
   enable_model_summary: true
-  enable_progress_bar: false
+  enable_progress_bar: true
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:

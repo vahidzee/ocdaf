@@ -46,7 +46,7 @@ class ADNIOCDDataset(OCDDataset):
             reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
         )
     
-    def _load_preprocess():
+    def _load_preprocess(self):
         data = pd.read_csv(os.path.join(_DATA_DIR, "adni/ADNIMERGE.csv"), low_memory=False)
         studies = ['ADNI1', 'ADNI2', 'ADNIGO']
         columns = ['RID', 'EXAMDATE', 'AGE', 'PTGENDER', 'PTEDUCAT', 'FDG', 'ABETA', 'PTAU', 'APOE4', 'DX']
@@ -54,7 +54,7 @@ class ADNIOCDDataset(OCDDataset):
 
         data = data.replace({'ABETA': {'>1700': 1700}, 'PTAU': {'>120': 120, '<8': 8}})
         
-        discrete_cols = ['DX', 'PTGENDER', 'APOE4']
+        discrete_cols = ['DX', 'PTGENDER', 'APOE4', 'PTEDUCAT']
         le = LabelEncoder()
 
         # Dequantize discrete columns

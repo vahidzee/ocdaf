@@ -1,4 +1,4 @@
-project: adni-dysweep
+project: adni-sweep
 default_root_dir: experiments/sweep
 count: 10000
 
@@ -9,6 +9,7 @@ base_config:
   trainer:
     accelerator: gpu
     strategy: auto
+    max_epochs: 3000
     devices: 1
     num_nodes: 0
     precision: 32-true
@@ -74,9 +75,9 @@ base_config:
   data:
     class_path: lightning_toolbox.DataModule
     init_args:
-      dataset: ocd.data.real_world.adni.ADNIOCDDataset
+      dataset: ocd.data.real_world.adni.ADNI
       dataset_args:
-        name: adni_standardized_linear_short
+        name: adni_datasest
         standardization: true
         reject_outliers_n_far_from_mean: 5
       train_dataset: null
@@ -151,7 +152,7 @@ base_config:
         activation: torch.nn.LeakyReLU
         activation_args:
           negative_slope: 0.1
-        in_features: 11
+        in_features: 8
       objective: null
       objective_cls: lightning_toolbox.Objective
       objective_args:
