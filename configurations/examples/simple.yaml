@@ -1,0 +1,90 @@
+# example configuration for running the discovery algorithm
+data:
+  # The data configuration
+  class_path: lightning_toolbox.DataModule
+  init_args:
+    # batch size being used
+    batch_size: 128
+    dataset: ocd.data.SyntheticOCDDataset
+    dataset_args:
+      # Standardization of the data generating process
+      standardization: True
+      # Reject the rows of data that have values outside of [median(x(v)) - 5.0, median(x(v)) + 5.0]
+      reject_outliers_n_far_from_mean: 5.0
+
+      # A synthetic dataset configuration with a path graph, specific seed and Polynomial function form
+      # x(v) = t_function(linear_combination(Pa(x(v)))) + s_function(linear_combination(Pa(x(v)))) * Noise
+      name: synthetic_parametric_non_linear_affine_n3_CubeDislocate_tournament
+      # The number of simulations or the rows in the dataset
+      observation_size: 1000
+      scm_generator: ocd.data.synthetic.ParametricSCMGenerator
+      scm_generator_args:
+        graph_generator: ocd.data.scm.GraphGenerator
+        # The graph generator (defining a tournament with 3 vertices)
+        graph_generator_args: { graph_type: full, n: 3, seed: 689 }
+        # Define the noise type of the model
+        noise_type: normal
+        noise_parameters:
+          scale: 1.0
+          loc: 0.0
+
+        ## We can write generic code blocks in YAML thanks to the Dypy package capabilities
+
+        # A generic s_function generator that simply applies a softplus on top of the input linear combination
+        s_function:
+          function_descriptor: |
+            import numpy
+            def func(x):
+              x[x < 100] = numpy.log(1 + numpy.exp(x[x < 100]))
+              return x
+          function_of_interest: func
+        s_function_signature: softplus
+
+        # seed for reproducing the SCM
+        seed: 870
+
+        # A generic t_function generator that simply applies a polynomial x^3 + 6 on top of the parent linear combination
+        # this also performs normalization
+        t_function:
+          function_descriptor: |
+            import numpy
+            def func(x):
+              x[x > 100] = 100
+              x[x < -100] = -100
+              x_mean = numpy.mean(x)
+              x_std = numpy.std(x)
+              if x_std == 0:
+                x_std = 1
+              x = (x - x_mean) / x_std
+              ret = x**3 + 6
+              return ret
+          function_of_interest: func
+        t_function_signature: cube_dislocate
+
+        # The linear coefficients are sampled uniformly from the following range for s and t functions separately
+        weight_s: [0.5, 1.5]
+        weight_t: [0.5, 1.5]
+
+      # seed for reproducing the data generation process
+      seed: 139
+    # the validation split (this is not used in the final model)
+    val_size: 0.1
+model:
+
+  # The number of epochs
+  max_epochs: 1500
+  # WandB logger
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: simple-trainer
+
+  # Lightning trainer configurations
+  accelerator: gpu
+  devices: 1
+  num_nodes: 0
+  log_every_n_steps: 1
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true
+  enable_model_summary: true
+  enable_progress_bar: false
