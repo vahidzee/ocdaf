@@ -2,7 +2,7 @@ torch==2.0.0
 numpy
 lightning
 dypy
-dysweep
+dysweep==0.0.5
 lightning_toolbox
 #
 pandas
