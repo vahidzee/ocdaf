@@ -47,9 +47,9 @@ class DataVisualizer(Callback):
             # draw everything to the figure for conversion
             fig.canvas.draw()
             # convert the figure to a numpy array
-            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            imgs.append(data)
+            # data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+            # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            imgs.append(fig)
         finally:
             plt.close()
 
@@ -73,9 +73,9 @@ class DataVisualizer(Callback):
             # draw everything to the figure for conversion
             fig.canvas.draw()
             # convert the figure to a numpy array
-            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-            imgs.append(data)
+            # data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+            # data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+            imgs.append(fig)
         finally:
             plt.close()
         

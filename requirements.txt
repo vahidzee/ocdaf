@@ -1,6 +1,6 @@
 torch==2.0.0
 numpy
-lightning
+lightning==2.0.2
 dypy
 dysweep==0.0.5
 lightning_toolbox

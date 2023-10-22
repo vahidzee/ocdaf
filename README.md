@@ -23,7 +23,7 @@ cd ocdaf
 pip install -r requirements.txt # install dependencies
 ```
 
-To ensure compatibility, consider using the `frozen-requirements.txt`, which includes the versions of the dependencies last confirmed to work with our code.
+This codebase is heavily dependent on [wandb](https://wandb.ai/) sweep configurations. Take a look at the stock documentation [here](https://docs.wandb.ai/guides/sweeps) to learn more about how to navigate through the sweep workspaces.
 
 ## Experiments
 
@@ -33,7 +33,7 @@ The details for all the experiments mentioned in the paper can be found [`experi
 Single experiments can be conducted by defining a configuration file. For instance, the Birkhoff polytope figure in our paper can be reproduced with the following command:
 
 ```bash
-python trainer.py fit --config experiments/configs/birkhoff-gumbel-sinkhorn.yaml --seed_everything=555
+python trainer.py fit --config experiments/examples/birkhoff-gumbel-sinkhorn.yaml --seed_everything=555
 ```
 
 We have provided a sample configuration file with extensive documentation [here]((./experiments/examples/example-discovery.yaml)) to familiarize you with the components of our configurations. Furthermore, the `trainer.py` file is a standard [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) runnable file that runs the causal discovery on a specific configuration defined. 
