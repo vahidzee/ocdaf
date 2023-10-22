@@ -1,4 +1,4 @@
-# Ordered Causal Discovery with Autoregressive Flows
+# OSLow: Order-based Structure Learning with Normalizing Flows
 
 ![main_fig](https://github.com/vahidzee/ocdaf/assets/33608325/2352686b-965b-44d9-bd88-ee8b20ce7588)
 
