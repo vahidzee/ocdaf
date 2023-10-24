@@ -1,6 +1,6 @@
 # OSLow: Order-based Structure Learning with Normalizing Flows
 
-![main_fig](https://github.com/vahidzee/ocdaf/assets/33608325/2352686b-965b-44d9-bd88-ee8b20ce7588)
+![main_fig](./assets/main-fig.png)
 
 <p align="center" markdown="1">
     <img src="https://img.shields.io/badge/Python-3.10-green.svg" alt="Python Version" height="18">
