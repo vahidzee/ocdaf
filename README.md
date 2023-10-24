@@ -23,14 +23,14 @@ cd ocdaf
 pip install -r requirements.txt # install dependencies
 ```
 
-This codebase is heavily dependent on [wandb](https://wandb.ai/) sweep configurations. Take a look at the stock documentation [here](https://docs.wandb.ai/guides/sweeps) to learn more about how to navigate through the sweep workspaces.
+You will need a working wandb account and wandb enabled workspace to run the experiments. [Start here](https://docs.wandb.ai/quickstart)! In addition, this codebase is heavily dependent on [wandb](https://wandb.ai/) sweep configurations. Take a look at the stock documentation [here](https://docs.wandb.ai/guides/sweeps) to learn more about how to navigate through the sweep workspaces. 
 
 ## Experiments
 
 The details for all the experiments mentioned in the paper can be found [`experiments`](https://github.com/vahidzee/ocdaf/tree/main/experiments/). Please read through the following for a big picture guide line on how to navigate the experimental details, and reproduce the results:
 ### Running Single Experiments
 
-Single experiments can be conducted by defining a configuration file. For instance, the Birkhoff polytope figure in our paper can be reproduced with the following command:
+Single experiments can be conducted by defining a configuration file. For instance, the following command creates a visualization of our training process based on the 2D PCA projection of sampled permutations:
 
 ```bash
 python trainer.py fit --config experiments/examples/birkhoff-gumbel-sinkhorn.yaml --seed_everything=555
