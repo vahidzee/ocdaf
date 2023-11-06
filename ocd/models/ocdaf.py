@@ -1,5 +1,5 @@
 import torch
-from ocd.models.affine_flow import AffineFlow
+from ocd.models.oslow import OSlow
 import typing as th
 from ocd.models.permutation import LearnablePermutation, gumbel_log_prob
 import dypy as dy
@@ -12,7 +12,7 @@ class OCDAF(torch.nn.Module):
     def __init__(
         self,
         # architecture
-        in_features: th.Optional[th.Union[th.List[int], int]] = None,
+        in_features: th.Optional[th.Union[th.List[int], int]] = None,  # TODO: change to List[int]
         layers: th.Optional[th.List[th.Union[th.List[int], int]]] = None,
         populate_features: bool = False,  # if True, values in layers are multiplied by in_features
         layers_limit: th.Optional[th.List[th.Union[th.List[int], int]]] = None,
@@ -20,8 +20,8 @@ class OCDAF(torch.nn.Module):
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
         activation_args: th.Optional[dict] = None,
-        batch_norm: bool = False,
-        batch_norm_args: th.Optional[dict] = None,
+        batch_norm: bool = False,  # TODO: drop
+        batch_norm_args: th.Optional[dict] = None,  # TODO: drop
         # additional flow args
         additive: bool = False,
         share_parameters: bool = False,  # share parameters between scale and shift
@@ -43,10 +43,6 @@ class OCDAF(torch.nn.Module):
         dtype: th.Optional[torch.dtype] = None,
     ) -> None:
         super().__init__()
-        if in_features is None:
-            warnings.warn("in_features is None, this might cause issues")
-            in_features = 3
-
         # populate features if necessary
         in_features = in_features if isinstance(in_features, int) else len(in_features)
         if populate_features:
@@ -64,7 +60,7 @@ class OCDAF(torch.nn.Module):
                             layers[i][j] = in_features * layers[i][j]
 
         # get an IntTensor of 1 to N
-        self.flow = AffineFlow(
+        self.flow = OSlow(
             base_distribution=base_distribution,
             base_distribution_args=base_distribution_args,
             in_features=in_features,

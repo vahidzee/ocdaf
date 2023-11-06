@@ -181,6 +181,7 @@ class MaskedLinear(torch.nn.Linear):
             return torch.less_equal if self.auto_connection else torch.less
         return torch.greater_equal if self.auto_connection else torch.greater
 
+    
     def reshape_mask(self, mask: torch.Tensor):
         """
         Reshape the mask to the correct shape (if we are in block mode).

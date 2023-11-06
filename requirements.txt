@@ -19,3 +19,4 @@ ruamel.yaml
 wandb
 causal-learn
 random-word
+pydantic

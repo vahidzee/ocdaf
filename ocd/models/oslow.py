@@ -5,8 +5,10 @@ import dypy as dy
 import typing as th
 import functools
 
+import torch
 
-class AffineFlow(torch.nn.ModuleList):
+
+class OSlow(torch.nn.ModuleList):
     def __init__(
         self,
         # architecture
@@ -16,6 +18,7 @@ class AffineFlow(torch.nn.ModuleList):
         bias: bool = True,
         activation: th.Optional[str] = "torch.nn.LeakyReLU",
         activation_args: th.Optional[dict] = None,
+        # batch norm
         batch_norm: bool = False,
         batch_norm_args: th.Optional[dict] = None,
         # additional flow args
@@ -88,56 +91,6 @@ class AffineFlow(torch.nn.ModuleList):
             return results
         return z, log_dets
 
-    def compute_dependencies(
-        self,
-        inputs: torch.Tensor,
-        perm_mat: th.Optional[torch.Tensor] = None,
-        forward: bool = True,
-        vectorize: bool = True,
-        **kwargs
-    ) -> torch.Tensor:
-        # force evaluation mode
-        model_training = self.training  # save training mode to restore later
-        self.eval()
-        func = functools.partial(getattr(self, "__call__" if forward else "inverse"), perm_mat=perm_mat, **kwargs)
-        # make perm_mat 3d if it is not already
-        perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
-
-        # compute the jacobian
-        jacobian = torch.autograd.functional.jacobian(func, inputs, vectorize=vectorize)
-
-        jacobian = jacobian[0]
-        print(jacobian.shape, "initial")
-        # jacobian for everything else except for matching batch idxs and perm idxs
-        # is zero, so we can just sum over the batch dimension and perm dimension to get
-        # the jacobian for the
-        perm_mat = perm_mat if perm_mat is None or perm_mat.ndim == 3 else perm_mat.unsqueeze(0)
-        # its important to note that jacobian is [Output, Input] so to study the effect of permutation
-        # we need to figure out what outputs we are interested in
-
-        if perm_mat is not None:
-            # jacobian is of shape [batch_size, num_dims, batch_size, num_dims], we first split it into
-            # [k, num_perms, num_dims, num_dims] and then take the mean over k to get [num_perms, num_dims, num_dims]
-            batch_size = jacobian.shape[0]
-            indices = torch.arange(batch_size).to(jacobian.device)
-            jacobian = jacobian.transpose(1, 2).reshape(-1, jacobian.shape[-1], jacobian.shape[-1])
-            jacobian = jacobian[indices * batch_size + indices]
-            print(jacobian.shape)
-
-            jacobian = jacobian.reshape(perm_mat.shape[0], -1, jacobian.shape[-1], jacobian.shape[-1])
-            print(jacobian.shape, "before mean")
-            jacobian = jacobian.mean(1)
-        else:
-            # if no perm_mat is given, jacobian is of shape [batch_size, num_dims, batch_size, num_dims]
-            # we take the mean over the batch dimension to get [num_dims, num_dims]
-            jacobian = jacobian.mean(0).sum(1)  # TODO: check this shit
-
-        # restore training mode
-        if model_training:
-            # resotre training mode
-            self.train()
-
-        return jacobian
 
     def inverse(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
         """

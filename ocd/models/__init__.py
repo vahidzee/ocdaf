@@ -1,2 +1,2 @@
-from .affine_flow import AffineFlow
+from .oslow import OSlow
 from .ocdaf import OCDAF
