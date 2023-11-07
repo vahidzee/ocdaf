@@ -1,8 +1,67 @@
-from typing import Optional, Callable, Iterable, Union, List, Literal
+from typing import Optional, Callable, Iterable, Union, List, Literal, Tuple
 from omegaconf import MISSING
-from pydantic import BaseModel, validator, Field
-import 
+from pydantic import BaseModel, validator
 import torch
+import numpy as np
+from functools import partial
+from ocd.data.base_dataset import OCDDataset
+
+class RandomGenerator: # TODO move it to utils + documentations
+    def __init__(self, noise_type: str, seed: Optional[int], *args, **kwargs):
+        if seed is not None:
+            rng = np.random.default_rng(seed)
+        else:
+            rng = np.random.default_rng()
+        
+        if not hasattr(rng, noise_type):
+            raise ValueError(f"Unknown noise type {noise_type}")
+        
+        self.rng = partial(getattr(rng, noise_type), *args, **kwargs)
+    
+    def __call__(self, size: Union[int, Tuple[int, ...]]):
+        return self.rng(size=size)
+
+
+class RealworldConfig(BaseModel):
+    name: Literal["adni", "sachs"]
+
+
+class SemiSyntheticConfig(BaseModel):
+    name: str = "syntren"
+    data_id: int
+
+    @validator("data_id", always=True)
+    def validate_data_id(cls, value, values):
+        if values['name'] == "syntren":
+            assert 0 <= value <= 9, "data_id must be between 0 and 9"
+        return value
+
+
+class GraphConfig(BaseModel):
+    graph_type:  Literal["full", "erdos", "chain"]
+    num_nodes: int
+    seed: Optional[int]
+
+class ParametricSyntheticConfig(BaseModel):
+    name: Optional[str]
+    num_samples: int
+    graph: GraphConfig
+    noise: RandomGenerator
+    link: Literal["sinusoid", "cubic", "linear"]
+    link_generator: RandomGenerator
+
+class NonParametricSyntheticConfig(BaseModel):
+    name: Optional[str]
+    num_samples: int
+    graph: GraphConfig
+    seed: Optional[int]
+
+
+class DataConfig(BaseModel):
+    dataset: Union[RealworldConfig, SemiSyntheticConfig, NonParametricSyntheticConfig, ParametricSyntheticConfig, OCDDataset]
+    batch_size: int
+    standard: bool
+    reject_outliers: bool
 
 
 
