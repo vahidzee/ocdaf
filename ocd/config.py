@@ -66,7 +66,11 @@ class DataConfig(BaseModel):
 
 
 class WandBConfig(BaseModel):
-    pass
+    project: str
+    entity: Optional[str]
+    run_name: Optional[str]
+    run_id: Optional[str]
+    resume: bool = False
 
 
 class CheckpointingConfig(BaseModel):
