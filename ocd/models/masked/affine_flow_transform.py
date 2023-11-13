@@ -1,62 +1,6 @@
 import typing as th
 import torch
-import numpy as np
 from ocd.models.masked import MaskedMLP
-import dypy.wrappers as dyw
-import dypy as dy
-
-
-@dyw.dynamize
-class ScaleTransform(torch.nn.Module):
-    def __init__(
-        self,
-        in_features: int,
-        normalization: th.Optional[str] = None,
-        normalization_args: th.Optional[dict] = None,
-        activation: th.Optional[str] = "torch.nn.Tanh",
-        activation_args: th.Optional[dict] = None,
-        pre_act_shift: float = 0.0,
-        pre_act_scale: float = 1.0 / 10,
-        post_act_scale: float = 10,
-        post_act_shift: float = 0.0,
-    ):
-        super().__init__()
-        self.pre_act_scale, self.post_act_scale = pre_act_scale, post_act_scale
-        self.pre_act_shift, self.post_act_shift = pre_act_shift, post_act_shift
-        self.normalization = (
-            dy.get_value(normalization)(in_features, **(normalization_args or {}))
-            if normalization is not None
-            else None
-        )
-        activation = eval(activation) if activation is not None else activation
-        self.activation = activation(**(activation_args or {})) if isinstance(activation, type) else activation
-
-    @dyw.method
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        outputs = inputs
-        if self.normalization is not None:
-            outputs = self.normalization(outputs)
-        outputs = outputs * self.pre_act_scale + self.pre_act_shift
-        outputs = self.activation(outputs) if self.activation is not None else outputs
-        outputs = outputs * self.post_act_scale + self.post_act_shift
-        return outputs
-
-    def extra_repr(self) -> str:
-        pre_act = "x" if self.normalization is None else f"{self.normalization.__class__.__name__.lower()}(x)"
-        pre_act = f"{pre_act} * {self.pre_act_scale}" if self.pre_act_scale != 1 else f"{pre_act}"
-        pre_act = f"({pre_act} + {self.pre_act_shift})" if self.pre_act_shift != 0 else pre_act
-        if self.activation is not None:
-            act_name = (
-                str(self.activation.__class__.__name__).lower()
-                if isinstance(self.activation, torch.nn.Module)
-                else str(self.activation)
-            )
-            act = f"{act_name}({pre_act})"
-        else:
-            act = pre_act
-        post_act = f"{act} * {self.post_act_scale}" if self.post_act_scale != 1 else f"{act}"
-        post_act = f"({post_act} + {self.post_act_shift})" if self.post_act_shift != 0 else post_act
-        return super().extra_repr() + f"forward: {post_act}"
 
 
 class MaskedAffineFlowTransform(torch.nn.Module):
@@ -114,9 +58,9 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         self.scale_transform_t = None
         if scale_transform is not None:
             self.scale_transform_s = (
-                ScaleTransform(in_features, **(scale_transform_s_args or {})) if not additive else None
+                TanhTransform(in_features, **(scale_transform_s_args or {})) if not additive else None
             )
-            self.scale_transform_t = ScaleTransform(in_features, **(scale_transform_t_args or {}))
+            self.scale_transform_t = TanhTransform(in_features, **(scale_transform_t_args or {}))
 
     def reorder(
         self,

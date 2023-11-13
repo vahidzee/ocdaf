@@ -1,0 +1,2 @@
+method: gumbel-top-k
+num_samples: 50

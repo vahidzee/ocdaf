@@ -1,0 +1,17 @@
+layers: [10, 5, 5]
+num_transforms: 1
+residual: false
+activation: 
+  _target_: torch.nn.LeakyReLU
+additive: False
+normalization:
+  _target_: ocd.models.normalization.TanhTransform # TODO actnorm
+  pre_act_scale: .1
+  post_act_scale: 10.
+
+base_distribution: 
+  _target_: torch.distributions.Normal
+  _args_: [0., 1.]
+
+ordering: null
+reversed_ordering: False

@@ -1,0 +1,6 @@
+defaults:
+  - dataset: adni
+
+batch_size: 128
+standard: true
+reject_outliers: true
