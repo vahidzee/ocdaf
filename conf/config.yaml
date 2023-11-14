@@ -12,6 +12,7 @@ wandb:
   entity: ordered-causal-discovery
 
 test_run: false
+out_dir: runs/
 
   
 

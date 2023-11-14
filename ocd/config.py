@@ -152,6 +152,7 @@ class MainConfig(BaseModel):
     data: DataConfig
     model: ModelConfig
     wandb: WandBConfig
+    out_dir: str
     test_run: bool
 
     @model_validator(mode='after')

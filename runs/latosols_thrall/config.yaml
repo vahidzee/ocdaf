@@ -1,0 +1,202 @@
+data:
+  batch_size: 128
+  dataset:
+    name: adni
+  reject_outliers: true
+  standard: true
+model:
+  activation: !!python/object:torch.nn.modules.activation.LeakyReLU
+    _backward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _backward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _buffers: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _is_full_backward_hook: null
+    _load_state_dict_post_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _load_state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _modules: !!python/object/apply:collections.OrderedDict
+    - []
+    _non_persistent_buffers_set: !!set {}
+    _parameters: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    inplace: false
+    negative_slope: 0.01
+    training: true
+  additive: false
+  base_distribution: !!python/object:torch.distributions.normal.Normal
+    _batch_shape: !!python/object/apply:torch.Size
+    - !!python/tuple []
+    _event_shape: !!python/object/apply:torch.Size
+    - !!python/tuple []
+    loc: !!python/object/apply:torch._utils._rebuild_tensor_v2
+    - !!python/object/apply:torch.storage._load_from_bytes
+      - !!binary |
+        gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+        AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+        aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+        Z2UKcQFYDgAAADk0MTYxNTM3MDY1MTIwcQJYAwAAAGNwdXEDSwFOdHEEUS6AAl1xAFgOAAAAOTQx
+        NjE1MzcwNjUxMjBxAWEuAQAAAAAAAAAAAAAA
+    - 0
+    - !!python/tuple []
+    - !!python/tuple []
+    - false
+    - !!python/object/apply:collections.OrderedDict
+      - []
+    scale: !!python/object/apply:torch._utils._rebuild_tensor_v2
+    - !!python/object/apply:torch.storage._load_from_bytes
+      - !!binary |
+        gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+        AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+        aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+        Z2UKcQFYDgAAADk0MTYxNTM3NTIxODU2cQJYAwAAAGNwdXEDSwFOdHEEUS6AAl1xAFgOAAAAOTQx
+        NjE1Mzc1MjE4NTZxAWEuAQAAAAAAAAAAAIA/
+    - 0
+    - !!python/tuple []
+    - !!python/tuple []
+    - false
+    - !!python/object/apply:collections.OrderedDict
+      - []
+  in_features: 8
+  layers:
+  - 10
+  - 5
+  - 5
+  normalization: !!python/object:ocd.models.normalization.TanhTransform
+    _backward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _backward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _buffers: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _is_full_backward_hook: null
+    _load_state_dict_post_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _load_state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _modules: !!python/object/apply:collections.OrderedDict
+    - - - activation
+        - !!python/object:torch.nn.modules.activation.Tanh
+          _backward_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _backward_pre_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _buffers: !!python/object/apply:collections.OrderedDict
+          - []
+          _forward_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _forward_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+          - []
+          _forward_pre_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _forward_pre_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+          - []
+          _is_full_backward_hook: null
+          _load_state_dict_post_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _load_state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _modules: !!python/object/apply:collections.OrderedDict
+          - []
+          _non_persistent_buffers_set: !!set {}
+          _parameters: !!python/object/apply:collections.OrderedDict
+          - []
+          _state_dict_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          _state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+          - []
+          training: true
+    _non_persistent_buffers_set: !!set {}
+    _parameters: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    post_act_scale: 10.0
+    pre_act_scale: 0.1
+    training: true
+  num_transforms: 1
+  ordering: null
+  residual: false
+  reversed_ordering: false
+out_dir: runs/latosols_thrall
+test_run: false
+trainer:
+  brikhoff: null
+  checkpointing: null
+  cuda: true
+  data_visualizer: null
+  flow_optimizer: !!python/object/apply:functools.partial
+    args:
+    - &id001 !!python/name:torch.optim.adam.Adam ''
+    state: !!python/tuple
+    - *id001
+    - !!python/tuple []
+    - lr: 0.01
+      weight_decay: 0.1
+    - null
+  max_epochs: 100
+  permutation:
+    method: gumbel-top-k
+    num_samples: 50
+  permutation_optimizer: !!python/object/apply:functools.partial
+    args:
+    - *id001
+    state: !!python/tuple
+    - *id001
+    - !!python/tuple []
+    - lr: 0.01
+      weight_decay: 0.1
+    - null
+  scheduler:
+    flow_frequency: 1
+    flow_lr_scheduler: !!python/object/apply:functools.partial
+      args:
+      - &id002 !!python/name:torch.optim.lr_scheduler.ReduceLROnPlateau ''
+      state: !!python/tuple
+      - *id002
+      - !!python/tuple []
+      - min_lr: 5.0e-05
+        mode: min
+        threshold: 0.001
+      - null
+    permutation_frequency: 1
+    permutation_lr_scheduler: !!python/object/apply:functools.partial
+      args:
+      - *id002
+      state: !!python/tuple
+      - *id002
+      - !!python/tuple []
+      - min_lr: 5.0e-05
+        mode: min
+        threshold: 0.001
+      - null
+wandb:
+  entity: ordered-causal-discovery
+  project: default
+  resume: false
+  run_id: 6vlpinyc
+  run_name: latosols_thrall
