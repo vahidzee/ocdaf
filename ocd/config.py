@@ -6,22 +6,24 @@ import numpy as np
 from functools import partial
 from ocd.data.base_dataset import OCDDataset
 
+
 class BaseModel(PydanticBaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-class RandomGenerator: # TODO move it to utils + documentations
+
+class RandomGenerator:  # TODO move it to utils + documentations
     def __init__(self, noise_type: str, seed: Optional[int], *args, **kwargs):
         if seed is not None:
             rng = np.random.default_rng(seed)
         else:
             rng = np.random.default_rng()
-        
+
         if not hasattr(rng, noise_type):
             raise ValueError(f"Unknown noise type {noise_type}")
-        
+
         self.rng = partial(getattr(rng, noise_type), *args, **kwargs)
-    
+
     def __call__(self, size: Union[int, Tuple[int, ...]]):
         return self.rng(size=size)
 
@@ -36,15 +38,16 @@ class SemiSyntheticConfig(BaseModel):
 
     @field_validator("data_id")
     def validate_data_id(cls, value, values):
-        if values['name'] == "syntren":
+        if values["name"] == "syntren":
             assert 0 <= value <= 9, "data_id must be between 0 and 9"
         return value
 
 
 class GraphConfig(BaseModel):
-    graph_type:  Literal["full", "erdos", "chain"]
+    graph_type: Literal["full", "erdos", "chain"]
     num_nodes: int
     seed: Optional[int] = None
+
 
 class ParametricSyntheticConfig(BaseModel):
     name: Optional[str] = None
@@ -63,11 +66,16 @@ class NonParametricSyntheticConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    dataset: Union[RealworldConfig, SemiSyntheticConfig, NonParametricSyntheticConfig, ParametricSyntheticConfig, OCDDataset]
+    dataset: Union[
+        RealworldConfig,
+        SemiSyntheticConfig,
+        NonParametricSyntheticConfig,
+        ParametricSyntheticConfig,
+        OCDDataset,
+    ]
     batch_size: int
     standard: bool
     reject_outliers: bool
-
 
 
 class WandBConfig(BaseModel):
@@ -94,19 +102,24 @@ class DataVisualizer(BaseModel):
 class SchedulerConfig(BaseModel):
     flow_frequency: int
     permutation_frequency: int
-    flow_lr_scheduler: Optional[Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]] = None
-    permutation_lr_scheduler: Optional[Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]] = None
-
+    flow_lr_scheduler: Optional[
+        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
+    ] = None
+    permutation_lr_scheduler: Optional[
+        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
+    ] = None
 
 
 class SoftSinkhornConfig(BaseModel):
     method: str = "soft-sinkhorn"
-    temp: float 
+    temp: float
     iters: int
+
 
 class GumbelTopKConfig(BaseModel):
     method: str = "gumbel-top-k"
     num_samples: int
+
 
 class GumbelSinkhornConfig(BaseModel):
     method: str = "gumbel-sinkhorn"
@@ -114,8 +127,9 @@ class GumbelSinkhornConfig(BaseModel):
     iters: int
     num_samples: int
 
+
 class TrainingConfig(BaseModel):
-    cuda: bool
+    device: str
     checkpointing: Optional[CheckpointingConfig] = None
 
     # training loop configurations
@@ -130,6 +144,15 @@ class TrainingConfig(BaseModel):
     data_visualizer: Optional[DataVisualizer] = None
     brikhoff: Optional[BirkhoffConfig] = None
 
+    @field_validator("device")
+    def validate_device(cls, value):
+        values = value.split(":")
+        assert values[0] in ["cpu", "cuda"], "device must be either cpu or cuda"
+        if len(values) > 1 and values[1] != "":
+            assert int(values[1]) >= 0, "device number must be positive"
+        return value
+
+
 class ModelConfig(BaseModel):
     in_features: Optional[int] = None
     layers: List[int]
@@ -138,14 +161,16 @@ class ModelConfig(BaseModel):
     activation: torch.nn.Module = torch.nn.LeakyReLU()
     # additional flow args
     additive: bool = False
-    normalization: Optional[torch.nn.Module] = None # TODO: test the actnorm / tanh
+    normalization: Optional[torch.nn.Module] = None  # TODO: test the actnorm / tanh
     # base distribution
-    base_distribution: torch.distributions.Distribution = torch.distributions.Normal(0., 1.)
+    base_distribution: torch.distributions.Distribution = torch.distributions.Normal(
+        0.0, 1.0
+    )
     # ordering
     ordering: Optional[torch.IntTensor] = None
     reversed_ordering: bool = False
     # gamma config
-    
+
 
 class MainConfig(BaseModel):
     trainer: TrainingConfig
@@ -155,29 +180,37 @@ class MainConfig(BaseModel):
     out_dir: str
     test_run: bool
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_model(self):
-        name_features = {'adni': 8, 'sachs': 11, 'syntren': 20}
+        name_features = {"adni": 8, "sachs": 11, "syntren": 20}
         data = self.data
-        if isinstance(data.dataset, ParametricSyntheticConfig) or isinstance(data.dataset, NonParametricSyntheticConfig):
+        if isinstance(data.dataset, ParametricSyntheticConfig) or isinstance(
+            data.dataset, NonParametricSyntheticConfig
+        ):
             if self.model.in_features is None:
                 self.model.in_features = data.dataset.graph.num_nodes
-            assert self.model.in_features == data.dataset.graph.num_nodes, "in_features must be equal to the number of nodes in the graph"
+            assert (
+                self.model.in_features == data.dataset.graph.num_nodes
+            ), "in_features must be equal to the number of nodes in the graph"
 
-        elif isinstance(data.dataset, RealworldConfig) or isinstance(data.dataset, SemiSyntheticConfig):
+        elif isinstance(data.dataset, RealworldConfig) or isinstance(
+            data.dataset, SemiSyntheticConfig
+        ):
             if self.model.in_features is None:
                 self.model.in_features = name_features[data.dataset.name]
-            assert self.model.in_features == name_features[data.dataset.name], "in_features must be equal to the number of nodes in the graph"
+            assert (
+                self.model.in_features == name_features[data.dataset.name]
+            ), "in_features must be equal to the number of nodes in the graph"
         elif isinstance(data.dataset, OCDDataset):
             if self.model.in_features is None:
                 self.model.in_features = len(data.dataset.dag.nodes)
-            assert self.model.in_features == len(data.dataset.dag.nodes), "in_features must be equal to the number of nodes in the graph"
-        
+            assert self.model.in_features == len(
+                data.dataset.dag.nodes
+            ), "in_features must be equal to the number of nodes in the graph"
+
         if self.model.ordering is not None:
-            assert set(self.model.ordering) == set(range(self.model.in_features)), "ordering must be a permutation of range(in_features)"
+            assert set(self.model.ordering) == set(
+                range(self.model.in_features)
+            ), "ordering must be a permutation of range(in_features)"
 
         return self
-
-
-
-
