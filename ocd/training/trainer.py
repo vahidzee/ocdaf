@@ -8,6 +8,8 @@ from ocd.config import (
 from torch.utils.data import DataLoader
 from typing import Union
 
+from ocd.models.permutation import hungarian
+
 
 class Trainer:
     def __init__(
@@ -37,9 +39,21 @@ class Trainer:
         self.brikhoff = None
 
     def _gumbel_top_k_train_step(self):
-        
+        pass
 
-    def _get_permutation(self, num_samples: int = 1):
+    def gumbel_matching(self, num_samples: int):
+        gumbel_samples = -(
+            -torch.rand(num_samples, self.model.d, self.model.d).log()
+        ).log()
+
+        return hungarian(self.gamma + gumbel_samples)
+
+    def stochastic_beam_search(self, num_samples: int):
+        # TODO with gamma \in R^{d}
+        pass
+
+    def daguerreotype_search(self, num_samples: int):
+        # TODO with gamma \in R^{d}
         pass
 
     def _flow_train_step(self):

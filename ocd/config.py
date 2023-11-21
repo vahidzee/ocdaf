@@ -119,6 +119,7 @@ class SoftSinkhornConfig(BaseModel):
 class GumbelTopKConfig(BaseModel):
     method: str = "gumbel-top-k"
     num_samples: int
+    sampling_method: Literal["unique", "beam-search", "bfs"]
 
 
 class GumbelSinkhornConfig(BaseModel):
