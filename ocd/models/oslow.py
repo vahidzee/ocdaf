@@ -1,104 +1,92 @@
 import torch
 from .masked import MaskedAffineFlowTransform
-from .permutation.utils import translate_idx_ordering
-import dypy as dy
-import typing as th
-import functools
+from typing import Optional, List, Union, Tuple, Dict
 
 import torch
 
+# TODO: add normalization transforms
 
-class OSlow(torch.nn.ModuleList):
+class OSlow(torch.nn.Module):
     def __init__(
         self,
         # architecture
-        in_features: th.Union[th.List[int], int],
-        layers: th.List[th.Union[th.List[int], int]] = None,
-        residual: bool = False,
-        bias: bool = True,
-        activation: th.Optional[str] = "torch.nn.LeakyReLU",
-        activation_args: th.Optional[dict] = None,
-        # batch norm
-        batch_norm: bool = False,
-        batch_norm_args: th.Optional[dict] = None,
+        in_features: int,
+        layers: List[int],
+        residual: bool,
+        activation: torch.nn.Module,
         # additional flow args
-        additive: bool = False,
-        share_parameters: bool = False,  # share parameters between scale and shift
-        num_transforms: int = 1,
-        scale_transform: bool = True,
-        scale_transform_s_args: th.Optional[dict] = None,
-        scale_transform_t_args: th.Optional[dict] = None,
+        additive: bool,
+        num_transforms: int,
+        normalization: Optional[torch.nn.Module],
         # base distribution
-        base_distribution: th.Union[torch.distributions.Distribution, str] = "torch.distributions.Normal",
-        base_distribution_args: dict = dict(loc=0.0, scale=1.0),  # type: ignore
+        base_distribution: torch.distributions.Distribution,
         # ordering
-        ordering: th.Optional[torch.IntTensor] = None,
-        reversed_ordering: bool = False,
-        # general args
-        device: th.Optional[torch.device] = None,
-        dtype: th.Optional[torch.dtype] = None,
+        ordering: Optional[torch.IntTensor],
     ):
+        """
+        Args:
+            in_features: number of input features
+            layers: number of hidden units in the MLP of each layer
+            residual: whether to use residual connections for the MLPs
+            activation: activation function to use
+            additive: whether to use additive coupling
+            num_transforms: number of transformations to use
+            normalization: normalization to use (e.g. ActNorm)
+            base_distribution: base distribution to use (e.g. Normal)
+            ordering: the autoregressive ordering of the model  (defaults to the identity ordering)
+        """
         super().__init__()
-        self.base_distribution = dy.get_value(base_distribution)(**(base_distribution_args or dict()))
+        self.base_distribution = base_distribution
         self.in_features = in_features
+        self.transforms = []
+        # initialize ordering
+        self.register_buffer(
+            "ordering",
+            ordering or torch.arange(
+                self.in_features,
+                dtype=torch.int,
+            ),
+        )
         # instantiate flows
         for _ in range(num_transforms):
-            self.append(
+            self.transforms.append(
                 MaskedAffineFlowTransform(
                     in_features=in_features,
                     layers=layers,
                     residual=residual,
-                    bias=bias,
                     activation=activation,
-                    activation_args=activation_args,
-                    batch_norm=batch_norm,
-                    batch_norm_args=batch_norm_args,
                     additive=additive,
-                    scale_transform=scale_transform,
-                    scale_transform_s_args=scale_transform_s_args,
-                    scale_transform_t_args=scale_transform_t_args,
-                    share_parameters=share_parameters,
-                    reversed_ordering=reversed_ordering,
-                    device=device,
-                    dtype=dtype,
+                    ordering=self.ordering,
+                    normalization=normalization,
                 )
             )
-        if ordering is not None:
-            self.reorder(torch.IntTensor(translate_idx_ordering(ordering)))
 
-    def forward(self, inputs, perm_mat=None, return_intermediate_results: bool = False, **kwargs):
+    def forward(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
+
         Args:
-            inputs: samples from the data distribution (x's)
-            perm_mat: permutation matrix to use for the flow (if None, then no permutation is used) (N, D, D)
-            return_intermediate_results: whether to return the intermediate results (z's) of the flow transformations
-        Returns:
+            inputs: samples from the data distribution (x's) of shape (batch_size, D)
+            perm_mat: a batch of permutation matrices to use for the flow transforms (if None, then no the identity permutation is used) (batch_size, D, D)
+        Returns: (z, log_dets)
             z: transformed samples from the base distribution (z's)
+            log_dets: sum of the log determinants of the flow transforms
         """
 
-        log_dets, z = 0, inputs.reshape(-1, inputs.shape[-1])
-        results = []
-        for i, flow in enumerate(self):
-            z = z.reshape(-1, inputs.shape[-1])
-            if return_intermediate_results:
-                results.append(z)
-            z, log_det = flow(inputs=z, perm_mat=perm_mat, **kwargs)
-            log_dets += log_det.reshape(-1)
+        log_dets, z = 0, inputs
+        for transform in self.transforms:
+            z, log_det = transform(inputs=z, perm_mat=perm_mat)
+            log_dets += log_det
 
-        z, log_dets = z.unflatten(0, inputs.shape[:-1]), log_dets.unflatten(0, inputs.shape[:-1])
-        if return_intermediate_results:
-            results.append(z)
-            return results
         return z, log_dets
 
 
-    def inverse(self, inputs: torch.Tensor, **kwargs) -> th.Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Computes the inverse of the flow.
 
         Args:
             inputs: Batch of inputs to invert (results of a forward pass)
-            **kwargs: Additional arguments (e.g. perm_mat used in forward pass or elementwise_perm)
+            perm_mat: The permutation for the autoregressive ordering
 
         Returns:
             Inverted inputs and log determinant of the inverse
@@ -106,75 +94,74 @@ class OSlow(torch.nn.ModuleList):
         z, log_dets = inputs, 0  # initialize z and log_dets
         # iterate over flows in reverse order and apply inverse
 
-        for i, flow in enumerate(reversed(self)):
-            z, log_det = flow.inverse(inputs=z, **kwargs)
+        for transform in reversed(self.transforms):
+            z, log_det = transform.inverse(inputs=z, perm_mat=perm_mat)
             log_dets += log_det  # sign is handled in flow.inverse
         return z, log_det
 
-    def sample(self, num_samples: int, **kwargs) -> torch.Tensor:
+    def sample(self, num_samples: int, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Sample from the flow
 
         Args:
-          num_samples: Number of samples to generate
+            num_samples: Number of samples to generate
         Returns:
-          Samples
+            Samples
         """
         # Get the device of the current model
-        device = next(self[0].parameters()).device
+        device = self.device
         # Set the noises and set their device
         z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
 
-        return self.inverse(z, **kwargs)[0]
+        return self.inverse(z, perm_mat=perm_mat)[0]
 
-    def log_prob(self, x=None, z=None, logabsdet=None, **kwargs) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Get log probability for batch
 
-        $$\log p_x(x) = \log p_z(T^{-1}(x)) + \log |det(J(T^{-1}(x)))|$$
+        $$\log p_x(x) = \log p_z(T(x)) + \log |det(J(T(x)))|$$
 
         Args:
-          x: Batch of inputs
-          z: Batch of latent variables (optional, otherwise computed)
+            x: Batch of inputs of size (batch_size, D)
+            perm_mat: The permutation for the autoregressive ordering
         Returns:
-          log probability
+            log probabilities of size (batch_size,)
         """
-        assert (x is None) != (z is None), "Either x or z must be None"
-        z, logabsdet = self.forward(x, **kwargs) if z is None else (z, logabsdet)
-        flat_z = z.reshape(-1, z.shape[-1])
-        # print the maximum and minimum values of the latent variables
-        log_base_prob = self.base_distribution.log_prob(flat_z).sum(-1)
-        log_base_prob = log_base_prob.reshape(z.shape[:-1])
+        z, logabsdet = self.forward(x, perm_mat=perm_mat)
+        log_base_prob = self.base_distribution.log_prob(z).sum(-1)
         return log_base_prob + logabsdet
 
-    def reorder(self, ordering: th.Optional[torch.IntTensor] = None, **kwargs) -> None:
-        if ordering is not None:
-            ordering = torch.IntTensor(ordering)
-        for flow in self:
-            flow.reorder(ordering, **kwargs)
+    def intervene(self, num_samples: int, intervention: Dict[int, torch.Tensor], perm_mat: Optional[torch.Tensor] = None):
+        """
+        Intervene on the model by setting the value of some variables to a fixed value.
 
-    def intervene(self, num_samples, intervention: th.Dict[int, dy.FunctionDescriptor], **kwargs):
-        intervention = {k: dy.eval(f) for k, f in intervention.items()}
-        device = next(self[0].parameters()).device
+        Args:
+            num_samples: The number of samples to generate from the interventional distribution
+            intervention: A dictionary mapping node ids to their corresponding values
+            perm_mat:
+                The ordering that is being considered for the intervention.
+                Defaults to None which is the identity ordering.
+                **NOTE** The ordering must be the same for all samples in the batch.
 
+        Returns:
+            A batch of samples from the interventional distribution [batch_size, D]
+        """
+        # perm_mat is a tensor of size (num_samples, D, D)
+        # raise exception if the permutation matrices of at least two samples are different
+        if perm_mat is not None:
+            perm_mat = perm_mat.reshape(-1, perm_mat.shape[-2], perm_mat.shape[-1])
+            assert torch.all(perm_mat[0] == perm_mat).item(), "Permutation matrices of at least two samples are different"
+        else:
+            perm_mat = torch.eye(self.in_features).unsqueeze(0).repeat(num_samples, 1, 1).to(self.device)
+
+        device = self.device
         # Set the noises and set their device
         base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
-        x = self.inverse(base_z, **kwargs)[0]
+        x = self.inverse(base_z, perm_mat=perm_mat)[0]
 
-        for idx in intervention:
-            x[:, idx] = intervention[idx](x) if callable(intervention[idx]) else intervention[idx]
-            z = self(x, **kwargs)[0]
-            z[:, idx + 1 :] = base_z[:, idx + 1 :]
-            x = self.inverse(z, **kwargs)[0]
+        entailed_ordering = torch.einsum("bij, j -> bi", perm_mat, self.ordering).long()
+        for i, idx in enumerate(entailed_ordering):
+            if idx in intervention:
+                x[:, idx] = intervention[idx]
+                z = self(x, perm_mat=perm_mat)[0]
+                z[:, entailed_ordering[i + 1 :]] = base_z[:, entailed_ordering[i + 1 :]]
+                x = self.inverse(z, perm_mat=perm_mat)[0]
         return x
-
-    def do(self, idx, values: th.Union[torch.Tensor, list], target: th.Optional[int] = None, num_samples=50):
-        values = values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
-        results = torch.stack([self.intervene(num_samples, {idx: value}) for value in values], dim=0)
-        return results[:, :, target] if target is not None else results
-
-    @property
-    def ordering(self) -> torch.IntTensor:
-        return self[0].ordering
-
-    @property
-    def orderings(self) -> torch.IntTensor:
-        return [flow.orderings for flow in self]

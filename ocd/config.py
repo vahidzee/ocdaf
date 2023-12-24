@@ -155,7 +155,7 @@ class TrainingConfig(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    in_features: Optional[int] = None
+    in_features: int
     layers: List[int]
     num_transforms: int = 1
     residual: bool = False  # TODO: test and drop if not used
@@ -169,8 +169,6 @@ class ModelConfig(BaseModel):
     )
     # ordering
     ordering: Optional[torch.IntTensor] = None
-    reversed_ordering: bool = False
-    # gamma config
 
 
 class MainConfig(BaseModel):
