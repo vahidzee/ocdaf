@@ -1,23 +1,24 @@
 import torch
 from .masked import MaskedAffineFlowTransform
-from typing import Optional, List, Union, Tuple, Dict
+from typing import Optional, List, Union, Tuple, Dict, Callable
 
 import torch
 
 # TODO: add normalization transforms
 
-class OSlow(torch.nn.Module):
+class OSlow(torch.nn.ModuleList):
     def __init__(
         self,
         # architecture
         in_features: int,
         layers: List[int],
+        dropout: Optional[float],
         residual: bool,
         activation: torch.nn.Module,
         # additional flow args
         additive: bool,
         num_transforms: int,
-        normalization: Optional[torch.nn.Module],
+        normalization: Optional[Callable[[int], torch.nn.Module]],
         # base distribution
         base_distribution: torch.distributions.Distribution,
         # ordering
@@ -38,21 +39,21 @@ class OSlow(torch.nn.Module):
         super().__init__()
         self.base_distribution = base_distribution
         self.in_features = in_features
-        self.transforms = []
         # initialize ordering
         self.register_buffer(
             "ordering",
-            ordering or torch.arange(
+            ordering if ordering is not None else torch.arange(
                 self.in_features,
                 dtype=torch.int,
             ),
         )
         # instantiate flows
         for _ in range(num_transforms):
-            self.transforms.append(
+            self.append(
                 MaskedAffineFlowTransform(
                     in_features=in_features,
                     layers=layers,
+                    dropout=dropout,
                     residual=residual,
                     activation=activation,
                     additive=additive,
@@ -60,7 +61,13 @@ class OSlow(torch.nn.Module):
                     normalization=normalization,
                 )
             )
-
+    @property
+    def device(self) -> torch.device:
+        """
+        Get the device of the model
+        """
+        return next(self.parameters()).device
+    
     def forward(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
@@ -73,7 +80,7 @@ class OSlow(torch.nn.Module):
         """
 
         log_dets, z = 0, inputs
-        for transform in self.transforms:
+        for transform in self:
             z, log_det = transform(inputs=z, perm_mat=perm_mat)
             log_dets += log_det
 
@@ -94,7 +101,7 @@ class OSlow(torch.nn.Module):
         z, log_dets = inputs, 0  # initialize z and log_dets
         # iterate over flows in reverse order and apply inverse
 
-        for transform in reversed(self.transforms):
+        for transform in reversed(self):
             z, log_det = transform.inverse(inputs=z, perm_mat=perm_mat)
             log_dets += log_det  # sign is handled in flow.inverse
         return z, log_det

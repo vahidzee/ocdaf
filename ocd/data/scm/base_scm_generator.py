@@ -13,12 +13,10 @@ check out the description of the specific functions and override them in a child
 
 import networkx as nx
 import typing as th
-import dypy
 from .base_scm import SCM
 from abc import ABC, abstractmethod
 from .base_generator import BaseGenerator
-from .graph_generator import GraphGenerator
-import dypy
+from ocd.data.synthetic.graph_generator import GraphGenerator
 import numpy as np
 
 class SCMGenerator(ABC, BaseGenerator):

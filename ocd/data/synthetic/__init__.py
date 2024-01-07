@@ -1,2 +1,1 @@
-from .parametric import ParametricSCMGenerator
-from .gaussian_process import GaussianProcessBasedSCMGeberator
+from .parametric import AffineParametericDataset

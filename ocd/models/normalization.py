@@ -1,4 +1,56 @@
 import torch
+from torch import nn
+
+class ActNorm(torch.nn.Module):
+    def __init__(self, features):
+        """
+        Transform that performs activation normalization. Works for 2D and 4D inputs. For 4D
+        inputs (images) normalization is performed per-channel, assuming BxCxHxW input shape.
+
+        Reference:
+        > D. Kingma et. al., Glow: Generative flow with invertible 1x1 convolutions, NeurIPS 2018.
+        """
+        super().__init__()
+
+        self.register_buffer("initialized", torch.tensor(False, dtype=torch.bool))
+        self.log_scale = nn.Parameter(torch.zeros(features))
+        self.shift = nn.Parameter(torch.zeros(features))
+
+    @property
+    def scale(self):
+        return torch.exp(self.log_scale)
+
+
+    def forward(self, inputs):
+        if self.training and not self.initialized:
+            self._initialize(inputs)
+
+        scale, shift = self.scale.reshape(1, -1), self.shift.reshape(1, -1)
+        outputs = scale * inputs + shift
+
+        batch_size, _ = inputs.shape
+        logabsdet = torch.sum(self.log_scale) * outputs.new_ones(batch_size)
+
+        return outputs, logabsdet
+
+    def inverse(self, inputs):
+        scale, shift = self.scale.reshape(1, -1), self.shift.reshape(1, -1)
+        outputs = (inputs - shift) / scale
+
+        batch_size, _ = inputs.shape
+        logabsdet = -torch.sum(self.log_scale) * outputs.new_ones(batch_size)
+
+        return outputs, logabsdet
+
+    def _initialize(self, inputs):
+        """Data-dependent initialization, s.t. post-actnorm activations have zero mean and unit
+        variance. """
+        with torch.no_grad():
+            std = inputs.std(dim=0)
+            mu = (inputs / std).mean(dim=0)
+            self.log_scale.data = -torch.log(std)
+            self.shift.data = -mu
+            self.initialized.data = torch.tensor(True, dtype=torch.bool)
 
 class TanhTransform(torch.nn.Module):
     def __init__(

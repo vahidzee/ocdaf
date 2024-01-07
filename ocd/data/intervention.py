@@ -1,10 +1,7 @@
 import typing as th
 import torch
-import dypy.wrappers as dyw
-import dypy as dy
 
 
-@dyw.dynamize
 class InterventionChainDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -37,11 +34,9 @@ class InterventionChainDataset(torch.utils.data.Dataset):
 
         self.data, self.means, self.stds = self._generate_data()
 
-    @dyw.method
     def s_func(self, x):
         return torch.nn.functional.softplus(x)
 
-    @dyw.method
     def t_func(self, x):
         return x + torch.sin(x)
 

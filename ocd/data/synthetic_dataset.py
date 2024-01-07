@@ -4,8 +4,6 @@ This file contains the synthetic datasets generated.
 from .base_dataset import OCDDataset
 import typing as th
 from .scm import SCMGenerator
-import dypy
-from lightning_toolbox import DataModule
 import numpy as np
 
 class SyntheticOCDDataset(OCDDataset):

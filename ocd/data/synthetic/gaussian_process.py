@@ -1,5 +1,5 @@
 import typing as th
-from ocd.data.scm import SCMGenerator, GraphGenerator
+from ocd.data.scm import SCMGenerator
 import numpy
 import dypy as dy
 from sklearn.metrics.pairwise import rbf_kernel

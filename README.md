@@ -31,8 +31,10 @@ This repository is also integrated with Weights & Biases for comprehensive loggi
     ```
     pip install -r requirements.txt
     ```
-
-    > Note: To maintain compatibility, consider using `frozen-requirements.txt` which lists the last confirmed working versions of the dependencies.
+    Or, you can opt for a conda environment:
+    ```
+    conda env create -f env.yml # This will create a conda environment named oslow which you can activate
+    ```
 
 ### Experiment Configuration
 

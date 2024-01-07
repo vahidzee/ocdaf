@@ -42,6 +42,7 @@ class MaskedMLP(torch.nn.ModuleList):
         self,
         in_features: int,
         layers: List[int],
+        dropout: Optional[float],
         residual: bool,
         activation: torch.nn.Module,
         ordering: torch.IntTensor,
@@ -51,7 +52,7 @@ class MaskedMLP(torch.nn.ModuleList):
         """
         super().__init__()
         # process arguments (put them in the right format)
-        layers += [in_features]
+        layers += [1]
         in_features = [1] * in_features
         layers = [[layer] * len(in_features) for layer in layers]
         # set architectural hyperparameters
@@ -62,6 +63,7 @@ class MaskedMLP(torch.nn.ModuleList):
                 MaskedBlock(
                     in_features=in_features if i == 0 else layers[i - 1],
                     out_features=layers[i],
+                    dropout=dropout,
                     activation=activation if i < len(layers) - 1 else None,
                     auto_connection=True if i < len(layers) - 1 else False,
                     residual=residual if i < len(layers) - 1 else False,
