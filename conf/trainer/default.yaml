@@ -1,7 +1,7 @@
 defaults:
   - permutation: gumbel_top_k
 
-cuda: true
+device: cuda
 checkpointing: null
 
 max_epochs: 100

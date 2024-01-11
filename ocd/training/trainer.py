@@ -4,31 +4,62 @@ from ocd.config import (
     GumbelSinkhornConfig,
     GumbelTopKConfig,
     SoftSinkhornConfig,
+    DataVisualizer,
+    BirkhoffConfig,
 )
 from torch.utils.data import DataLoader
-from typing import Union
-
+from typing import Union, Callable, Iterable, Optional
+from ocd.models.oslow import OSlow
 from ocd.models.permutation import hungarian
 
-
+class PermutationLearningModule(torch.nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+    ):
+        super().__init__()
+        self.register_parameter(
+            "gamma",
+            torch.nn.Parameter(
+                torch.randn(in_features, in_features)
+            )
+        )
+        
 class Trainer:
     def __init__(
-        self, config: TrainingConfig, model: torch.nn.Module, dataloader: DataLoader
+        self, 
+        model: OSlow,
+        dataloader: DataLoader,
+        flow_optimizer: Callable[[Iterable], torch.optim.Optimizer],
+        permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer],
+        flow_frequency: int,
+        permutation_frequency: int,
+        max_epochs: int,
+        flow_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
+        permutation_lr_scheduler: Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler],
+        permutation_learning_config: Union[GumbelSinkhornConfig, GumbelTopKConfig, SoftSinkhornConfig],
+        data_visualizer_config: Optional[DataVisualizer] = None,
+        birkhoff_config: Optional[BirkhoffConfig] = None,
+        device: str = "cpu",
     ):
-        self.config = config
-        self.model = model
-        self.gamma = torch.nn.Parameter(
-            torch.randn(model.d, model.d), device=config.device
-        )
+        self.max_epochs = max_epochs
+        self.model = model.to(device)
+        self.permutation_learning_module = PermutationLearningModule(model.in_features).to(device)
+        #= torch.nn.Parameter(
+        #     torch.randn(model.in_features, model.in_features)
+        # ).to(device).requires_grad_(True)
         self.dataloader = dataloader
-
-        self.flow_optimizer = self.config.flow_optimizer(self.model.parameters)
-        self.permutation_optimizer = self.config.permutation_optimizer(self.gamma)
-
-        self.flow_scheduler = self.config.scheduler.flow_lr_scheduler(
+        self.permutation_learning_config = permutation_learning_config
+        self.data_visualizer_config = data_visualizer_config
+        self.birkhoff_config = birkhoff_config
+        self.flow_optimizer = flow_optimizer(self.model.parameters())
+        self.permutation_optimizer = permutation_optimizer(self.permutation_learning_module.parameters())
+        self.flow_frequency = flow_frequency
+        self.permutation_frequency = permutation_frequency
+        self.flow_scheduler = flow_lr_scheduler(
             self.flow_optimizer
         )
-        self.permutation_scheduler = self.config.scheduler.permutation_lr_scheduler(
+        self.permutation_scheduler = permutation_lr_scheduler(
             self.permutation_optimizer
         )
 
@@ -66,9 +97,8 @@ class Trainer:
             self.flow_optimizer.step()
 
     def train(self):
-        self.model.to(self.config.device)
         self.model.train()
 
-        for epoch in range(self.config.max_epochs):
-            for batch in self.dataloader:
-                self.model.log_prob(batch, perm_mat)
+        # for epoch in range(self.max_epochs):
+        #     for batch in self.dataloader:
+        #         self.model.log_prob(batch, perm_mat)

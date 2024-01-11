@@ -5,9 +5,19 @@ import yaml
 
 from omegaconf import OmegaConf
 from pprint import pprint
-from ocd.config import MainConfig
+import ocd.config as config_ref
+from ocd.config import MainConfig, DataConfig, ModelConfig, TrainingConfig
 from random_word import RandomWords
-
+from ocd.data.synthetic.graph_generator import GraphGenerator
+from ocd.data.synthetic.parametric import AffineParametericDataset
+from ocd.data.synthetic.nonparametric import AffineNonParametericDataset
+from ocd.data.real_world.sachs import SachsOCDDataset
+from ocd.data.real_world.syntren import SyntrenOCDDataset
+from typing import Union
+from ocd.data.base_dataset import OCDDataset
+from ocd.models.oslow import OSlow
+from ocd.training.trainer import Trainer
+import torch
 # Add resolver for hydra
 OmegaConf.register_new_resolver("eval", eval)
 
@@ -45,9 +55,111 @@ def init_run_dir(conf: MainConfig) -> MainConfig:
 
     return conf
 
+def instantiate_data(conf: Union[DataConfig, OCDDataset]):
+    """
+    Instantiate the dataset according to the data configuration specified
+    and then create an appropriate training dataloader and return it.
+    """
+    
+    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig) 
+    synth_cond2 = isinstance(conf.dataset, config_ref.NonParametricSyntheticConfig)
+    if isinstance(conf, OCDDataset):
+        dset = conf
+    elif synth_cond1 or synth_cond2:
+        graph_generator = GraphGenerator(num_nodes=conf.dataset.graph.num_nodes, seed=conf.dataset.seed, graph_type=conf.dataset.graph.graph_type)
+        graph = graph_generator.generate_dag()
+        
+        if synth_cond1:
+            dset = AffineParametericDataset(
+                num_samples = conf.dataset.num_samples,
+                graph = graph,
+                noise_generator = conf.dataset.noise_generator,
+                link_generator = conf.dataset.link_generator,
+                link = conf.dataset.link,
+                perform_normalization = conf.dataset.perform_normalization,
+                additive = conf.dataset.additive,
+                post_non_linear_transform = conf.dataset.post_non_linear_transform,
+                standard = conf.standard,
+                reject_outliers = conf.reject_outliers,
+                outlier_threshold = conf.outlier_threshold,
+            )
+        else:
+            dset = AffineNonParametericDataset(
+                num_samples = conf.dataset.num_samples,
+                graph = graph,
+                noise_generator = conf.dataset.noise_generator,
+                perform_normalization = conf.dataset.perform_normalization,
+                additive = conf.dataset.additive,
+                post_non_linear_transform = conf.dataset.post_non_linear_transform,
+                standard = conf.standard,
+                reject_outliers = conf.reject_outliers,
+                outlier_threshold = conf.outlier_threshold,
+            )
+    elif isinstance(conf.dataset, config_ref.RealworldConfig):
+        if conf.dataset.name == "sachs":
+            dset = SachsOCDDataset(
+                standard = conf.standard,
+                reject_outliers = conf.reject_outliers,
+                outlier_threshold = conf.outlier_threshold,
+                name = conf.dataset.name,
+            )
+        else:
+            raise ValueError(f"Unknown real world dataset {conf.dataset.name}")
+    elif isinstance(conf.dataset, config_ref.SemiSyntheticConfig):
+        if conf.dataset.name == 'syntren':
+            dset = SyntrenOCDDataset(
+                standard = conf.standard,
+                reject_outliers = conf.reject_outliers,
+                outlier_threshold = conf.outlier_threshold,
+                data_id=conf.dataset.data_id,
+            )
+        else:
+            raise ValueError(f"Unknown semi synthetic dataset {conf.dataset.name}")
+    else:
+        raise ValueError(f"Unknown dataset type {conf.dataset}")
 
+    # create a torch dataloader from dataset and return it
+    dloader = torch.utils.data.DataLoader(
+        dset,
+        batch_size=conf.batch_size,
+        shuffle=True,
+    )
+    return dloader    
 
-@hydra.main(version_base=None, config_path="conf", config_name="config")
+def instantiate_model(conf: ModelConfig):
+    return OSlow(
+        in_features=conf.in_features,
+        layers=conf.layers,
+        dropout=conf.dropout,
+        residual=conf.residual,
+        activation=conf.activation,
+        additive=conf.additive,
+        num_transforms=conf.num_transforms,
+        normalization=conf.normalization,
+        base_distribution=conf.base_distribution,
+        ordering=conf.ordering,
+        num_post_nonlinear_transforms=conf.num_post_nonlinear_transforms,
+    )
+
+def instantiate_trainer(conf: TrainingConfig, model, dloader):
+    return Trainer(
+        model=model,
+        dataloader=dloader,
+        flow_optimizer=conf.flow_optimizer,
+        permutation_optimizer=conf.permutation_optimizer,
+        flow_frequency=conf.scheduler.flow_frequency,
+        permutation_frequency=conf.scheduler.permutation_frequency,
+        flow_lr_scheduler=conf.scheduler.flow_lr_scheduler,
+        permutation_lr_scheduler=conf.scheduler.permutation_lr_scheduler,
+        device=conf.device,
+        max_epochs=conf.max_epochs,
+        #
+        permutation_learning_config=conf.permutation,
+        data_visualizer_config=conf.data_visualizer,
+        birkhoff_config=conf.brikhoff,
+    )
+
+@hydra.main(version_base=None, config_path="conf", config_name="simple_sinusoid_experiment")
 def main(conf: MainConfig):
     conf = hydra.utils.instantiate(conf)
     conf = MainConfig(**OmegaConf.to_container(conf))
@@ -67,6 +179,10 @@ def main(conf: MainConfig):
             # compatible with hydra
             settings=wandb.Settings(start_method="thread"),
         )
+        dloader = instantiate_data(conf.data)
+        model = instantiate_model(conf.model)
+        trainer = instantiate_trainer(conf.trainer, model, dloader)
+        trainer.train()
 
 
 if __name__ == "__main__":

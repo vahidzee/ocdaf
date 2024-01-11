@@ -1,0 +1,22 @@
+num_samples: 1000
+graph:
+  graph_type: chain
+  num_nodes: ${model.in_features}
+  seed: 42
+noise_generator:
+  _target_: ocd.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: normal
+  loc: 0
+  scale: 1
+link_generator:
+  _target_: ocd.data.synthetic.utils.RandomGenerator
+  seed: 42
+  noise_type: uniform
+  low: 1
+  high: 2
+link: sinusoid
+perform_normalization: false
+additive: false
+post_non_linear_transform: null
+seed: 42

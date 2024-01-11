@@ -1,17 +1,18 @@
-layers: [10, 5, 5]
-num_transforms: 1
+# in_features: ${data.dataset.graph.num_nodes} # take the number of nodes from the graph
+layers: [10, 10, 10]
+dropout: null
+num_transforms: 1 # number of transformations to apply (you can change)
 residual: false
-activation: 
+activation:
   _target_: torch.nn.LeakyReLU
 additive: False
 normalization:
-  _target_: ocd.models.normalization.TanhTransform # TODO actnorm
-  pre_act_scale: .1
-  post_act_scale: 10.
+  _target_: ocd.models.normalization.ActNorm
+  _partial_: true
 
-base_distribution: 
+base_distribution:
   _target_: torch.distributions.Normal
   _args_: [0., 1.]
 
 ordering: null
-reversed_ordering: False
+num_post_nonlinear_transforms: 0

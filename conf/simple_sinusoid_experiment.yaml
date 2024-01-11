@@ -1,7 +1,10 @@
+# This is a simple experiment where a synthetic data of size 3 is generated
+# from a parametric sinusoid function. The goal is to learn the permutation.
+
 defaults:
   - model: default
   - trainer: default
-  - data: default
+  - data: synthetic_sinusoid
   - hydra: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,5 +14,5 @@ wandb:
   project: default
   entity: ordered-causal-discovery
 
-test_run: true
+test_run: false
 out_dir: runs/

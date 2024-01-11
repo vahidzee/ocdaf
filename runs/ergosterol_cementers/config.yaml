@@ -1,0 +1,185 @@
+data:
+  batch_size: 128
+  dataset:
+    additive: false
+    graph:
+      graph_type: chain
+      num_nodes: 3
+      seed: 42
+    invertibility_coefficient: 0.0
+    name: null
+    noise_generator: !!python/object:ocd.data.synthetic.utils.RandomGenerator
+      rng: !!python/object/apply:functools.partial
+        args:
+        - &id001 !!python/name:None.normal ''
+        state: !!python/tuple
+        - *id001
+        - !!python/tuple []
+        - loc: 0
+          scale: 1
+        - null
+    num_samples: 1000
+    perform_normalization: false
+    post_non_linear_transform: null
+    s_rbf_kernel_gamma: 1.0
+    seed: 42
+    t_rbf_kernel_gamma: 1.0
+  outlier_threshold: 3.0
+  reject_outliers: false
+  standard: false
+model:
+  activation: !!python/object:torch.nn.modules.activation.LeakyReLU
+    _backward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _backward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _buffers: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _forward_pre_hooks_with_kwargs: !!python/object/apply:collections.OrderedDict
+    - []
+    _is_full_backward_hook: null
+    _load_state_dict_post_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _load_state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _modules: !!python/object/apply:collections.OrderedDict
+    - []
+    _non_persistent_buffers_set: !!set {}
+    _parameters: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    _state_dict_pre_hooks: !!python/object/apply:collections.OrderedDict
+    - []
+    inplace: false
+    negative_slope: 0.01
+    training: true
+  additive: false
+  base_distribution: !!python/object:torch.distributions.normal.Normal
+    _batch_shape: !!python/object/apply:torch.Size
+    - !!python/tuple []
+    _event_shape: !!python/object/apply:torch.Size
+    - !!python/tuple []
+    loc: !!python/object/apply:torch._utils._rebuild_tensor_v2
+    - !!python/object/apply:torch.storage._load_from_bytes
+      - !!binary |
+        gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+        AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+        aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+        Z2UKcQFYCQAAADEyNTQ4NzQwOHECWAMAAABjcHVxA0sBTnRxBFEugAJdcQBYCQAAADEyNTQ4NzQw
+        OHEBYS4BAAAAAAAAAAAAAAA=
+    - 0
+    - !!python/tuple []
+    - !!python/tuple []
+    - false
+    - !!python/object/apply:collections.OrderedDict
+      - []
+    scale: !!python/object/apply:torch._utils._rebuild_tensor_v2
+    - !!python/object/apply:torch.storage._load_from_bytes
+      - !!binary |
+        gAKKCmz8nEb5IGqoUBkugAJN6QMugAJ9cQAoWBAAAABwcm90b2NvbF92ZXJzaW9ucQFN6QNYDQAA
+        AGxpdHRsZV9lbmRpYW5xAohYCgAAAHR5cGVfc2l6ZXNxA31xBChYBQAAAHNob3J0cQVLAlgDAAAA
+        aW50cQZLBFgEAAAAbG9uZ3EHSwR1dS6AAihYBwAAAHN0b3JhZ2VxAGN0b3JjaApGbG9hdFN0b3Jh
+        Z2UKcQFYCQAAADEyODQzMzgyNHECWAMAAABjcHVxA0sBTnRxBFEugAJdcQBYCQAAADEyODQzMzgy
+        NHEBYS4BAAAAAAAAAAAAgD8=
+    - 0
+    - !!python/tuple []
+    - !!python/tuple []
+    - false
+    - !!python/object/apply:collections.OrderedDict
+      - []
+  dropout: null
+  identity_init: !!python/tuple
+  - false
+  in_features: 3
+  layers:
+  - 10
+  - 10
+  - 10
+  min_bin_height: !!python/tuple
+  - 0.001
+  min_bin_width: !!python/tuple
+  - 0.001
+  min_derivative: !!python/tuple
+  - 0.001
+  normalization: !!python/object/apply:functools.partial
+    args:
+    - &id002 !!python/name:ocd.models.normalization.ActNorm ''
+    state: !!python/tuple
+    - *id002
+    - !!python/tuple []
+    - {}
+    - null
+  num_bins: !!python/tuple
+  - 10
+  num_post_nonlinear_transforms: 0
+  num_transforms: 1
+  ordering: null
+  residual: false
+  tail_bound: !!python/tuple
+  - 10.0
+out_dir: runs/ergosterol_cementers
+test_run: false
+trainer:
+  brikhoff: null
+  checkpointing: null
+  data_visualizer: null
+  device: cuda
+  flow_optimizer: !!python/object/apply:functools.partial
+    args:
+    - &id003 !!python/name:torch.optim.adam.Adam ''
+    state: !!python/tuple
+    - *id003
+    - !!python/tuple []
+    - lr: 0.01
+      weight_decay: 0.1
+    - null
+  max_epochs: 100
+  permutation:
+    method: gumbel-top-k
+    num_samples: 50
+    sampling_method: unique
+  permutation_optimizer: !!python/object/apply:functools.partial
+    args:
+    - *id003
+    state: !!python/tuple
+    - *id003
+    - !!python/tuple []
+    - lr: 0.01
+      weight_decay: 0.1
+    - null
+  scheduler:
+    flow_frequency: 1
+    flow_lr_scheduler: !!python/object/apply:functools.partial
+      args:
+      - &id004 !!python/name:torch.optim.lr_scheduler.ReduceLROnPlateau ''
+      state: !!python/tuple
+      - *id004
+      - !!python/tuple []
+      - min_lr: 5.0e-05
+        mode: min
+        threshold: 0.001
+      - null
+    permutation_frequency: 1
+    permutation_lr_scheduler: !!python/object/apply:functools.partial
+      args:
+      - *id004
+      state: !!python/tuple
+      - *id004
+      - !!python/tuple []
+      - min_lr: 5.0e-05
+        mode: min
+        threshold: 0.001
+      - null
+wandb:
+  entity: ordered-causal-discovery
+  project: default
+  resume: false
+  run_id: 2vaxti2u
+  run_name: ergosterol_cementers

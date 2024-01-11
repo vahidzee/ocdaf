@@ -1,3 +1,7 @@
+"""
+This file contains the entire configuration of the project.
+Everything lies within the MainConfig class, which is a Pydantic model.
+"""
 from typing import Optional, Callable, Iterable, Union, List, Literal, Tuple
 from pydantic import model_validator, field_validator
 from pydantic import BaseModel as PydanticBaseModel
@@ -6,6 +10,7 @@ import numpy as np
 from functools import partial
 from ocd.data.base_dataset import OCDDataset
 from ocd.data.synthetic.utils import RandomGenerator
+import networkx as nx
 
 class BaseModel(PydanticBaseModel):
     class Config:
@@ -36,12 +41,14 @@ class GraphConfig(BaseModel):
 
 
 class ParametricSyntheticConfig(BaseModel):
-    name: Optional[str] = None
     num_samples: int
     graph: GraphConfig
-    noise: RandomGenerator
-    link: Literal["sinusoid", "cubic", "linear"]
+    noise_generator: RandomGenerator
     link_generator: RandomGenerator
+    link: Literal["sinusoid", "cubic", "linear"] = "sinusoid",
+    perform_normalization: bool = True,
+    additive: bool = False,
+    post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None
 
 
 class NonParametricSyntheticConfig(BaseModel):
@@ -49,7 +56,14 @@ class NonParametricSyntheticConfig(BaseModel):
     num_samples: int
     graph: GraphConfig
     seed: Optional[int] = None
-
+    post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None
+    noise_generator: RandomGenerator
+    s_rbf_kernel_gamma: float = 1.0
+    t_rbf_kernel_gamma: float = 1.0
+    invertibility_coefficient: float = 0.0
+    perform_normalization: bool = True
+    additive: bool = False
+    
 
 class DataConfig(BaseModel):
     dataset: Union[
@@ -57,11 +71,11 @@ class DataConfig(BaseModel):
         SemiSyntheticConfig,
         NonParametricSyntheticConfig,
         ParametricSyntheticConfig,
-        OCDDataset,
     ]
     batch_size: int
     standard: bool
     reject_outliers: bool
+    outlier_threshold: float = 3.0
 
 
 class WandBConfig(BaseModel):
@@ -143,23 +157,30 @@ class TrainingConfig(BaseModel):
 class ModelConfig(BaseModel):
     in_features: int
     layers: List[int]
-    num_transforms: int = 1
-    residual: bool = False  # TODO: test and drop if not used
+    dropout: Optional[float]
+    residual: bool = False
     activation: torch.nn.Module = torch.nn.LeakyReLU()
-    # additional flow args
     additive: bool = False
-    normalization: Optional[torch.nn.Module] = None  # TODO: test the actnorm / tanh
-    # base distribution
+    num_transforms: int
+    normalization: Optional[Callable[[int], torch.nn.Module]] 
     base_distribution: torch.distributions.Distribution = torch.distributions.Normal(
         0.0, 1.0
     )
-    # ordering
     ordering: Optional[torch.IntTensor] = None
-
+    
+    ###### Post Non Linear Transform ######
+    num_post_nonlinear_transforms: int = 0 # change if you want to consider PNL models
+    num_bins: int = 10,
+    tail_bound: float = 10.0,
+    identity_init: bool = False,
+    min_bin_width: float = 1e-3,
+    min_bin_height: float = 1e-3,
+    min_derivative: float = 1e-3,
+    normalization: Optional[Callable[[int], torch.nn.Module]] = None,
 
 class MainConfig(BaseModel):
     trainer: TrainingConfig
-    data: DataConfig
+    data: Union[DataConfig, OCDDataset]
     model: ModelConfig
     wandb: WandBConfig
     out_dir: str
