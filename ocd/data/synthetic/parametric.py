@@ -12,6 +12,7 @@ import math
 from .utils import RandomGenerator
 from ocd.data.base_dataset import OCDDataset
 import pandas as pd
+from .utils import perform_post_non_linear_transform, softplus, standardize
 
 class AffineParametericDataset(OCDDataset):
     """
@@ -45,9 +46,12 @@ class AffineParametericDataset(OCDDataset):
         graph: nx.DiGraph,
         noise_generator: RandomGenerator,
         link_generator: RandomGenerator,
+        *args,
         link: Literal["sinusoid", "cubic", "linear"] = "sinusoid",
         perform_normalization: bool = True,
         additive: bool = False,
+        post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "nonparametric"]] = None,
+        **kwargs,
     ):
         """
         Args:
@@ -79,7 +83,7 @@ class AffineParametericDataset(OCDDataset):
                 s_pre = np.einsum("i,ji->j", s_coeffs[:-1], dset[parents].values) + s_coeffs[-1]
                 t_pre = np.einsum("i,ji->j", t_coeffs[:-1], dset[parents].values) + t_coeffs[-1]
             # pass s_pre through a softplus
-            s = np.where(s_pre > 20.0, s_pre, np.log(1 + np.exp(s_pre)))
+            s = softplus(s_pre)
             if link == "sinusoid":
                 t = np.sin(t_pre) + t_pre
             elif link == "cubic":
@@ -89,11 +93,19 @@ class AffineParametericDataset(OCDDataset):
             else:
                 raise Exception(f"Link {link} not supported")
             x = t + (s * noises if not additive else noises)
+            
             if perform_normalization:
-                x = (x - np.mean(x)) / (np.std(x) if np.std(x) > 1e-3 else 1e-3)
+                x = standardize(x)
+            
+            if post_non_linear_transform is not None:
+                x = perform_post_non_linear_transform(x, type=post_non_linear_transform)
+                
                 
             dset[v] = x.reshape(-1, 1)
                 
-        super().__init__(dset, graph, name=f"AffineParametricDataset-{link}")
+        if not 'name' in kwargs:
+            kwargs['name'] = f"AffineNonParametericDataset"
+            
+        super().__init__(dset, graph, *args, **kwargs)
     
     

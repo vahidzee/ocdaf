@@ -1,10 +1,8 @@
 import torch
 from .masked import MaskedAffineFlowTransform
 from typing import Optional, List, Union, Tuple, Dict, Callable
-
+from .postnonlinear import InPlaceTransform
 import torch
-
-# TODO: add normalization transforms
 
 class OSlow(torch.nn.ModuleList):
     def __init__(
@@ -23,6 +21,9 @@ class OSlow(torch.nn.ModuleList):
         base_distribution: torch.distributions.Distribution,
         # ordering
         ordering: Optional[torch.IntTensor],
+        # post non linearity
+        num_post_nonlinear_transforms: int = 0,
+        **post_non_linear_transform_kwargs,
     ):
         """
         Args:
@@ -47,6 +48,8 @@ class OSlow(torch.nn.ModuleList):
                 dtype=torch.int,
             ),
         )
+        if additive and num_transforms > 1:
+            raise ValueError("Cannot use additive coupling with more than one transform, this will turn the model affine!")
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
@@ -61,6 +64,16 @@ class OSlow(torch.nn.ModuleList):
                     normalization=normalization,
                 )
             )
+        
+        for _ in range(num_post_nonlinear_transforms):
+            self.append(
+                InPlaceTransform(
+                    shape=in_features,
+                    normalization=normalization,
+                    **post_non_linear_transform_kwargs,
+                )
+            )
+            
     @property
     def device(self) -> torch.device:
         """
@@ -81,7 +94,12 @@ class OSlow(torch.nn.ModuleList):
 
         log_dets, z = 0, inputs
         for transform in self:
-            z, log_det = transform(inputs=z, perm_mat=perm_mat)
+            if isinstance(transform, MaskedAffineFlowTransform):
+                z, log_det = transform(inputs=z, perm_mat=perm_mat)
+            elif isinstance(transform, InPlaceTransform):
+                z, log_det = transform(inputs=z)
+            else:
+                raise ValueError("Unknown transform type")
             log_dets += log_det
 
         return z, log_dets
@@ -102,7 +120,12 @@ class OSlow(torch.nn.ModuleList):
         # iterate over flows in reverse order and apply inverse
 
         for transform in reversed(self):
-            z, log_det = transform.inverse(inputs=z, perm_mat=perm_mat)
+            if isinstance(transform, MaskedAffineFlowTransform):
+                z, log_det = transform.inverse(inputs=z, perm_mat=perm_mat)
+            elif isinstance(transform, InPlaceTransform):
+                z, log_det = transform.inverse(inputs=z)
+            else:
+                raise ValueError("Unknown transform type")
             log_dets += log_det  # sign is handled in flow.inverse
         return z, log_det
 

@@ -5,7 +5,6 @@ that can generte datasets with parametric assumptions and is appropriate for tes
 
 from typing import Optional, Literal, List
 import networkx as nx
-import numpy
 import numpy as np
 import math
 from .utils import RandomGenerator
@@ -13,6 +12,7 @@ from ocd.data.base_dataset import OCDDataset
 import pandas as pd
 import sklearn
 from sklearn.metrics.pairwise import rbf_kernel
+from .utils import perform_post_non_linear_transform, softplus, standardize
 
 class AffineNonParametericDataset(OCDDataset):
     """
@@ -29,11 +29,14 @@ class AffineNonParametericDataset(OCDDataset):
         num_samples: int,
         graph: nx.DiGraph,
         noise_generator: RandomGenerator,
+        *args,
         s_rbf_kernel_gamma: float = 1.0,
         t_rbf_kernel_gamma: float = 1.0,
         invertibility_coefficient: float = 0.0,
         perform_normalization: bool = True,
         additive: bool = False,
+        post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None,
+        **kwargs,
     ):
         """
         Args:
@@ -66,7 +69,7 @@ class AffineNonParametericDataset(OCDDataset):
                 t_kernel = rbf_kernel(parent_values, gamma=t_rbf_kernel_gamma)
                 s = np.random.multivariate_normal(np.zeros(num_samples), s_kernel)
                 # perform a softplus on s to ensure positivity
-                s = np.where(s > 20.0, s, np.log(1 + np.exp(s)))
+                s = softplus(s)
                 # perform a transformation to increase the probability of t being non-constant w.r.t. each parent
                 t = np.random.multivariate_normal(np.zeros(num_samples), t_kernel)
                 t = t + np.sum(parent_values, axis=1) * invertibility_coefficient
@@ -78,10 +81,15 @@ class AffineNonParametericDataset(OCDDataset):
                 
             # normalize the data if specified
             if perform_normalization:
-                x = (x - np.mean(x)) / (np.std(x) if np.std(x) > 1e-3 else 1e-3)
+                x = standardize(x)
+            
+            if post_non_linear_transform is not None:
+                x = perform_post_non_linear_transform(x, type=post_non_linear_transform)
+            
                 
             dset[v] = x.reshape(-1, 1)
-                
-        super().__init__(dset, graph, name=f"AffineNonParametricDataset")
+        if not 'name' in kwargs:
+            kwargs['name'] = f"AffineNonParametericDataset"
+        super().__init__(dset, graph, *args, **kwargs)
     
     
