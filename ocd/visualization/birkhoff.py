@@ -1,169 +1,109 @@
-import typing as th
+from typing import Optional, List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
+from ocd.models.oslow import OSlow
+from functools import lru_cache
+from sklearn.decomposition import PCA
+from ocd.training.trainer import PermutationLearningModule
 
+    
 
-def visualize_exploration(
-    visualization_model,
-    sampled_permutations: np.array,
-    backbone: th.Optional[np.array] = None,
-    backbone_is_transformed: bool = True,
-    clusters: th.Optional[np.array] = None,
-    cost_values: th.Optional[np.array] = None,
-    permutation_without_noise: th.Optional[np.array] = None,
-    add_permutation_to_name: bool = False,
-    birkhoff_vertices: th.Optional[np.array] = None,
-    birkhoff_vertices_cost: th.Optional[np.array] = None,
-    birkhoff_vertices_name: th.Optional[th.List] = None,
-    outliers_factor: th.Optional[float] = None,
-    colorbar_label: str = "permutation scores",
-    image_size: th.Optional[th.Tuple[float, float]] = None,
-    ylabel: str = "y",
-    xlabel: str = "x",
-    title: str = "title",
-):
-    """
-    This function visualizes the exploration of the model
-    Args:
-        visualization_model: typically a dimension reduction model that can help visualize the Birkhoff polytope in
-                            2D, e.g., PCA, t-SNE, UMAP
-        sampled_permutations: the sampled permutations of the model in that step
-        backbone: A set of points from the Birkhoff polytope which can be used as backbone
-        backbone_is_transformed: whether the backbone is transformed or not, if so, then we do not need to do dimension
-                                reduction on the backbone
-        clusters: the clusters of the sampled permutations, this is used to see what is the loss for example on each
-                cluster
-        cost_values: Each permutation has a cost assigned to it and this is used to visualize the cost of each cluster
-        permutation_without_noise: the permutation without noise to check the state of the model parameters
-        birkhoff_vertices: the birkhoff vertices themselves
-        birkhoff_vertices_delimiters: the delimiters of the birkhoff vertices, these delimiters can be used to
-                                    figure out which ordering should be better in terms of cost
-        add_permutation_to_name: whether to add the permutation to the name of the image or not
-        colorbar_label: the label of the colorbar  (default: "permutation scores")
-        image_size: the size of the image
-        ylabel: the label of the y axis
-        xlabel: the label of the x axis
-        title: the title of the image
-
-    Returns:
-        an image that can be saved
-    """
-
-    fig, ax = plt.subplots()
-
-    # customize the image size if needed
-    if image_size:
-        fig.set_size_inches(image_size[0], image_size[1])
-
-    try:
-        ax.set_title(title)
-        ax.set_ylabel(ylabel)
-        ax.set_xlabel(xlabel)
-        # (1) plot the backbone
-        if backbone is not None:
-            backbone_t = backbone
-            if not backbone_is_transformed:
-                backbone_t = visualization_model.transform(backbone.reshape(backbone.shape[0], -1))
-            ax.scatter(backbone_t[:, 0], backbone_t[:, 1], s=1, c="black", label="Backbone", alpha=0.1)
-
-        # (2) plot the sampled permutations
-        # Use clusters if it is not set to none
-        sampled_permutations_t = visualization_model.transform(
-            sampled_permutations.reshape(sampled_permutations.shape[0], -1)
+@lru_cache(maxsize=128)
+def get_all_permutation_matrices(num_nodes: int) -> torch.Tensor:
+    # return a tensor of shape (num_nodes!, num_nodes, num_nodes) where the first dimension is all the permutation matrices
+    
+  
+    return torch.tensor(
+        np.array(
+            [
+                np.eye(num_nodes)[list(p)]
+                for p in np.ndindex(*([num_nodes] * num_nodes))
+                if np.all(np.sum(np.eye(num_nodes)[list(p)], axis=0) == 1)
+                and np.all(np.sum(np.eye(num_nodes)[list(p)], axis=1) == 1)
+            ]
         )
-        if clusters is not None:
-            for c in np.unique(clusters):
-                # get the centroid of the cluster
-                centroid = np.mean(sampled_permutations[clusters == c, :, :], axis=0)
+    )
+    
+def get_label_from_permutation_matrix(permutation_matrix: torch.Tensor) -> str:
+    return "".join([str(int(i)) for i in permutation_matrix.argmax(dim=-1)])
 
-                cluster_label = f"cluster {int(c+1)}"
-                if add_permutation_to_name:
-                    cluster_label = f"{cluster_label} : {centroid.argmax(axis=-2)}"
-
-                # set a marker according to cluster
-                ax.scatter(
-                    sampled_permutations_t[clusters == c, 0],
-                    sampled_permutations_t[clusters == c, 1],
-                    s=5,
-                    label=cluster_label,
-                )
-                if cost_values is not None:
-                    centroid_t = np.mean(sampled_permutations_t[clusters == c, :], axis=0)
-                    # get the average cost of the cluster
-                    percent = int(100 * len(cost_values[clusters == c]) * 1.0 / len(cost_values))
-                    unfiltered_cost = np.mean(cost_values[clusters == c])
-
-                    # Reject outliers if outliers_factor is not None
-                    if outliers_factor is not None:
-                        filtered_cost = cost_values[clusters == c]
-                        filtered_cost = np.sort(filtered_cost)
-                        t = int(len(filtered_cost) * outliers_factor)
-                        filtered_cost = filtered_cost[t:-t]
-
-                    cost = np.mean(filtered_cost)
-
-                    if outliers_factor is not None:
-                        text = f"{cost:.2f}/{unfiltered_cost:.2f}/{percent}%"
-                    else:
-                        text = f"{cost:.2f}/{percent}%"
-
-                    # plot text on the centroid
-                    ax.text(centroid_t[0], centroid_t[1], text, fontsize=8)
-        else:
-            ax.scatter(
-                sampled_permutations_t[:, 0],
-                sampled_permutations_t[:, 1],
-                color="blue",
-                s=5,
-                label="Sampled doubly stochastics",
-            )
-
-        # (3) plot the birkhoff vertices using plt.scatter by
-        # setting the delimiters according to birkhoff_vertices_delimiters
-        if birkhoff_vertices is not None:
-            birkhoff_vertices_t = visualization_model.transform(
-                birkhoff_vertices.reshape(birkhoff_vertices.shape[0], -1)
-            )
-            plt.scatter(
-                birkhoff_vertices_t[:, 0],
-                birkhoff_vertices_t[:, 1],
-                label=None,
-                c=birkhoff_vertices_cost,
-                cmap="brg",
-                s=300,
-                linewidth=0,
-                alpha=0.5,
-            )
-            plt.colorbar(label=colorbar_label)
-
-        # Plot the model parameters using the permutation without noise
-        if permutation_without_noise is not None:
-            permutation_without_noise_t = visualization_model.transform(
-                permutation_without_noise.reshape(permutation_without_noise.shape[0], -1)
-            )
-            ax.scatter(
-                permutation_without_noise_t[:, 0],
-                permutation_without_noise_t[:, 1],
-                s=300,
-                c="red",
-                marker="x",
-                label="Gamma without noise",
-            )
-        # count the number of unique values in the clusters
-        uni_c = np.unique(clusters)
-        if 10 <= len(uni_c) <= 30:
-            pos = ax.get_position()
-            ax.set_position([pos.x0, pos.y0, pos.width, pos.height * 0.85])
-            ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.35), ncol=3)
-        elif len(uni_c) <= 10:
-            ax.legend()
+def visualize_birkhoff_polytope(
+    permutation_model: PermutationLearningModule,
+    num_samples: int,
+    data: Optional[Union[torch.Tensor, List[torch.Tensor]]] = None,
+    flow_model: Optional[OSlow] = None,
+    device: str = "cpu",
+):
+    permutation_model.to(device)
+    sampled_permutations = permutation_model.sample(num_samples)
+      
+    # (1) Handle the backbone and the PCA transform of the Birkhoff polytope
+    d = sampled_permutations.shape[-1]
+    all_permutation_matrices = get_all_permutation_matrices(d)
+    # concatenate all_permutation_matrices with backbone and train a PCA
+    backbone = all_permutation_matrices
+    pca = PCA(n_components=2, random_state=42)
+    pca.fit(backbone.reshape(backbone.shape[0], -1))
+    
+    # (2) quantize the sampled permutations and use unique
+    num_bins = 100
+    sampled_permutations = torch.round(sampled_permutations * num_bins) / num_bins
+    
+    
+    # (3) find the closest reference permutation matrix for each sampled permutation
+    flattened_samples = sampled_permutations.reshape(sampled_permutations.shape[0], -1)
+    flattened_references = all_permutation_matrices.reshape(all_permutation_matrices.shape[0], -1)
+    # for every flattened samples find the closest reference
+    closest_references = torch.argmin(torch.norm(flattened_samples.unsqueeze(1) - flattened_references.unsqueeze(0), dim=-1), dim=-1)
+    img_data = None
+    
+    try:
+        # plot the log_prob values of the closest references using the data if available
+        fig, ax = plt.subplots()
+        
+        # plot backbone without showing it in the legend 
+        ax.scatter(pca.transform(backbone.reshape(backbone.shape[0], -1))[:, 0], pca.transform(backbone.reshape(backbone.shape[0], -1))[:, 1], alpha=0)
+        
+        if isinstance(data, torch.Tensor):
+            data = [data]
+        
+        for i, permutation in enumerate(all_permutation_matrices):
+            lbl = get_label_from_permutation_matrix(permutation)
             
+            average_log_prob = 0
+            if (closest_references == i).any():
+                close_samples = sampled_permutations[closest_references == i]
+                alpha_value = max(0.3, 1.0 / (closest_references == i).sum().item())
+                ax.scatter(pca.transform(close_samples.reshape(close_samples.shape[0], -1))[:, 0], pca.transform(close_samples.reshape(close_samples.shape[0], -1))[:, 1], label=lbl, alpha=alpha_value)
+                
+                if data is not None and flow_model is not None:
+                    flow_model.to(device)
+                    with torch.no_grad():
+                        log_prob_sum = 0
+                        num_data = 0
+                        for data_batch in data:
+                            data_batch = data_batch.to(device)
+                            log_prob_sum += flow_model.log_prob(data_batch.float(), perm_mat=permutation.float()).sum()
+                            num_data += data_batch.shape[0]
+                        average_log_prob = log_prob_sum / num_data 
+            x, y = pca.transform(permutation.reshape(1, -1))[0, 0], pca.transform(permutation.reshape(1, -1))[0, 1]
+            # count the number of entries in the closest references that is equal to i
+            # write a text on (x, y) with value of average_log_prob
+            ax.text(x, y, f"{average_log_prob:.2f} : #{(closest_references == i).sum()}", fontsize=8)
+        
+        mean_samples = torch.mean(sampled_permutations, dim=0)
+        ax.scatter(pca.transform(mean_samples.reshape(1, -1))[:, 0], pca.transform(mean_samples.reshape(1, -1))[:, 1], label="mean", marker="x", color="red")
+        ax.legend()
+        
         # draw everything to the figure for conversion
         fig.canvas.draw()
         # convert the figure to a numpy array
-        data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        img_data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+        img_data = img_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     finally:
         plt.close()
-
-    return data
+    
+    return img_data
+        
+    

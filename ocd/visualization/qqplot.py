@@ -1,53 +1,57 @@
 import torch
-import typing as th
+from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def reject_outliers(data: np.array, factor: float):
-    """
-    It assumes that data is sorted and gives two indices l and r such that
-    all that is between l and r are between the range mean +- factor * std
-    """
-    standard_deviation = np.std(data)
-    mean = np.mean(data)
-    l = np.sum(data < mean - factor * standard_deviation)
-    r = len(data) - np.sum(data > mean + factor * standard_deviation) + 1
-    return l, r
-
 
 def qqplot(
-    a: torch.Tensor, b: torch.Tensor, reject_outliers_factor: float, a_name: str, b_name: str, image_size: th.Tuple
+    model_samples: torch.Tensor, 
+    data_samples: torch.Tensor,
+    reject_outliers_factor: float = 3.0, 
+    quantile_count: int = 100,
+    image_size: Tuple = (5, 5),
 ):
+    """
+    Args:
+        model_samples: samples from the model distribution (z's) of shape (batch_size, D)
+        data_samples: samples from the data distribution (x's) of shape (batch_size, D)
+        reject_outliers_factor: the factor to multiply the standard deviation with to reject outliers
+        quantile_count: the number of quantiles to plot
+        image_size: the size of the image to be returned
+    Returns:
+        a list of numpy arrays that can be converted to images representing the qqplot corresponding to each column of model_samples and data_samples
+        the i'th element of the list corresponds to the qqplot of the i'th column.
+    """
+    if model_samples.shape[1] != data_samples.shape[1]:
+        raise ValueError("model_samples and data_samples must have the same number of columns")
+    
     res = []
 
-    for i in range(a.shape[1]):
-        x_samples = a[:, i].detach().cpu().numpy().flatten()
-        y_samples = b[:, i].detach().cpu().numpy().flatten()
-
-        # Put aside all the nan values
-        potential_nan = np.isnan(x_samples) | np.isnan(y_samples)
-        potential_nan = potential_nan | np.isinf(x_samples) | np.isinf(y_samples)
-        potential_nan = potential_nan | (y_samples > np.mean(x_samples) + reject_outliers_factor * np.std(x_samples))
-        potential_nan = potential_nan | (y_samples < np.mean(x_samples) - reject_outliers_factor * np.std(x_samples))
-        potential_nan = potential_nan | (x_samples > np.mean(y_samples) + reject_outliers_factor * np.std(y_samples))
-        potential_nan = potential_nan | (x_samples < np.mean(y_samples) - reject_outliers_factor * np.std(y_samples))
-
-        # if there are any nan values throw a warning
-        # if np.sum(potential_nan) > 0:
-        #     print(f"Warning: nan values in the generator")
-
+    for i in range(model_samples.shape[1]):
+        x_samples = model_samples[:, i].detach().cpu().numpy().flatten()
+        y_samples = data_samples[:, i].detach().cpu().numpy().flatten()
+        
+        # (1) filter out all the nan or inf values and everything considered as outliers in x_samples
+        potential_nan = np.isnan(x_samples) | np.isinf(x_samples) 
         x_samples = x_samples[~potential_nan]
+        potential_outliers = np.abs(x_samples - np.mean(x_samples)) > reject_outliers_factor * np.std(x_samples)
+        x_samples = x_samples[~potential_outliers]
+        
+        # (2) filter out all the nan or inf values and everything considered as outliers in y_samples
+        potential_nan = np.isnan(y_samples) | np.isinf(y_samples)
         y_samples = y_samples[~potential_nan]
-
+        potential_outliers = np.abs(y_samples - np.mean(y_samples)) > reject_outliers_factor * np.std(y_samples)
+        y_samples = y_samples[~potential_outliers]
+        
         fig, ax = plt.subplots()
         # customize the image size if needed
         if image_size:
             fig.set_size_inches(image_size[0], image_size[1])
         try:
             ax.set_title(f"{i+1}'th column")
-            ax.set_xlabel(a_name)
-            ax.set_ylabel(b_name)
+            ax.set_xlabel("model_samples")
+            ax.set_ylabel("data_samples")
             mn = min(np.min(x_samples), np.min(y_samples))
             mx = max(np.max(x_samples), np.max(y_samples))
             ax.plot(np.linspace(mn, mx, 100), np.linspace(mn, mx, 100), c="red", alpha=0.2, label="y=x")
@@ -55,15 +59,11 @@ def qqplot(
             x_samples = np.sort(x_samples)
             y_samples = np.sort(y_samples)
 
-            x_l, x_r = reject_outliers(x_samples, reject_outliers_factor)
-            y_l, y_r = reject_outliers(y_samples, reject_outliers_factor)
-
-            l = max(x_l, y_l)
-            r = min(x_r, y_r)
-            x_samples = x_samples[l:r]
-            y_samples = y_samples[l:r]
-
-            ax.scatter(x_samples, y_samples, s=1, alpha=0.2, label="samples")
+            # get equally seperated samples according to the quantile_count from the sorted x_samples
+            x_quantiles = x_samples[np.linspace(0, len(x_samples) - 1, quantile_count).astype(int)]
+            y_quantiles = y_samples[np.linspace(0, len(y_samples) - 1, quantile_count).astype(int)]
+            
+            ax.scatter(x_quantiles, y_quantiles, s=1, alpha=1.0, label="quantiles")
 
             ax.legend()
 

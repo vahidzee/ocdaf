@@ -5,7 +5,7 @@ Sets random seeds and moves the notebook's working directory to the project root
 import os
 import random
 from pathlib import Path
-
+from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -49,16 +49,22 @@ def create_new_set_of_models(
     base_distribution = torch.distributions.Normal(loc=0, scale=1),
     use_standard_ordering = False,
     num_post_nonlinear_transforms = 0,
+    single_ordering: Optional[str] = None,
     **post_non_linear_transform_kwargs,
 ):
-    all_models = {
-        '012': None,
-        '021': None,
-        '102': None,
-        '120': None,
-        '201': None,
-        '210': None,
-    }
+    if single_ordering is not None:
+        all_models = {
+            single_ordering: None,
+        }
+    else:
+        all_models = {
+            '012': None,
+            '021': None,
+            '102': None,
+            '120': None,
+            '201': None,
+            '210': None,
+        }
 
     for ordering in all_models.keys():
         order = [int(x) for x in ordering]
@@ -77,7 +83,7 @@ def create_new_set_of_models(
             **post_non_linear_transform_kwargs,
         )
     
-    return all_models
+    return all_models if single_ordering is None else all_models[single_ordering]
     
 
 def train_models_and_get_histories(

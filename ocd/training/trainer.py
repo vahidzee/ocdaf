@@ -24,6 +24,20 @@ class PermutationLearningModule(torch.nn.Module):
                 torch.randn(in_features, in_features)
             )
         )
+    
+    def sample(self, num_samples: int):
+        # TODO: add sampling methods
+        
+        permutations = hungarian(self.gamma + torch.randn(num_samples, *self.gamma.shape))
+        # turn permutations into permutation matrices
+        ret = torch.stack([PermutationLearningModule.turn_into_matrix(perm) for perm in permutations])
+        # add some random noise to the permutation matrices
+        return ret + torch.randn_like(ret) * 0.1
+    
+    @classmethod
+    def turn_into_matrix(cls, permutation: torch.IntTensor):
+        return torch.eye(permutation.shape[0])[permutation].to(permutation.device)
+
         
 class Trainer:
     def __init__(
