@@ -12,11 +12,10 @@ from ocd.data.base_dataset import OCDDataset
 from ocd.data.synthetic.utils import RandomGenerator
 import networkx as nx
 
+
 class BaseModel(PydanticBaseModel):
     class Config:
         arbitrary_types_allowed = True
-
-
 
 
 class RealworldConfig(BaseModel):
@@ -45,10 +44,12 @@ class ParametricSyntheticConfig(BaseModel):
     graph: GraphConfig
     noise_generator: RandomGenerator
     link_generator: RandomGenerator
-    link: Literal["sinusoid", "cubic", "linear"] = "sinusoid",
-    perform_normalization: bool = True,
-    additive: bool = False,
-    post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None
+    link: Literal["sinusoid", "cubic", "linear"] = ("sinusoid",)
+    perform_normalization: bool = (True,)
+    additive: bool = (False,)
+    post_non_linear_transform: Optional[
+        Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]
+    ] = None
 
 
 class NonParametricSyntheticConfig(BaseModel):
@@ -56,14 +57,16 @@ class NonParametricSyntheticConfig(BaseModel):
     num_samples: int
     graph: GraphConfig
     seed: Optional[int] = None
-    post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None
+    post_non_linear_transform: Optional[
+        Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]
+    ] = None
     noise_generator: RandomGenerator
     s_rbf_kernel_gamma: float = 1.0
     t_rbf_kernel_gamma: float = 1.0
     invertibility_coefficient: float = 0.0
     perform_normalization: bool = True
     additive: bool = False
-    
+
 
 class DataConfig(BaseModel):
     dataset: Union[
@@ -92,7 +95,8 @@ class CheckpointingConfig(BaseModel):
 
 
 class BirkhoffConfig(BaseModel):
-    pass
+    frequency: int
+    num_samples: int
 
 
 class DataVisualizer(BaseModel):
@@ -162,21 +166,22 @@ class ModelConfig(BaseModel):
     activation: torch.nn.Module = torch.nn.LeakyReLU()
     additive: bool = False
     num_transforms: int
-    normalization: Optional[Callable[[int], torch.nn.Module]] 
+    normalization: Optional[Callable[[int], torch.nn.Module]]
     base_distribution: torch.distributions.Distribution = torch.distributions.Normal(
         0.0, 1.0
     )
     ordering: Optional[torch.IntTensor] = None
-    
+
     ###### Post Non Linear Transform ######
-    num_post_nonlinear_transforms: int = 0 # change if you want to consider PNL models
-    num_bins: int = 10,
-    tail_bound: float = 10.0,
-    identity_init: bool = False,
-    min_bin_width: float = 1e-3,
-    min_bin_height: float = 1e-3,
-    min_derivative: float = 1e-3,
-    normalization: Optional[Callable[[int], torch.nn.Module]] = None,
+    num_post_nonlinear_transforms: int = 0  # change if you want to consider PNL models
+    num_bins: int = (10,)
+    tail_bound: float = (10.0,)
+    identity_init: bool = (False,)
+    min_bin_width: float = (1e-3,)
+    min_bin_height: float = (1e-3,)
+    min_derivative: float = (1e-3,)
+    normalization: Optional[Callable[[int], torch.nn.Module]] = (None,)
+
 
 class MainConfig(BaseModel):
     trainer: TrainingConfig

@@ -3,7 +3,10 @@ import typing as th
 
 
 def straight_through(
-    soft_permutations: torch.Tensor, hard_permutations: torch.Tensor, return_matrix: bool = True, **kwargs
+    soft_permutations: torch.Tensor,
+    hard_permutations: torch.Tensor,
+    return_matrix: bool = True,
+    **kwargs,
 ):
     """
     Implementation of the straight through estimator for the soft permutation matrix.
@@ -32,7 +35,9 @@ def gumbel_topk(
     """
     results = dict()
     # make all the hard_perm_mats unique
-    hard_perm_mats = torch.unique(hard_permutations, dim=0) if apply_unique else hard_permutations
+    hard_perm_mats = (
+        torch.unique(hard_permutations, dim=0) if apply_unique else hard_permutations
+    )
     vectorized_soft_mats = soft_permutations.reshape(soft_permutations.shape[0], -1)
     vectorized_hard_mats = hard_perm_mats.reshape(hard_perm_mats.shape[0], -1)
     if vectorized_soft_mats.shape[0] == 1 or vectorized_soft_mats.ndim == 2:
@@ -50,6 +55,8 @@ def gumbel_topk(
     # normalize the rows of the score grid
     score_grid = torch.nn.functional.softmax(scores, dim=-1)
     results["soft_perm_mat"] = soft_permutations
-    results["hard_perm_mat"] = hard_perm_mats if return_matrix else hard_perm_mats.argmax(-2)
+    results["hard_perm_mat"] = (
+        hard_perm_mats if return_matrix else hard_perm_mats.argmax(-2)
+    )
     results["scores"] = score_grid
     return results

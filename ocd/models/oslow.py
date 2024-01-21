@@ -64,7 +64,7 @@ class OSlow(torch.nn.ModuleList):
                     normalization=normalization,
                 )
             )
-        
+
         for _ in range(num_post_nonlinear_transforms):
             self.append(
                 InPlaceTransform(
@@ -73,14 +73,14 @@ class OSlow(torch.nn.ModuleList):
                     **post_non_linear_transform_kwargs,
                 )
             )
-            
+
     @property
     def device(self) -> torch.device:
         """
         Get the device of the model
         """
         return next(self.parameters()).device
-    
+
     def forward(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
