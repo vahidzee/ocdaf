@@ -27,7 +27,7 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
 
 
 class GumbelTopK(PermutationLearningModule):
-    def __init__(self, in_features: int, num_samples: int):
+    def __init__(self, in_features: int, num_samples: int, *args, **kwargs):
         super().__init__(in_features)
         self.num_samples = num_samples
 
@@ -43,7 +43,7 @@ class GumbelTopK(PermutationLearningModule):
             dim=-1,
         )
         unique_perms = unique_perms.repeat_interleave(b_size, dim=0)
-        batch = batch.repeat(n_unique, 1, 1)  # shape: (batch * num_uniques, d, d)
+        batch = batch.repeat(n_unique, 1)  # shape: (batch * num_uniques, d)
 
         log_probs = model.log_prob(
             batch, perm_mat=unique_perms

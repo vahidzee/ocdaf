@@ -66,7 +66,7 @@ class Trainer:
         self.brikhoff = None
 
     def flow_train_step(self):
-        for batch in self.dataloader:
+        for (batch,) in self.dataloader:
             batch = batch.to(self.model.device)
             permutations = self.permutation_learning_module.sample_hard_permutations(
                 batch.shape[0]
@@ -82,7 +82,7 @@ class Trainer:
         self.model.eval()
         for param in self.model.parameters():
             param.requires_grad = False
-        for batch in self.dataloader:
+        for (batch,) in self.dataloader:
             batch = batch.to(self.model.device)
             self.permutation_optimizer.zero_grad()
             loss = self.permutation_learning_module.loss(self.model, batch)
@@ -115,18 +115,21 @@ class Trainer:
             leave=True,
             position=0,
         )
+        histories = {"flow_loss": [], "permutation_loss": []}
         for epoch in range(true_epochs):
             for i in range(self.flow_frequency):
                 loss = self.flow_train_step()
                 self.flow_scheduler.step()
                 flow_progress_bar.update(1)
                 flow_progress_bar.set_postfix({"flow loss": loss.item()})
+                histories["flow_loss"].append(loss.item())
 
             for j in range(self.permutation_frequency):
                 loss = self.permutation_train_step()
                 self.permutation_scheduler.step()
                 permutation_progress_bar.update(1)
                 permutation_progress_bar.set_postfix({"permutation loss": loss.item()})
+                histories["permutation_loss"].append(loss.item())
                 # if self.birkhoff_config and (
                 #     (j + epoch * self.permutation_frequency)
                 #     % self.birkhoff_config.num_samples
@@ -139,3 +142,4 @@ class Trainer:
                 #         flow_model=model,
                 #         device=device,
                 #     )
+        return histories
