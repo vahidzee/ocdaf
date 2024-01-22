@@ -8,12 +8,14 @@ from ocd.config import (
     BirkhoffConfig,
 )
 
-from tqdm import tqdm
+from tqdm.notebook import tqdm
+import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional
 from ocd.models.oslow import OSlow
 from ocd.training.permutation import GumbelTopK
+from ocd.visualization.birkhoff import visualize_birkhoff_polytope
 
 
 class Trainer:
@@ -39,6 +41,7 @@ class Trainer:
         birkhoff_config: Optional[BirkhoffConfig] = None,
         device: str = "cpu",
     ):
+        self.device = device
         self.max_epochs = max_epochs
         self.model = model.to(device)
         self.permutation_learning_module = GumbelTopK(
@@ -66,15 +69,30 @@ class Trainer:
         self.brikhoff = None
 
     def flow_train_step(self):
+        self.permutation_learning_module._gamma.requires_grad = False
         for (batch,) in self.dataloader:
             batch = batch.to(self.model.device)
-            permutations = self.permutation_learning_module.sample_hard_permutations(
-                batch.shape[0]
-            )
+            # permutations = self.permutation_learning_module.sample_hard_permutations(
+            #     batch.shape[0]
+            # )
+            # permutations = torch.unique(permutations, dim=0)
+            # # sample from permutations with replacement with the batch size
+            # # shape: (batch_size, d, d)
+            # permutations = permutations[
+            #     torch.randint(
+            #         0,
+            #         permutations.shape[0],
+            #         (batch.shape[0],),
+            #         device=permutations.device,
+            #     )
+            # ]
+            # TODO test both losses
             self.flow_optimizer.zero_grad()
-            loss = -(self.model.log_prob(batch, permutations)).mean()
+            # loss = -(self.model.log_prob(batch, permutations)).mean()
+            loss = self.permutation_learning_module.loss(self.model, batch)
             loss.backward()
             self.flow_optimizer.step()
+        self.permutation_learning_module._gamma.requires_grad = True
         return loss
 
     def permutation_train_step(self):
@@ -104,18 +122,14 @@ class Trainer:
         flow_progress_bar = tqdm(
             total=true_epochs * self.flow_frequency,
             desc="training the flow",
-            dynamic_ncols=True,
-            leave=True,
             position=0,
         )
         permutation_progress_bar = tqdm(
             total=true_epochs * self.permutation_frequency,
             desc="training the permutation",
-            dynamic_ncols=True,
-            leave=True,
-            position=0,
+            position=1,
         )
-        histories = {"flow_loss": [], "permutation_loss": []}
+        histories = {"flow_loss": [], "permutation_loss": [], "birkhoffs": []}
         for epoch in range(true_epochs):
             for i in range(self.flow_frequency):
                 loss = self.flow_train_step()
@@ -130,16 +144,20 @@ class Trainer:
                 permutation_progress_bar.update(1)
                 permutation_progress_bar.set_postfix({"permutation loss": loss.item()})
                 histories["permutation_loss"].append(loss.item())
-                # if self.birkhoff_config and (
-                #     (j + epoch * self.permutation_frequency)
-                #     % self.birkhoff_config.num_samples
-                #     == 0
-                # ):
-                #     visualize_birkhoff_polytope(
-                #         permutation_model=permutation_model,
-                #         num_samples=10,
-                #         data=torch.from_numpy(dset.samples.values[:100]),
-                #         flow_model=model,
-                #         device=device,
-                #     )
+                if self.birkhoff_config and (
+                    (j + epoch * self.permutation_frequency)
+                    % self.birkhoff_config.frequency
+                    == 0
+                ):
+                    batch = next(iter(self.dataloader))[0]
+                    img = visualize_birkhoff_polytope(
+                        permutation_model=self.permutation_learning_module,
+                        num_samples=self.birkhoff_config.num_samples,
+                        data=batch,
+                        flow_model=self.model,
+                        device=self.device,
+                    )
+                    plt.imshow(img)
+                    plt.show()
+                    histories["birkhoffs"].append(img)
         return histories

@@ -9,8 +9,12 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
     def __init__(self, in_features: int):
         super().__init__()
         self.register_parameter(
-            "gamma", torch.nn.Parameter(torch.randn(in_features, in_features))
+            "_gamma", torch.nn.Parameter(torch.randn(in_features, in_features))
         )
+
+    @property
+    def gamma(self):
+        return torch.sigmoid(self._gamma)
 
     def sample_hard_permutations(self, num_samples: int):
         gumbel_noise = sample_gumbel_noise(

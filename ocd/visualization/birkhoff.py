@@ -56,10 +56,6 @@ def visualize_birkhoff_polytope(
     """
     permutation_model.to(device)
     sampled_permutations = permutation_model.sample_hard_permutations(num_samples)
-    # TODO fix adding random nosie
-    sampled_permutations = (
-        sampled_permutations + torch.randn_like(sampled_permutations) * 0.1
-    )
 
     # (1) Handle the backbone and the PCA transform of the Birkhoff polytope
     d = sampled_permutations.shape[-1]
