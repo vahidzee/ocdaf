@@ -4,17 +4,18 @@ from ocd.config import (
     GumbelSinkhornConfig,
     GumbelTopKConfig,
     SoftSinkhornConfig,
+    ContrastiveDivergenceConfig,
     DataVisualizer,
     BirkhoffConfig,
 )
 
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional
 from ocd.models.oslow import OSlow
-from ocd.training.permutation import GumbelTopK
+from ocd.training.permutation import GumbelTopK, ContrastiveDivergence
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
 
 
@@ -35,7 +36,7 @@ class Trainer:
             [torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler
         ],
         permutation_learning_config: Union[
-            GumbelSinkhornConfig, GumbelTopKConfig, SoftSinkhornConfig
+            GumbelSinkhornConfig, GumbelTopKConfig, SoftSinkhornConfig, ContrastiveDivergenceConfig
         ],
         data_visualizer_config: Optional[DataVisualizer] = None,
         birkhoff_config: Optional[BirkhoffConfig] = None,
@@ -44,9 +45,20 @@ class Trainer:
         self.device = device
         self.max_epochs = max_epochs
         self.model = model.to(device)
-        self.permutation_learning_module = GumbelTopK(
-            model.in_features, **permutation_learning_config.model_dump()
-        ).to(device)
+        permutation_learning_kwargs = permutation_learning_config.model_dump()
+        permutation_learning_kwargs.pop("method")
+        if isinstance(permutation_learning_config, ContrastiveDivergenceConfig):
+            self.permutation_learning_module = ContrastiveDivergence(
+                model.in_features, **permutation_learning_kwargs
+            ).to(device)
+        elif isinstance(permutation_learning_config, GumbelTopKConfig):
+            self.permutation_learning_module = GumbelTopK(
+                model.in_features, **permutation_learning_kwargs
+            ).to(device)
+        else:
+            # TODO: update and add other baselines for ablation study
+            raise ValueError("permutation_learning_config must be of type GumbelSinkhornConfig or ContrastiveDivergenceConfig")
+        
         self.dataloader = dataloader
         self.permutation_learning_config = permutation_learning_config
         self.data_visualizer_config = data_visualizer_config
@@ -89,7 +101,7 @@ class Trainer:
             # TODO test both losses
             self.flow_optimizer.zero_grad()
             # loss = -(self.model.log_prob(batch, permutations)).mean()
-            loss = self.permutation_learning_module.loss(self.model, batch)
+            loss = self.permutation_learning_module.flow_learning_loss(self.model, batch)
             loss.backward()
             self.flow_optimizer.step()
         self.permutation_learning_module._gamma.requires_grad = True
@@ -103,7 +115,7 @@ class Trainer:
         for (batch,) in self.dataloader:
             batch = batch.to(self.model.device)
             self.permutation_optimizer.zero_grad()
-            loss = self.permutation_learning_module.loss(self.model, batch)
+            loss = self.permutation_learning_module.permutation_learning_loss(self.model, batch)
             loss.backward()
             self.permutation_optimizer.step()
         for param in self.model.parameters():

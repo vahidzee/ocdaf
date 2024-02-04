@@ -114,6 +114,11 @@ class SchedulerConfig(BaseModel):
     ] = None
 
 
+class ContrastiveDivergenceConfig(BaseModel):
+    method: str = "contrastive-divergence"
+    num_samples: int
+    
+
 class SoftSinkhornConfig(BaseModel):
     method: str = "soft-sinkhorn"
     temp: float
