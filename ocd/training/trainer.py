@@ -1,7 +1,7 @@
 import torch
 
 from ocd.config import (
-    GumbelSinkhornConfig,
+    GumbelSinkhornStraightThroughConfig,
     GumbelTopKConfig,
     SoftSinkhornConfig,
     ContrastiveDivergenceConfig,
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional
 from ocd.models.oslow import OSlow
-from ocd.training.permutation import GumbelTopK, ContrastiveDivergence
+from ocd.training.permutation import GumbelTopK, ContrastiveDivergence, GumbelSinkhornStraightThrough
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
 
 
@@ -36,7 +36,7 @@ class Trainer:
             [torch.optim.Optimizer], torch.optim.lr_scheduler.LRScheduler
         ],
         permutation_learning_config: Union[
-            GumbelSinkhornConfig, GumbelTopKConfig, SoftSinkhornConfig, ContrastiveDivergenceConfig
+            GumbelSinkhornStraightThroughConfig, GumbelTopKConfig, SoftSinkhornConfig, ContrastiveDivergenceConfig
         ],
         data_visualizer_config: Optional[DataVisualizer] = None,
         birkhoff_config: Optional[BirkhoffConfig] = None,
@@ -55,9 +55,13 @@ class Trainer:
             self.permutation_learning_module = GumbelTopK(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
+        elif isinstance(permutation_learning_config, GumbelSinkhornStraightThroughConfig):
+            self.permutation_learning_module = GumbelSinkhornStraightThrough(
+                model.in_features, **permutation_learning_kwargs
+            ).to(device)
         else:
             # TODO: update and add other baselines for ablation study
-            raise ValueError("permutation_learning_config must be of type GumbelSinkhornConfig or ContrastiveDivergenceConfig")
+            raise ValueError("permutation_learning_config must be of type GumbelSinkhornStraightThroughConfig or ContrastiveDivergenceConfig")
         
         self.dataloader = dataloader
         self.permutation_learning_config = permutation_learning_config
@@ -101,7 +105,7 @@ class Trainer:
             # TODO test both losses
             self.flow_optimizer.zero_grad()
             # loss = -(self.model.log_prob(batch, permutations)).mean()
-            loss = self.permutation_learning_module.flow_learning_loss(self.model, batch)
+            loss = self.permutation_learning_module.flow_learning_loss(model=self.model, batch=batch)
             loss.backward()
             self.flow_optimizer.step()
         self.permutation_learning_module._gamma.requires_grad = True
@@ -115,7 +119,7 @@ class Trainer:
         for (batch,) in self.dataloader:
             batch = batch.to(self.model.device)
             self.permutation_optimizer.zero_grad()
-            loss = self.permutation_learning_module.permutation_learning_loss(self.model, batch)
+            loss = self.permutation_learning_module.permutation_learning_loss(model=self.model, batch=batch)
             loss.backward()
             self.permutation_optimizer.step()
         for param in self.model.parameters():

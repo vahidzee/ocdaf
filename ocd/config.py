@@ -131,11 +131,10 @@ class GumbelTopKConfig(BaseModel):
     sampling_method: Literal["unique", "beam-search", "bfs"]
 
 
-class GumbelSinkhornConfig(BaseModel):
+class GumbelSinkhornStraightThroughConfig(BaseModel):
     method: str = "gumbel-sinkhorn"
     temp: float
     iters: int
-    num_samples: int
 
 
 class TrainingConfig(BaseModel):
@@ -148,7 +147,7 @@ class TrainingConfig(BaseModel):
     permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer]
 
     scheduler: SchedulerConfig
-    permutation: Union[GumbelSinkhornConfig, GumbelTopKConfig, SoftSinkhornConfig]
+    permutation: Union[GumbelSinkhornStraightThroughConfig, GumbelTopKConfig, SoftSinkhornConfig]
 
     # tracking configurations
     data_visualizer: Optional[DataVisualizer] = None

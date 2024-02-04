@@ -3,10 +3,25 @@ import abc
 
 from ocd.models import OSlow
 from ocd.training.utils import sample_gumbel_noise, hungarian, turn_into_matrix
-from typing import Optional
+from typing import Optional, Literal
 
+def _sinkhorn(log_x: torch.Tensor, iters: int, temp: float):
+    """
+    Perform a sequence of normalizations to make the matrix doubly stochastic
+    This is known as the Sinkhorn operator.
+    When the number of iterations are large, this value converges to the Hungarian algorithm's result.
+    """
+    n = log_x.size()[1]
+    log_x = log_x.reshape(-1, n, n) / temp
+    for _ in range(iters):
+        log_x = log_x - (torch.logsumexp(log_x, dim=2, keepdim=True)).reshape(-1, n, 1)
+        log_x = log_x - (torch.logsumexp(log_x, dim=1, keepdim=True)).reshape(-1, 1, n)
+    results = torch.exp(log_x)
+    return results
+
+    
 class PermutationLearningModule(torch.nn.Module, abc.ABC):
-    def __init__(self, in_features: int, parameterization_type: Literal['sigmoid', 'vanilla'] = 'sigmoid'):
+    def __init__(self, in_features: int, parameterization_type: Literal['sigmoid', 'vanilla', 'log_sigmoid'] = 'sigmoid'):
         super().__init__()
         self.register_parameter(
             "_gamma", torch.nn.Parameter(torch.randn(in_features, in_features))
@@ -17,9 +32,14 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
     def gamma(self):
         if self.parameterization_type == 'sigmoid':
             return torch.sigmoid(self._gamma)
-        return self._gamma
+        elif self.parameterization_type == 'log_sigmoid':
+            return torch.log(1 + torch.exp(self._gamma))
+        elif self.parameterization_type == 'vanilla':
+            return self._gamma
+        else:
+            raise ValueError(f"Unknown parameterization type: {self.parameterization_type}")
     
-    def sample_hard_permutations(self, num_samples: int):
+    def sample_hard_permutations(self, num_samples: int, return_noises: bool = False):
         gumbel_noise = sample_gumbel_noise(
             (num_samples, *self.gamma.shape), device=self.gamma.device
         )
@@ -27,6 +47,8 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
         # turn permutations into permutation matrices
         ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
         # add some random noise to the permutation matrices
+        if return_noises:
+            return ret, gumbel_noise
         return ret
 
     def permutation_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
@@ -36,6 +58,29 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
         raise NotImplementedError
 
 
+class GumbelSinkhornStraightThrough(PermutationLearningModule):
+    def __init__(
+        self, 
+        in_features: int, 
+        temp: float = 0.1,
+        iters: int = 20,
+    ):
+        super().__init__(in_features)  
+        self.temp = temp
+        self.iters = iters
+
+    def permutation_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        permutations, gumbel_noise = self.sample_hard_permutations(batch.shape[0], return_noises=True)
+        soft_permutations = _sinkhorn(self.gamma + gumbel_noise, iters=self.iters, temp=self.temp)
+        log_probs = model.log_prob(batch, perm_mat=(permutations-soft_permutations).detach() + soft_permutations)
+        return -log_probs.mean()
+
+    def flow_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        permutations = self.sample_hard_permutations(batch.shape[0]).detach()
+        log_probs = model.log_prob(batch, perm_mat=permutations)
+        return -log_probs.mean()
+    
+    
 class GumbelTopK(PermutationLearningModule):
     def __init__(self, in_features: int, num_samples: int, sampling_method: str):
         super().__init__(in_features)
@@ -65,17 +110,11 @@ class GumbelTopK(PermutationLearningModule):
         return torch.exp(scores) @ losses / torch.exp(scores).sum()
 
     def permutation_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
-        return self._loss(batch, model)
+        return self._loss(batch=batch, model=model)
     
     def flow_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
-        return self._loss(batch, model)
+        return self._loss(batch=batch, model=model)
     
-    
-class GumbelSinkhorn(PermutationLearningModule):
-    
-    def __init__(self, in_features: int, num_samples: int, *args, **kwargs):
-        super().__init__(in_features)  
-        raise NotImplementedError("Not implemented yet")
 
 
 class ContrastiveDivergence(PermutationLearningModule):

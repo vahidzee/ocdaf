@@ -4,6 +4,7 @@ from typing import Optional, List, Union, Tuple, Dict, Callable
 from .postnonlinear import InPlaceTransform
 import torch
 
+    
 class OSlow(torch.nn.ModuleList):
     def __init__(
         self,
@@ -195,3 +196,38 @@ class OSlow(torch.nn.ModuleList):
                 z[:, entailed_ordering[i + 1 :]] = base_z[:, entailed_ordering[i + 1 :]]
                 x = self.inverse(z, perm_mat=perm_mat)[0]
         return x
+
+# NOTE: this is a module for testing and we should remove it by the end
+class OSlowTest(torch.nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        base_matrix: torch.Tensor,
+    ):
+        super().__init__()
+        self.in_features = in_features
+        self.dummy = torch.nn.Parameter(torch.randn(1))
+        self.base_matrix = base_matrix
+
+    
+    @property
+    def device(self) -> torch.device:
+        """
+        Get the device of the model
+        """
+        return next(self.parameters()).device
+    
+    def log_prob(self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if perm_mat.shape[0] != x.shape[0]:
+            # repeat perm_mat to match the batch size
+            perm_mat = perm_mat.unsqueeze(0).repeat(x.shape[0], 1, 1)
+        
+        dots = perm_mat * self.base_matrix[None, :, :].to(x.device)
+        dots = dots.sum(-1).sum(-1) + self.dummy.detach() - self.dummy
+        return dots
+        # ret = []
+        # for perm in perm_mat:
+        #     key = '_'.join(perm.cpu().long().flatten().numpy().astype(str).tolist())
+        #     ret.append(self.lookup_table[key])
+        # ret = torch.tensor(ret).float().to(x.device) + self.dummy.detach() - self.dummy
+        # return ret
