@@ -5,6 +5,7 @@ from ocd.config import (
     GumbelTopKConfig,
     SoftSinkhornConfig,
     ContrastiveDivergenceConfig,
+    SoftSortConfig,
     DataVisualizer,
     BirkhoffConfig,
 )
@@ -15,7 +16,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional
 from ocd.models.oslow import OSlow
-from ocd.training.permutation import GumbelTopK, ContrastiveDivergence, GumbelSinkhornStraightThrough
+from ocd.training.permutation import GumbelTopK, ContrastiveDivergence, GumbelSinkhornStraightThrough, SoftSort
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
 
 
@@ -57,6 +58,10 @@ class Trainer:
             ).to(device)
         elif isinstance(permutation_learning_config, GumbelSinkhornStraightThroughConfig):
             self.permutation_learning_module = GumbelSinkhornStraightThrough(
+                model.in_features, **permutation_learning_kwargs
+            ).to(device)
+        elif isinstance(permutation_learning_config, SoftSortConfig):
+            self.permutation_learning_module = SoftSort(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
         else:

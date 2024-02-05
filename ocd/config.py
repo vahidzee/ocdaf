@@ -114,6 +114,12 @@ class SchedulerConfig(BaseModel):
     ] = None
 
 
+class SoftSortConfig(BaseModel):
+    method: str = "soft-sort"
+    temp: float
+    parameterization_type: Literal["vanilla", "sigmoid"]
+    
+
 class ContrastiveDivergenceConfig(BaseModel):
     method: str = "contrastive-divergence"
     num_samples: int

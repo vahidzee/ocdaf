@@ -19,8 +19,70 @@ def _sinkhorn(log_x: torch.Tensor, iters: int, temp: float):
     results = torch.exp(log_x)
     return results
 
-    
+
 class PermutationLearningModule(torch.nn.Module, abc.ABC):
+    def __init__(self, in_features: int):
+        super().__init__()
+        self.in_features = in_features
+        
+    def permutation_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        raise NotImplementedError
+    
+    def flow_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        raise NotImplementedError
+
+
+class SoftSort(PermutationLearningModule):
+    def __init__(self, in_features: int, temp: float = 0.1, parameterization_type: Literal['sigmoid', 'vanilla'] = 'sigmoid'):
+        super().__init__(in_features=in_features)
+        self.register_parameter(
+            "_gamma", torch.nn.Parameter(torch.randn(in_features))
+        )
+        self.parameterization_type = parameterization_type
+        self.temp = temp
+    
+    @property
+    def gamma(self):
+        if self.parameterization_type == 'sigmoid':
+            return torch.sigmoid(self._gamma)
+        elif self.parameterization_type == 'vanilla':
+            return self._gamma
+        else:
+            raise ValueError(f"Unknown parameterization type: {self.parameterization_type}")
+        
+    def sample_hard_permutations(self, num_samples: int, return_noises: bool = False):
+        gumbel_noise = sample_gumbel_noise(
+            (num_samples, *self.gamma.shape), device=self.gamma.device
+        )
+        scores = self.gamma + gumbel_noise
+        # perform argsort on every line of scores
+        permutations = torch.argsort(scores, dim=-1)
+        # turn permutations into permutation matrices
+        ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
+        
+        # add some random noise to the permutation matrices
+        if return_noises:
+            return ret, gumbel_noise
+        return ret
+
+    def permutation_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        permutations, gumbel_noise = self.sample_hard_permutations(batch.shape[0], return_noises=True)
+        scores = self.gamma + gumbel_noise
+        all_ones = torch.ones_like(scores)
+        scores_sorted = torch.sort(scores, dim=-1).values
+        logits = -(scores_sorted.unsqueeze(-1) @ all_ones.unsqueeze(-1).transpose(-1, -2) - all_ones.unsqueeze(-1) @ scores.unsqueeze(-1).transpose(-1, -2))**2 / self.temp
+        # perform a softmax on the last dimension of logits
+        soft_permutations = torch.softmax(logits, dim=-1)
+        log_probs = model.log_prob(batch, perm_mat=(permutations-soft_permutations).detach() + soft_permutations)
+        return -log_probs.mean()
+    
+    def flow_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
+        permutations = self.sample_hard_permutations(batch.shape[0]).detach()
+        log_probs = model.log_prob(batch, perm_mat=permutations)
+        return -log_probs.mean()
+    
+
+class PermutationMatrixLearningModule(torch.nn.Module, abc.ABC): 
     def __init__(self, in_features: int, parameterization_type: Literal['sigmoid', 'vanilla', 'log_sigmoid'] = 'sigmoid'):
         super().__init__()
         self.register_parameter(
@@ -56,9 +118,8 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
     
     def flow_learning_loss(self, batch: torch.Tensor, model: OSlow) -> torch.Tensor:
         raise NotImplementedError
-
-
-class GumbelSinkhornStraightThrough(PermutationLearningModule):
+    
+class GumbelSinkhornStraightThrough(PermutationMatrixLearningModule):
     def __init__(
         self, 
         in_features: int, 
@@ -81,7 +142,7 @@ class GumbelSinkhornStraightThrough(PermutationLearningModule):
         return -log_probs.mean()
     
     
-class GumbelTopK(PermutationLearningModule):
+class GumbelTopK(PermutationMatrixLearningModule):
     def __init__(self, in_features: int, num_samples: int, sampling_method: str):
         super().__init__(in_features)
         self.num_samples = num_samples
@@ -117,7 +178,7 @@ class GumbelTopK(PermutationLearningModule):
     
 
 
-class ContrastiveDivergence(PermutationLearningModule):
+class ContrastiveDivergence(PermutationMatrixLearningModule):
     def __init__(self, in_features: int, num_samples: int, processing_batch_size: Optional[int] = None):
         super().__init__(in_features, parameterization_type='vanilla')
         self.num_samples = num_samples
