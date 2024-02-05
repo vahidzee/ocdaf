@@ -37,6 +37,7 @@ class GraphConfig(BaseModel):
     graph_type: Literal["full", "erdos", "chain"]
     num_nodes: int
     seed: Optional[int] = None
+    enforce_ordering: Optional[list] = None
 
 
 class ParametricSyntheticConfig(BaseModel):
@@ -45,8 +46,8 @@ class ParametricSyntheticConfig(BaseModel):
     noise_generator: RandomGenerator
     link_generator: RandomGenerator
     link: Literal["sinusoid", "cubic", "linear"] = ("sinusoid",)
-    perform_normalization: bool = (True,)
-    additive: bool = (False,)
+    perform_normalization: bool = True
+    additive: bool = False
     post_non_linear_transform: Optional[
         Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]
     ] = None
@@ -72,10 +73,9 @@ class DataConfig(BaseModel):
     dataset: Union[
         RealworldConfig,
         SemiSyntheticConfig,
-        NonParametricSyntheticConfig,
         ParametricSyntheticConfig,
+        NonParametricSyntheticConfig,
     ]
-    batch_size: int
     standard: bool
     reject_outliers: bool
     outlier_threshold: float = 3.0
@@ -118,29 +118,40 @@ class SoftSortConfig(BaseModel):
     method: str = "soft-sort"
     temp: float
     parameterization_type: Literal["vanilla", "sigmoid"]
-    
+    uniform: bool = False
+
 
 class ContrastiveDivergenceConfig(BaseModel):
     method: str = "contrastive-divergence"
     num_samples: int
-    
+    parameterization_type: Literal["vanilla", "sigmoid"]
+    uniform: bool = False
+    chunk_size: Optional[int] = None
+
 
 class SoftSinkhornConfig(BaseModel):
     method: str = "soft-sinkhorn"
     temp: float
     iters: int
+    parameterization_type: Literal["vanilla", "sigmoid"]
+    uniform: bool = False
 
 
 class GumbelTopKConfig(BaseModel):
     method: str = "gumbel-top-k"
+    parameterization_type: Literal["vanilla", "sigmoid"]
     num_samples: int
-    sampling_method: Literal["unique", "beam-search", "bfs"]
+    chunk_size: Optional[int] = None
+    different_flow_loss: bool = False
+    uniform: bool = False
 
 
 class GumbelSinkhornStraightThroughConfig(BaseModel):
-    method: str = "gumbel-sinkhorn"
+    method: str = "straight-through-sinkhorn"
     temp: float
     iters: int
+    parameterization_type: Literal["vanilla", "sigmoid"]
+    uniform: bool = False
 
 
 class TrainingConfig(BaseModel):
@@ -149,14 +160,14 @@ class TrainingConfig(BaseModel):
 
     # training loop configurations
     max_epochs: int
+    flow_batch_size: int
+    permutation_batch_size: int
     flow_optimizer: Callable[[Iterable], torch.optim.Optimizer]
     permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer]
 
     scheduler: SchedulerConfig
     permutation: Union[GumbelSinkhornStraightThroughConfig, GumbelTopKConfig, SoftSinkhornConfig]
-
-    # tracking configurations
-    data_visualizer: Optional[DataVisualizer] = None
+    gumbel_std: Optional[float] = 1.
     brikhoff: Optional[BirkhoffConfig] = None
 
     @field_validator("device")
@@ -184,13 +195,13 @@ class ModelConfig(BaseModel):
 
     ###### Post Non Linear Transform ######
     num_post_nonlinear_transforms: int = 0  # change if you want to consider PNL models
-    num_bins: int = (10,)
-    tail_bound: float = (10.0,)
-    identity_init: bool = (False,)
-    min_bin_width: float = (1e-3,)
-    min_bin_height: float = (1e-3,)
-    min_derivative: float = (1e-3,)
-    normalization: Optional[Callable[[int], torch.nn.Module]] = (None,)
+    num_bins: int = 10
+    tail_bound: float = 10.0
+    identity_init: bool = False
+    min_bin_width: float = 1e-3
+    min_bin_height: float = 1e-3
+    min_derivative: float = 1e-3
+    normalization: Optional[Callable[[int], torch.nn.Module]] = None
 
 
 class MainConfig(BaseModel):

@@ -1,6 +1,0 @@
-defaults:
-  - dataset: synthetic_sinusoid
-
-batch_size: 128
-standard: false
-reject_outliers: false

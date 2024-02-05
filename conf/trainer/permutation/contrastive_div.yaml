@@ -1,0 +1,6 @@
+default:
+  - _self_
+
+method: contrastive-divergence
+num_samples: 128
+chunk_size: null

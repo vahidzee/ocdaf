@@ -4,26 +4,24 @@ defaults:
 device: cuda
 checkpointing: null
 
-max_epochs: 100
+max_epochs: 500
+flow_batch_size: 128
+permutation_batch_size: 1024
 flow_optimizer:
   _target_: torch.optim.Adam
-  lr: 0.01
-  weight_decay: 0.1
+  lr: 0.005
   _partial_: true
 
 permutation_optimizer: ${.flow_optimizer}
 
 scheduler:
-  flow_frequency: 1
+  flow_frequency: 4
   permutation_frequency: 1
   flow_lr_scheduler:
-    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-    mode: min
-    min_lr: 0.00005
-    threshold: 0.001
+    _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
   permutation_lr_scheduler: ${.flow_lr_scheduler}
 
-# tracking configurations
-data_visualizer: null
-brikhoff: null
+brikhoff:
+  frequency: 1
+  num_samples: 100

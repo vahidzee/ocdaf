@@ -1,6 +1,5 @@
 defaults:
-  - dataset: adni
+  - dataset: synthetic_sinusoid
 
-batch_size: 128
-standard: true
-reject_outliers: true
+standard: false
+reject_outliers: false

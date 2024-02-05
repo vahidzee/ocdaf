@@ -11,5 +11,8 @@ wandb:
   project: default
   entity: ordered-causal-discovery
 
+model:
+  in_features: 3
+
 test_run: true
 out_dir: runs/

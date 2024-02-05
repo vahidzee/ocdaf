@@ -1,0 +1,28 @@
+---
+program: train.py
+name: permutation_methods
+method: random
+metric:
+    goal: minimize
+    name: flow/loss
+parameters:
+    model.in_features:
+        values: [3, 5, 10]
+
+    trainer.permutation:
+        values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
+
+    trainer.permutation_batch_size:
+        values: [128, 512, 2048]
+
+    trainer.permutation.parameterization_type:
+        values: [vanilla, sigmoid]
+
+    trainer.permutation.uniform:
+        values: [true, false]
+
+
+command:
+    - ${env}
+    - ./slurm/train_runner.sh
+    - ${args_no_hyphens}

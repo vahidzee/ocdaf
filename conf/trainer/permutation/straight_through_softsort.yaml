@@ -1,0 +1,5 @@
+default:
+  - _self_
+
+method: soft-sort
+temp: .1

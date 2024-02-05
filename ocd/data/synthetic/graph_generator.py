@@ -7,7 +7,7 @@ class GraphGenerator:
     """
     A graph generator class that creates networkx graphs
     using a type and appropriate arguments.
-    
+
     Using the generate_dag method, a random graph can be generated and returned.
     By calling the generate_dag method multiple times, different random graphs can be generated and using a seed, the same graph can be generated again.
     """
@@ -38,7 +38,7 @@ class GraphGenerator:
         self.graph_generator_type = graph_type
         self.graph_generator_args = graph_generation_args
         self.enforce_ordering = enforce_ordering
-    
+
     def generate_dag(self, seed: Optional[int] = None) -> nx.DiGraph:
         """
         If base_dag is given, then create a dag based on that.
@@ -51,7 +51,7 @@ class GraphGenerator:
         if seed is None:
             seed = self.seed
             self.seed += 1
-        
+
         # create a nx.Graph using base_dag as the adjacency matrix
         if self.base_dag is not None:
             new_dag = nx.DiGraph(self.base_dag)
@@ -121,12 +121,12 @@ class GraphGenerator:
 
         np.random.seed(seed=seed)
         random.seed(seed)
-        # if self.enforce_ordering is None then create a random ordering 
+        # if self.enforce_ordering is None then create a random ordering
         if self.enforce_ordering is None:
             ordering = list(range(self.num_nodes))
             random.shuffle(ordering)
         else:
             ordering = self.enforce_ordering
-            
+
         new_dag = nx.relabel_nodes(new_dag, dict(zip(correct_ordering, ordering)))
         return new_dag

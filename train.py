@@ -18,6 +18,13 @@ from ocd.data.base_dataset import OCDDataset
 from ocd.models.oslow import OSlow
 from ocd.training.trainer import Trainer
 import torch
+
+import logging
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+
 # Add resolver for hydra
 OmegaConf.register_new_resolver("eval", eval)
 
@@ -60,15 +67,18 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
     Instantiate the dataset according to the data configuration specified
     and then create an appropriate training dataloader and return it.
     """
-    
-    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig) 
+
+    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig)
     synth_cond2 = isinstance(conf.dataset, config_ref.NonParametricSyntheticConfig)
     if isinstance(conf, OCDDataset):
         dset = conf
     elif synth_cond1 or synth_cond2:
-        graph_generator = GraphGenerator(num_nodes=conf.dataset.graph.num_nodes, seed=conf.dataset.seed, graph_type=conf.dataset.graph.graph_type)
+        graph_generator = GraphGenerator(num_nodes=conf.dataset.graph.num_nodes,
+                                         seed=conf.dataset.graph.seed,
+                                         graph_type=conf.dataset.graph.graph_type,
+                                         enforce_ordering=conf.dataset.graph.enforce_ordering)
         graph = graph_generator.generate_dag()
-        
+
         if synth_cond1:
             dset = AffineParametericDataset(
                 num_samples = conf.dataset.num_samples,
@@ -118,13 +128,7 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
     else:
         raise ValueError(f"Unknown dataset type {conf.dataset}")
 
-    # create a torch dataloader from dataset and return it
-    dloader = torch.utils.data.DataLoader(
-        dset,
-        batch_size=conf.batch_size,
-        shuffle=True,
-    )
-    return dloader    
+    return dset
 
 def instantiate_model(conf: ModelConfig):
     return OSlow(
@@ -141,10 +145,11 @@ def instantiate_model(conf: ModelConfig):
         num_post_nonlinear_transforms=conf.num_post_nonlinear_transforms,
     )
 
-def instantiate_trainer(conf: TrainingConfig, model, dloader):
+def instantiate_trainer(conf: TrainingConfig, model, flow_dloader, perm_dloader):
     return Trainer(
         model=model,
-        dataloader=dloader,
+        flow_dataloader=flow_dloader,
+        perm_dataloader=perm_dloader,
         flow_optimizer=conf.flow_optimizer,
         permutation_optimizer=conf.permutation_optimizer,
         flow_frequency=conf.scheduler.flow_frequency,
@@ -153,13 +158,11 @@ def instantiate_trainer(conf: TrainingConfig, model, dloader):
         permutation_lr_scheduler=conf.scheduler.permutation_lr_scheduler,
         device=conf.device,
         max_epochs=conf.max_epochs,
-        #
         permutation_learning_config=conf.permutation,
-        data_visualizer_config=conf.data_visualizer,
         birkhoff_config=conf.brikhoff,
     )
 
-@hydra.main(version_base=None, config_path="conf", config_name="simple_sinusoid_experiment")
+@hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(conf: MainConfig):
     conf = hydra.utils.instantiate(conf)
     conf = MainConfig(**OmegaConf.to_container(conf))
@@ -179,9 +182,30 @@ def main(conf: MainConfig):
             # compatible with hydra
             settings=wandb.Settings(start_method="thread"),
         )
-        dloader = instantiate_data(conf.data)
+        logging.info("Starting ...")
+        wandb.define_metric("flow/step")
+        wandb.define_metric("permutation/step")
+        wandb.define_metric("flow/*", step_metric="flow/step")
+        wandb.define_metric("permutation/*", step_metric="permutation/step")
+        logging.info("Instantiate dataset ...")
+        dset = instantiate_data(conf.data)
+        logging.info("Instantiate data loaders ...")
+        flow_dloader = torch.utils.data.DataLoader(
+          dset,
+          batch_size=conf.trainer.flow_batch_size,
+          shuffle=True,
+        )
+        perm_dloader = torch.utils.data.DataLoader(
+          dset,
+          batch_size=conf.trainer.permutation_batch_size,
+          shuffle=True,
+        )
+        logging.info("Instantiate model ...")
         model = instantiate_model(conf.model)
-        trainer = instantiate_trainer(conf.trainer, model, dloader)
+
+        logging.info("Instantiate trainer...")
+        trainer = instantiate_trainer(conf.trainer, model, flow_dloader, perm_dloader)
+        logging.info("Start training ...")
         trainer.train()
 
 
