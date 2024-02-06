@@ -21,6 +21,9 @@ parameters:
     trainer.permutation.uniform:
         values: [true, false]
 
+    trainer.permutation.gumbel_std:
+        values: [0.5, 1.0, 2.0]
+
 
 command:
     - ${env}

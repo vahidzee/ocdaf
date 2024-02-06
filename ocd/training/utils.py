@@ -25,7 +25,7 @@ def turn_into_matrix(permutation: torch.IntTensor):
 
 
 @functools.wraps(torch.rand)
-def sample_gumbel_noise(*args, eps=1e-20, **kwargs):
+def sample_gumbel_noise(*args, eps=1e-20, std=1, **kwargs):
     """Samples arbitrary-shaped standard gumbel variables.
     Args:
         shape: list of integers
@@ -35,7 +35,7 @@ def sample_gumbel_noise(*args, eps=1e-20, **kwargs):
     """
 
     u = torch.rand(*args, **kwargs).float()
-    return -torch.log(-torch.log(u + eps) + eps)
+    return -torch.log(-torch.log(u + eps) + eps) * std
 
 
 def gumbel_log_prob(gumbel_noise: torch.Tensor) -> torch.Tensor:
@@ -244,9 +244,11 @@ def hungarian(matrix_batch):
         matrix_batch = np.reshape(
             matrix_batch, [1, matrix_batch.shape[0], matrix_batch.shape[1]]
         )
-    sol = np.zeros((matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
+    sol = np.zeros(
+        (matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
     for i in range(matrix_batch.shape[0]):
-        sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        sol[i,
+            :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
     return torch.from_numpy(sol).to(device).detach()
 
 

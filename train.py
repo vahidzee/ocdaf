@@ -62,14 +62,17 @@ def init_run_dir(conf: MainConfig) -> MainConfig:
 
     return conf
 
+
 def instantiate_data(conf: Union[DataConfig, OCDDataset]):
     """
     Instantiate the dataset according to the data configuration specified
     and then create an appropriate training dataloader and return it.
     """
 
-    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig)
-    synth_cond2 = isinstance(conf.dataset, config_ref.NonParametricSyntheticConfig)
+    synth_cond1 = isinstance(
+        conf.dataset, config_ref.ParametricSyntheticConfig)
+    synth_cond2 = isinstance(
+        conf.dataset, config_ref.NonParametricSyntheticConfig)
     if isinstance(conf, OCDDataset):
         dset = conf
     elif synth_cond1 or synth_cond2:
@@ -81,54 +84,56 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
 
         if synth_cond1:
             dset = AffineParametericDataset(
-                num_samples = conf.dataset.num_samples,
-                graph = graph,
-                noise_generator = conf.dataset.noise_generator,
-                link_generator = conf.dataset.link_generator,
-                link = conf.dataset.link,
-                perform_normalization = conf.dataset.perform_normalization,
-                additive = conf.dataset.additive,
-                post_non_linear_transform = conf.dataset.post_non_linear_transform,
-                standard = conf.standard,
-                reject_outliers = conf.reject_outliers,
-                outlier_threshold = conf.outlier_threshold,
+                num_samples=conf.dataset.num_samples,
+                graph=graph,
+                noise_generator=conf.dataset.noise_generator,
+                link_generator=conf.dataset.link_generator,
+                link=conf.dataset.link,
+                perform_normalization=conf.dataset.perform_normalization,
+                additive=conf.dataset.additive,
+                post_non_linear_transform=conf.dataset.post_non_linear_transform,
+                standard=conf.standard,
+                reject_outliers=conf.reject_outliers,
+                outlier_threshold=conf.outlier_threshold,
             )
         else:
             dset = AffineNonParametericDataset(
-                num_samples = conf.dataset.num_samples,
-                graph = graph,
-                noise_generator = conf.dataset.noise_generator,
-                perform_normalization = conf.dataset.perform_normalization,
-                additive = conf.dataset.additive,
-                post_non_linear_transform = conf.dataset.post_non_linear_transform,
-                standard = conf.standard,
-                reject_outliers = conf.reject_outliers,
-                outlier_threshold = conf.outlier_threshold,
+                num_samples=conf.dataset.num_samples,
+                graph=graph,
+                noise_generator=conf.dataset.noise_generator,
+                perform_normalization=conf.dataset.perform_normalization,
+                additive=conf.dataset.additive,
+                post_non_linear_transform=conf.dataset.post_non_linear_transform,
+                standard=conf.standard,
+                reject_outliers=conf.reject_outliers,
+                outlier_threshold=conf.outlier_threshold,
             )
     elif isinstance(conf.dataset, config_ref.RealworldConfig):
         if conf.dataset.name == "sachs":
             dset = SachsOCDDataset(
-                standard = conf.standard,
-                reject_outliers = conf.reject_outliers,
-                outlier_threshold = conf.outlier_threshold,
-                name = conf.dataset.name,
+                standard=conf.standard,
+                reject_outliers=conf.reject_outliers,
+                outlier_threshold=conf.outlier_threshold,
+                name=conf.dataset.name,
             )
         else:
             raise ValueError(f"Unknown real world dataset {conf.dataset.name}")
     elif isinstance(conf.dataset, config_ref.SemiSyntheticConfig):
         if conf.dataset.name == 'syntren':
             dset = SyntrenOCDDataset(
-                standard = conf.standard,
-                reject_outliers = conf.reject_outliers,
-                outlier_threshold = conf.outlier_threshold,
+                standard=conf.standard,
+                reject_outliers=conf.reject_outliers,
+                outlier_threshold=conf.outlier_threshold,
                 data_id=conf.dataset.data_id,
             )
         else:
-            raise ValueError(f"Unknown semi synthetic dataset {conf.dataset.name}")
+            raise ValueError(
+                f"Unknown semi synthetic dataset {conf.dataset.name}")
     else:
         raise ValueError(f"Unknown dataset type {conf.dataset}")
 
     return dset
+
 
 def instantiate_model(conf: ModelConfig):
     return OSlow(
@@ -145,9 +150,11 @@ def instantiate_model(conf: ModelConfig):
         num_post_nonlinear_transforms=conf.num_post_nonlinear_transforms,
     )
 
-def instantiate_trainer(conf: TrainingConfig, model, flow_dloader, perm_dloader):
+
+def instantiate_trainer(conf: TrainingConfig, model, flow_dloader, perm_dloader, dag):
     return Trainer(
         model=model,
+        dag=dag,
         flow_dataloader=flow_dloader,
         perm_dataloader=perm_dloader,
         flow_optimizer=conf.flow_optimizer,
@@ -161,6 +168,7 @@ def instantiate_trainer(conf: TrainingConfig, model, flow_dloader, perm_dloader)
         permutation_learning_config=conf.permutation,
         birkhoff_config=conf.brikhoff,
     )
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(conf: MainConfig):
@@ -191,20 +199,21 @@ def main(conf: MainConfig):
         dset = instantiate_data(conf.data)
         logging.info("Instantiate data loaders ...")
         flow_dloader = torch.utils.data.DataLoader(
-          dset,
-          batch_size=conf.trainer.flow_batch_size,
-          shuffle=True,
+            dset,
+            batch_size=conf.trainer.flow_batch_size,
+            shuffle=True,
         )
         perm_dloader = torch.utils.data.DataLoader(
-          dset,
-          batch_size=conf.trainer.permutation_batch_size,
-          shuffle=True,
+            dset,
+            batch_size=conf.trainer.permutation_batch_size,
+            shuffle=True,
         )
         logging.info("Instantiate model ...")
         model = instantiate_model(conf.model)
 
         logging.info("Instantiate trainer...")
-        trainer = instantiate_trainer(conf.trainer, model, flow_dloader, perm_dloader)
+        trainer = instantiate_trainer(
+            conf.trainer, model, flow_dloader, perm_dloader, dag=dset.dag)
         logging.info("Start training ...")
         trainer.train()
 

@@ -6,24 +6,25 @@ from ocd.config import (
     SoftSinkhornConfig,
     ContrastiveDivergenceConfig,
     SoftSortConfig,
-    DataVisualizer,
     BirkhoffConfig,
 )
 
 import wandb
 import matplotlib.pyplot as plt
+import networkx as nx
 
 from torch.utils.data import DataLoader
 from typing import Union, Callable, Iterable, Optional
 from ocd.models.oslow import OSlow
 from ocd.training.permutation import (
-  GumbelTopK,
-  ContrastiveDivergence,
-  GumbelSinkhornStraightThrough,
-  SoftSort,
-  SoftSinkhorn
+    GumbelTopK,
+    ContrastiveDivergence,
+    GumbelSinkhornStraightThrough,
+    SoftSort,
+    SoftSinkhorn
 )
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
+from ocd.evaluation import count_backward
 
 import logging
 logging.basicConfig(
@@ -31,10 +32,12 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
+
 class Trainer:
     def __init__(
         self,
         model: OSlow,
+        dag: nx.DiGraph,
         flow_dataloader: DataLoader,
         perm_dataloader: DataLoader,
         flow_optimizer: Callable[[Iterable], torch.optim.Optimizer],
@@ -81,7 +84,8 @@ class Trainer:
             ).to(device)
         else:
             # TODO: update and add other baselines for ablation study
-            raise ValueError("permutation_learning_config must be of type GumbelSinkhornStraightThroughConfig or ContrastiveDivergenceConfig")
+            raise ValueError(
+                "permutation_learning_config must be of type GumbelSinkhornStraightThroughConfig or ContrastiveDivergenceConfig")
 
         self.flow_dataloader = flow_dataloader
         self.perm_dataloader = perm_dataloader
@@ -97,6 +101,7 @@ class Trainer:
         self.permutation_scheduler = permutation_lr_scheduler(
             self.permutation_optimizer
         )
+        self.dag = dag
 
         self.perm_step_count = 0
         self.flow_step_count = 0
@@ -109,7 +114,8 @@ class Trainer:
         for batch in self.flow_dataloader:
             batch = batch.to(self.model.device)
             self.flow_optimizer.zero_grad()
-            loss = self.permutation_learning_module.flow_learning_loss(model=self.model, batch=batch)
+            loss = self.permutation_learning_module.flow_learning_loss(
+                model=self.model, batch=batch)
             loss.backward()
             self.flow_optimizer.step()
             self.flow_step_count += 1
@@ -126,7 +132,8 @@ class Trainer:
         for batch in self.perm_dataloader:
             batch = batch.to(self.model.device)
             self.permutation_optimizer.zero_grad()
-            loss = self.permutation_learning_module.permutation_learning_loss(model=self.model, batch=batch)
+            loss = self.permutation_learning_module.permutation_learning_loss(
+                model=self.model, batch=batch)
             loss.backward()
             self.permutation_optimizer.step()
             self.perm_step_count += 1
@@ -142,24 +149,42 @@ class Trainer:
         self.permutation_learning_module.train()
 
         true_epochs = (
-            self.max_epochs // (self.flow_frequency + self.permutation_frequency) + 1
+            self.max_epochs // (self.flow_frequency +
+                                self.permutation_frequency) + 1
         )
         for epoch in range(true_epochs):
             for i in range(self.flow_frequency):
                 loss = self.flow_train_step()
-                logging.info(f"Flow step {epoch * self.flow_frequency + i} / {true_epochs * self.flow_frequency}, flow loss: {loss.item()}")
+                logging.info(
+                    f"Flow step {epoch * self.flow_frequency + i} / {true_epochs * self.flow_frequency}, flow loss: {loss.item()}")
                 if isinstance(self.flow_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.flow_scheduler.step(loss.item())
                 else:
-                  self.flow_scheduler.step() # TODO
+                    self.flow_scheduler.step()
 
             for j in range(self.permutation_frequency):
                 loss = self.permutation_train_step()
-                logging.info(f"Permutation step {epoch * self.permutation_frequency + i} / {true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}")
+
+                logging.info(
+                    f"Permutation step {epoch * self.permutation_frequency + i} / {true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}")
                 if isinstance(self.permutation_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.permutation_scheduler.step(loss.item())
                 else:
-                    self.permutation_scheduler.step() # TODO
+                    self.permutation_scheduler.step()
+
+                # log the evaluation metrics
+                permutation_samples = self.permutation_learning_module.sample_hard_permutations(
+                    100)
+                # find the majority of permutations being sampled
+                permutation, counts = torch.unique(
+                    permutation_samples, dim=0, return_counts=True)
+                # find the permutation with the highest count
+                permutation = permutation[counts.argmax()]
+                permutation = permutation.argmax(dim=-1).cpu().numpy().tolist()
+                backward_penalty = count_backward(permutation, self.dag)
+                wandb.log({"permutation/backward_penalty": backward_penalty})
+
+                # log the Birkhoff polytope
                 if self.birkhoff_config and (
                     (j + epoch * self.permutation_frequency)
                     % self.birkhoff_config.frequency
@@ -173,4 +198,5 @@ class Trainer:
                         flow_model=self.model,
                         device=self.device,
                     )
-                    wandb.log({"permutation/birkhoff": wandb.Image(img, caption="Birkhoff Polytope")})
+                    wandb.log(
+                        {"permutation/birkhoff": wandb.Image(img, caption="Birkhoff Polytope")})

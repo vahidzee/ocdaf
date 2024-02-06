@@ -2,7 +2,7 @@ import typing as th
 import numpy as np
 import random
 import networkx as nx
-from cdt.metrics import SID, SHD
+# from cdt.metrics import SID, SHD
 
 
 def dfs(node, adj, stack, visited):
@@ -140,11 +140,11 @@ def closure(dag: np.array):
     return dag
 
 
-def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
-    return SID(true_dag, estimated_graph)
+# def count_SID(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+#     return SID(true_dag, estimated_graph)
 
 
-def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
-    """Two mistakes are counted for anti-causal edges"""
-    # TODO fix this double for anticausal
-    return SHD(true_dag, estimated_graph, double_for_anticausal=False)
+# def count_SHD(true_dag: nx.DiGraph, estimated_graph: nx.DiGraph):
+#     """Two mistakes are counted for anti-causal edges"""
+#     # TODO fix this double for anticausal
+#     return SHD(true_dag, estimated_graph, double_for_anticausal=False)
