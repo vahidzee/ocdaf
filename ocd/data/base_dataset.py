@@ -4,6 +4,7 @@ from typing import Union, Optional
 import numpy as np
 import networkx as nx
 
+
 class OCDDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -27,31 +28,32 @@ class OCDDataset(torch.utils.data.Dataset):
         self.name = name
         # set the dag
         self.dag = dag
-    
+
         if samples is None:
             return
-        
+
         # standardize all the columns
         self.samples_statistics = {}
         # sort columns of samples alphabetically
         self.samples = samples.reindex(sorted(samples.columns), axis=1)
-        
+
         # create an array outlier which is a false for all the rows initially
         outliers = np.zeros(len(self.samples), dtype=bool)
-        
+
         for col in self.samples.columns:
             avg = self.samples[col].mean()
             std = self.samples[col].std()
             if standard:
                 self.samples[col] = (self.samples[col] - avg) / (std + 1e-8)
-            # for values in self.samples[col] compute the z-score 
+            # for values in self.samples[col] compute the z-score
             # and mark the rows with z-score greater than 3 or less than -3 as outliers
             if reject_outliers:
-                outliers = outliers | (np.abs(self.samples[col] - avg) > outlier_threshold * std)
-        
+                outliers = outliers | (
+                    np.abs(self.samples[col].values - avg) > outlier_threshold * std)
+
         # remove the outliers
         self.samples = self.samples.iloc[~outliers, :]
-        
+
     def __len__(self):
         return len(self.samples)
 
