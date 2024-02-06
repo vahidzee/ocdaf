@@ -10,7 +10,7 @@ parameters:
         values: [42, 142, 242]
 
     model.in_features:
-        values: [3, 5, 10]
+        values: [3, 10]
 
     trainer/permutation:
         values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
@@ -28,6 +28,9 @@ parameters:
         values: [0.5, 1.0, 2.0]
 
     trainer.scheduler.flow_frequency:
+        values: [1, 4]
+
+    trainer.scheduler.permutation_frequency:
         values: [1, 4]
 
 

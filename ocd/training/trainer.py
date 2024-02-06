@@ -157,9 +157,13 @@ class Trainer:
         self.permutation_learning_module.train()
 
         true_epochs = (
-            self.max_epochs // (self.flow_frequency + self.permutation_frequency) + 1
+            self.max_epochs // (self.flow_frequency +
+                                self.permutation_frequency) + 1
         )
         for epoch in range(true_epochs):
+            # reinsitialize the parameters of self.model
+            self.model = self.model.to(self.device)
+
             for i in range(self.flow_frequency):
                 loss = self.flow_train_step()
                 logging.info(
@@ -188,7 +192,8 @@ class Trainer:
 
                 # log the evaluation metrics
                 permutation_samples = (
-                    self.permutation_learning_module.sample_hard_permutations(100)
+                    self.permutation_learning_module.sample_hard_permutations(
+                        100)
                 )
                 # find the majority of permutations being sampled
                 permutation, counts = torch.unique(

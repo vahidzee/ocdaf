@@ -73,8 +73,10 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
     and then create an appropriate training dataloader and return it.
     """
 
-    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig)
-    synth_cond2 = isinstance(conf.dataset, config_ref.NonParametricSyntheticConfig)
+    synth_cond1 = isinstance(
+        conf.dataset, config_ref.ParametricSyntheticConfig)
+    synth_cond2 = isinstance(
+        conf.dataset, config_ref.NonParametricSyntheticConfig)
     if isinstance(conf, OCDDataset):
         dset = conf
     elif synth_cond1 or synth_cond2:
@@ -98,7 +100,7 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
                 post_non_linear_transform=conf.dataset.post_non_linear_transform,
                 standard=conf.standard,
                 reject_outliers=conf.reject_outliers,
-                outlier_threshold=conf.outlier_threshold,
+                outlier_kde_quantile=conf.outlier_kde_quantile,
             )
         else:
             dset = AffineNonParametericDataset(
@@ -110,14 +112,14 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
                 post_non_linear_transform=conf.dataset.post_non_linear_transform,
                 standard=conf.standard,
                 reject_outliers=conf.reject_outliers,
-                outlier_threshold=conf.outlier_threshold,
+                outlier_kde_quantile=conf.outlier_kde_quantile,
             )
     elif isinstance(conf.dataset, config_ref.RealworldConfig):
         if conf.dataset.name == "sachs":
             dset = SachsOCDDataset(
                 standard=conf.standard,
                 reject_outliers=conf.reject_outliers,
-                outlier_threshold=conf.outlier_threshold,
+                outlier_kde_quantile=conf.outlier_kde_quantile,
                 name=conf.dataset.name,
             )
         else:
@@ -127,11 +129,12 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
             dset = SyntrenOCDDataset(
                 standard=conf.standard,
                 reject_outliers=conf.reject_outliers,
-                outlier_threshold=conf.outlier_threshold,
+                outlier_kde_quantile=conf.outlier_kde_quantile,
                 data_id=conf.dataset.data_id,
             )
         else:
-            raise ValueError(f"Unknown semi synthetic dataset {conf.dataset.name}")
+            raise ValueError(
+                f"Unknown semi synthetic dataset {conf.dataset.name}")
     else:
         raise ValueError(f"Unknown dataset type {conf.dataset}")
 

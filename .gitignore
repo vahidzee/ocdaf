@@ -137,6 +137,8 @@ dmypy.json
 # temporary files
 *.tmp
 
+slurm
+
 # temporary data files
 data/*
 temp/*
@@ -171,11 +173,6 @@ experiments/smart/checkpoints/*
 experiments/sweep/checkpoints/*
 experiments/sweep/phasechanging-save-path/
 
-# SLRM
-launch_job.slrm
-slurm-*.out
-slurm-*.err
-
 # Baseline results
 baselines/results/
 experiments/sweep/checkpoints-*
@@ -186,5 +183,3 @@ results-epoch-*.json
 ocd/post_processing/tmp_*
 baselines/saved_model
 baselines/launch_baseline.slrm
-
-slurm/*

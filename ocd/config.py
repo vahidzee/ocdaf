@@ -78,7 +78,7 @@ class DataConfig(BaseModel):
     ]
     standard: bool
     reject_outliers: bool
-    outlier_threshold: float = 3.0
+    outlier_kde_quantile: float = 0.95
 
 
 class WandBConfig(BaseModel):
@@ -103,10 +103,12 @@ class SchedulerConfig(BaseModel):
     flow_frequency: int
     permutation_frequency: int
     flow_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
+        Callable[[torch.optim.Optimizer],
+                 torch.optim.lr_scheduler._LRScheduler]
     ] = None
     permutation_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
+        Callable[[torch.optim.Optimizer],
+                 torch.optim.lr_scheduler._LRScheduler]
     ] = None
 
 
@@ -180,7 +182,8 @@ class TrainingConfig(BaseModel):
     @field_validator("device")
     def validate_device(cls, value):
         values = value.split(":")
-        assert values[0] in ["cpu", "cuda"], "device must be either cpu or cuda"
+        assert values[0] in [
+            "cpu", "cuda"], "device must be either cpu or cuda"
         if len(values) > 1 and values[1] != "":
             assert int(values[1]) >= 0, "device number must be positive"
         return value

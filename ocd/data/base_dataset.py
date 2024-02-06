@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Union, Optional
 import numpy as np
 import networkx as nx
+from sklearn.neighbors import KernelDensity
 
 
 class OCDDataset(torch.utils.data.Dataset):
@@ -13,7 +14,7 @@ class OCDDataset(torch.utils.data.Dataset):
         name: Optional[str] = None,
         standard: bool = False,
         reject_outliers: bool = False,
-        outlier_threshold: float = 3.0,
+        outlier_kde_quantile: float = 0.95,
     ):
         """
         Args:
@@ -40,20 +41,34 @@ class OCDDataset(torch.utils.data.Dataset):
         # create an array outlier which is a false for all the rows initially
         outliers = np.zeros(len(self.samples), dtype=bool)
 
-        for col in self.samples.columns:
-            avg = self.samples[col].mean()
-            std = self.samples[col].std()
-            if standard:
-                self.samples[col] = (self.samples[col] - avg) / (std + 1e-8)
-            # for values in self.samples[col] compute the z-score
-            # and mark the rows with z-score greater than 3 or less than -3 as outliers
-            if reject_outliers:
-                outliers = outliers | (
-                    np.abs(self.samples[col].values - avg) > outlier_threshold * std
-                )
+        if reject_outliers:
+            for col in self.samples.columns:
+                # perform a KDE-based outlier detection algorithm
+                all_values = self.samples[col].values
+                kde = KernelDensity(bandwidth=np.std(all_values) * 0.1).fit(
+                    all_values.reshape(-1, 1))
+                densities = kde.score_samples(
+                    all_values.reshape(-1, 1)).flatten()
+                L = -1e10
+                R = 1e10
+                for _ in range(100):
+                    mid = (L + R) / 2
+                    if np.sum(densities > mid) > outlier_kde_quantile * len(all_values):
+                        L = mid
+                    else:
+                        R = mid
+                outliers = outliers | (densities <= L)
 
-        # remove the outliers
-        self.samples = self.samples.iloc[~outliers, :]
+            # remove the outliers
+            self.samples = self.samples.iloc[~outliers, :]
+            print("Number of samples left after outlier detection:",
+                  len(self.samples))
+
+        if standard:
+            for col in self.samples.columns:
+                avg = self.samples[col].mean()
+                std = self.samples[col].std()
+                self.samples[col] = (self.samples[col] - avg) / (std + 1e-8)
 
     def __len__(self):
         return len(self.samples)

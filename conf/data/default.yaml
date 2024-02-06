@@ -2,4 +2,4 @@ defaults:
   - dataset: synthetic_sinusoid
 
 standard: false
-reject_outliers: true
+reject_outliers: false
