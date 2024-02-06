@@ -169,8 +169,13 @@ class TrainingConfig(BaseModel):
     permutation_optimizer: Callable[[Iterable], torch.optim.Optimizer]
 
     scheduler: SchedulerConfig
-    permutation: Union[GumbelSinkhornStraightThroughConfig,
-                       GumbelTopKConfig, SoftSinkhornConfig]
+    permutation: Union[
+        SoftSortConfig,
+        SoftSinkhornConfig,
+        GumbelSinkhornStraightThroughConfig,
+        ContrastiveDivergenceConfig,
+        GumbelTopKConfig,
+    ]
 
     brikhoff: Optional[BirkhoffConfig] = None
 

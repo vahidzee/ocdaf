@@ -1,5 +1,5 @@
-default:
-  - _self_
-
 method: soft-sort
 temp: .1
+gumbel_std: 1.
+uniform: false
+parameterization_type: vanilla

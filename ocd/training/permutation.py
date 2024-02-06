@@ -77,6 +77,15 @@ class SoftSort(PermutationLearningModule):
         permutations = torch.argsort(scores, dim=-1)
         if uniform:
             permutations = torch.unique(permutations, dim=0)
+            permutations = permutations[
+                torch.randint(
+                    0,
+                    permutations.shape[0],
+                    (num_samples,),
+                    device=permutations.device,
+                )
+            ]
+
         # turn permutations into permutation matrices
         ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
 
@@ -126,6 +135,14 @@ class PermutationMatrixLearningModule(PermutationLearningModule, abc.ABC):
             self.gamma + gumbel_noise).to(self.gamma.device)
         if uniform:
             permutations = torch.unique(permutations, dim=0)
+            permutations = permutations[
+                torch.randint(
+                    0,
+                    permutations.shape[0],
+                    (num_samples,),
+                    device=permutations.device,
+                )
+            ]
         # turn permutations into permutation matrices
         ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
         # add some random noise to the permutation matrices

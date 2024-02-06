@@ -1,6 +1,6 @@
-default:
-  - _self_
-
 method: soft-sinkhorn
 temp: .1
 iters: 20
+gumbel_std: 1.
+uniform: false
+parameterization_type: vanilla

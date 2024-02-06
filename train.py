@@ -33,10 +33,12 @@ def init_run_dir(conf: MainConfig) -> MainConfig:
     # Handle preemption and resume
     run_name = conf.wandb.run_name
     resume = True
+    r = RandomWords()
+    w1, w2 = r.get_random_word(), r.get_random_word()
     if run_name is None:
-        r = RandomWords()
-        w1, w2 = r.get_random_word(), r.get_random_word()
         run_name = f"{w1}_{w2}"
+    else:
+        run_name += f"_{w1}_{w2}"
 
     out_dir = os.path.join(conf.out_dir, run_name)
 

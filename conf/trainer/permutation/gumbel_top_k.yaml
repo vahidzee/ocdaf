@@ -1,7 +1,7 @@
-default:
-  - _self_
-
 method: gumbel-top-k
 num_samples: 128
 different_flow_loss: false
 chunk_size: null
+uniform: false
+parameterization_type: vanilla
+gumbel_std: 1.

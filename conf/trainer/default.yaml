@@ -1,8 +1,9 @@
 defaults:
-  - permutation: gumbel_top_k
+  - permutation: default
 
 device: cuda
 checkpointing: null
+
 
 max_epochs: 500
 flow_batch_size: 128

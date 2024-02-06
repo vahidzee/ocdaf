@@ -8,6 +8,7 @@ defaults:
   - _self_
 
 wandb:
+  run_name: default
   project: default
   entity: ordered-causal-discovery
 

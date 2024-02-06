@@ -1,6 +1,7 @@
-default:
-  - _self_
 
 method: contrastive-divergence
 num_samples: 128
 chunk_size: null
+gumbel_std: 1.
+uniform: false
+parameterization_type: vanilla

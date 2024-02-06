@@ -61,24 +61,24 @@ class Trainer:
         self.max_epochs = max_epochs
         self.model = model.to(device)
         permutation_learning_kwargs = permutation_learning_config.model_dump()
-        permutation_learning_kwargs.pop("method")
-        if isinstance(permutation_learning_config, ContrastiveDivergenceConfig):
+        method = permutation_learning_kwargs.pop("method")
+        if method == 'contrastive-divergence':
             self.permutation_learning_module = ContrastiveDivergence(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
-        elif isinstance(permutation_learning_config, GumbelTopKConfig):
+        elif method == 'gumbel-top-k':
             self.permutation_learning_module = GumbelTopK(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
-        elif isinstance(permutation_learning_config, GumbelSinkhornStraightThroughConfig):
+        elif method == 'straight-through-sinkhorn':
             self.permutation_learning_module = GumbelSinkhornStraightThrough(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
-        elif isinstance(permutation_learning_config, SoftSortConfig):
+        elif method == 'soft-sort':
             self.permutation_learning_module = SoftSort(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)
-        elif isinstance(permutation_learning_config, SoftSinkhornConfig):
+        elif method == 'soft-sinkhorn':
             self.permutation_learning_module = SoftSinkhorn(
                 model.in_features, **permutation_learning_kwargs
             ).to(device)

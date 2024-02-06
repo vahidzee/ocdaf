@@ -9,7 +9,7 @@ parameters:
     model.in_features:
         values: [3, 5, 10]
 
-    trainer.permutation:
+    trainer/permutation:
         values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
 
     trainer.permutation_batch_size:
@@ -29,3 +29,4 @@ command:
     - ${env}
     - ./slurm/train_runner.sh
     - ${args_no_hyphens}
+    - test_run=false
