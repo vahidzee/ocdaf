@@ -7,9 +7,6 @@ metric:
     name: permutation/backward_penalty
 parameters:
 
-    model.in_features:
-        values: [3, 10]
-
     trainer/permutation:
         values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
 
@@ -31,9 +28,12 @@ parameters:
     trainer.scheduler.permutation_frequency:
         values: [1, 4]
 
+    data.reject_outliers:
+        values: [true, false]
 
 command:
     - ${env}
     - ./slurm/train_runner.sh
+    - model.in_features=3
     - ${args_no_hyphens}
     - test_run=false

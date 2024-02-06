@@ -23,6 +23,4 @@ scheduler:
     _partial_: true
   permutation_lr_scheduler: ${.flow_lr_scheduler}
 
-brikhoff:
-  frequency: 1
-  num_samples: 100
+brikhoff: null
