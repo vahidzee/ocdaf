@@ -1,5 +1,5 @@
 """
-This file contains an affine/additive non parametric SCM generator 
+This file contains an affine/additive non parametric SCM generator
 that can generte datasets with parametric assumptions and is appropriate for testing out the affine models.
 """
 
@@ -13,6 +13,7 @@ import pandas as pd
 import sklearn
 from sklearn.metrics.pairwise import rbf_kernel
 from .utils import perform_post_non_linear_transform, softplus, standardize
+
 
 class AffineNonParametericDataset(OCDDataset):
     """
@@ -35,7 +36,9 @@ class AffineNonParametericDataset(OCDDataset):
         invertibility_coefficient: float = 0.0,
         perform_normalization: bool = True,
         additive: bool = False,
-        post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]] = None,
+        post_non_linear_transform: Optional[
+            Literal["exp", "softplus", "x_plus_sin", "sinusoid", "nonparametric"]
+        ] = None,
         **kwargs,
     ):
         """
@@ -48,18 +51,18 @@ class AffineNonParametericDataset(OCDDataset):
             perform_normalization: whether to normalize the data after generating the column, this is done for numerical stability
             additive: whether to use an additive noise model or not, for an additive model the noise does not get modulated
         """
-        
-        
+
         topological_order = list(nx.topological_sort(graph))
         # create an empty pandas dataframe with columns equal to the graph.nodes and rows equal to num_samples and initialize it with zeros
-        dset = pd.DataFrame(0, index=range(num_samples), columns=sorted(list(graph.nodes())))
+        dset = pd.DataFrame(
+            0, index=range(num_samples), columns=sorted(list(graph.nodes()))
+        )
         # iterate over the nodes in the topological order
         for v in topological_order:
-            
             noises = noise_generator(num_samples)
             # get incoming nodes to v in graph
             parents = list(graph.predecessors(v))
-            
+
             if len(parents) == 0:
                 s = np.random.normal(0, s_rbf_kernel_gamma, num_samples)
                 t = np.random.normal(0, t_rbf_kernel_gamma, num_samples)
@@ -73,23 +76,20 @@ class AffineNonParametericDataset(OCDDataset):
                 # perform a transformation to increase the probability of t being non-constant w.r.t. each parent
                 t = np.random.multivariate_normal(np.zeros(num_samples), t_kernel)
                 t = t + np.sum(parent_values, axis=1) * invertibility_coefficient
-                
+
             if additive:
                 x = t + noises
             else:
                 x = t + s * noises
-                
+
             # normalize the data if specified
             if perform_normalization:
                 x = standardize(x)
-            
+
             if post_non_linear_transform is not None:
                 x = perform_post_non_linear_transform(x, type=post_non_linear_transform)
-            
-                
+
             dset[v] = x.reshape(-1, 1)
-        if not 'name' in kwargs:
-            kwargs['name'] = f"AffineNonParametericDataset"
+        if not "name" in kwargs:
+            kwargs["name"] = f"AffineNonParametericDataset"
         super().__init__(dset, graph, *args, **kwargs)
-    
-    

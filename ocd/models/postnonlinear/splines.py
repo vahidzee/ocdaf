@@ -97,9 +97,11 @@ def rational_quadratic_spline(
     cumwidths[..., -1] = right
     widths = cumwidths[..., 1:] - cumwidths[..., :-1]
 
-    if enable_identity_init: #flow is the identity if initialized with parameters equal to zero
+    if (
+        enable_identity_init
+    ):  # flow is the identity if initialized with parameters equal to zero
         beta = np.log(2) / (1 - min_derivative)
-    else: #backward compatibility
+    else:  # backward compatibility
         beta = 1
     derivatives = min_derivative + F.softplus(unnormalized_derivatives, beta=beta)
 

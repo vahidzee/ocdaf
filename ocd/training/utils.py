@@ -244,11 +244,9 @@ def hungarian(matrix_batch):
         matrix_batch = np.reshape(
             matrix_batch, [1, matrix_batch.shape[0], matrix_batch.shape[1]]
         )
-    sol = np.zeros(
-        (matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
+    sol = np.zeros((matrix_batch.shape[0], matrix_batch.shape[1]), dtype=np.int32)
     for i in range(matrix_batch.shape[0]):
-        sol[i,
-            :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
+        sol[i, :] = linear_sum_assignment(-matrix_batch[i, :])[1].astype(np.int32)
     return torch.from_numpy(sol).to(device).detach()
 
 

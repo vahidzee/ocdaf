@@ -3,6 +3,7 @@ import numpy as np
 import networkx as nx
 import random
 
+
 class GraphGenerator:
     """
     A graph generator class that creates networkx graphs
@@ -11,6 +12,7 @@ class GraphGenerator:
     Using the generate_dag method, a random graph can be generated and returned.
     By calling the generate_dag method multiple times, different random graphs can be generated and using a seed, the same graph can be generated again.
     """
+
     def __init__(
         self,
         num_nodes: int,
@@ -60,22 +62,28 @@ class GraphGenerator:
         # if the base graph is not given, generate the graph using a generator
         if self.graph_generator_type == "erdos_renyi":
             # generate a random graph using erdos renyi model
-            if 'p' not in self.graph_generator_args:
-                raise ValueError("p must be specified when using erdos_renyi graph generator")
+            if "p" not in self.graph_generator_args:
+                raise ValueError(
+                    "p must be specified when using erdos_renyi graph generator"
+                )
             new_dag = nx.gnp_random_graph(
-                self.num_nodes, self.graph_generator_args['p'], seed=seed
+                self.num_nodes, self.graph_generator_args["p"], seed=seed
             )
         elif self.graph_generator_type == "barabasi_albert":
             # generate a random graph using barabasi albert model
-            if 'm' not in self.graph_generator_args:
-                raise ValueError("m must be specified when using barabasi_albert graph generator")
+            if "m" not in self.graph_generator_args:
+                raise ValueError(
+                    "m must be specified when using barabasi_albert graph generator"
+                )
             new_dag = nx.barabasi_albert_graph(
-                self.num_nodes, self.graph_generator_args['m'], seed=seed
+                self.num_nodes, self.graph_generator_args["m"], seed=seed
             )
         elif self.graph_generator_type == "random_dag":
             # generate a random graph
-            if 'm' not in self.graph_generator_args:
-                raise ValueError("m must be specified when using random_dag graph generator")
+            if "m" not in self.graph_generator_args:
+                raise ValueError(
+                    "m must be specified when using random_dag graph generator"
+                )
             new_dag = nx.gnm_random_graph(
                 self.num_nodes, self.graph_generator_args["m"], seed=seed
             )
@@ -88,7 +96,9 @@ class GraphGenerator:
             # swap the first and last node
             if self.graph_generator_type in ["collider", "v_structure"]:
                 all_nodes = list(new_dag.nodes.keys())
-                new_dag = nx.relabel_nodes(new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]})
+                new_dag = nx.relabel_nodes(
+                    new_dag, {all_nodes[0]: all_nodes[-1], all_nodes[-1]: all_nodes[0]}
+                )
         elif self.graph_generator_type == "full":
             # generate a complete graph
             new_dag = nx.complete_graph(self.num_nodes)
@@ -97,7 +107,9 @@ class GraphGenerator:
             new_dag = nx.random_tree(self.num_nodes, seed=seed)
 
         else:
-            raise ValueError(f"dag_generator_type {self.graph_generator_type} not found!\nIf not then base_dag must be specified when base_dag is not provided")
+            raise ValueError(
+                f"dag_generator_type {self.graph_generator_type} not found!\nIf not then base_dag must be specified when base_dag is not provided"
+            )
         # make new_dag directed acyclic graph
 
         # create a directed graph from new_dag
@@ -108,8 +120,16 @@ class GraphGenerator:
         for edge in new_dag.edges:
             # check if the edge is directed from a node with a higher index to a node with a lower index
             # get the location of edge[0] and edge[1] in the permutation
-            u = edge[0] if isinstance(edge[0], int) else list(new_dag.nodes).index(edge[0])
-            v = edge[1] if isinstance(edge[1], int) else list(new_dag.nodes).index(edge[1])
+            u = (
+                edge[0]
+                if isinstance(edge[0], int)
+                else list(new_dag.nodes).index(edge[0])
+            )
+            v = (
+                edge[1]
+                if isinstance(edge[1], int)
+                else list(new_dag.nodes).index(edge[1])
+            )
             if u >= v:
                 # remove every such edge
                 delete_edges.append((edge[0], edge[1]))

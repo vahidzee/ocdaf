@@ -45,9 +45,9 @@ class MaskedLinear(torch.nn.Linear):
 
         if ordering is None:
             ordering = torch.arange(
-                            len(in_features),
-                            dtype=torch.int,
-                        )
+                len(in_features),
+                dtype=torch.int,
+            )
 
         # setup underlying linear layer
         total_in_features = sum(in_features)
@@ -63,14 +63,16 @@ class MaskedLinear(torch.nn.Linear):
         # Expand ordering to a 2D tensor by repeating it along rows and columns
         ordering_row = ordering.unsqueeze(1).expand(d, d)
         ordering_col = ordering.unsqueeze(0).expand(d, d)
-        
-        diagonal = (ordering_row == ordering_col).int() if auto_connection else torch.zeros(d, d, dtype=torch.int)
+
+        diagonal = (
+            (ordering_row == ordering_col).int()
+            if auto_connection
+            else torch.zeros(d, d, dtype=torch.int)
+        )
         self.register_buffer(
             "mask",
             (ordering_row > ordering_col).int() + diagonal,
         )
-        
-
 
     def forward(
         self,
@@ -101,13 +103,19 @@ class MaskedLinear(torch.nn.Linear):
         perm_mat_ = perm_mat_.to(self.weight.device)
 
         # compute the mask and mask the weights
-        
-        mask = torch.einsum("bij,jk,bkl->bil", perm_mat_, self.mask.float(), perm_mat_.transpose(-2, -1))
-        
+
+        mask = torch.einsum(
+            "bij,jk,bkl->bil", perm_mat_, self.mask.float(), perm_mat_.transpose(-2, -1)
+        )
+
         # we have to populate the mask with the correct number of features per dimension
-        mask = torch.repeat_interleave(mask, torch.tensor(self.in_features // d).to(mask.device), dim=-1)
-        mask = torch.repeat_interleave(mask, torch.tensor(self.out_features // d).to(mask.device), dim=-2)
-        
+        mask = torch.repeat_interleave(
+            mask, torch.tensor(self.in_features // d).to(mask.device), dim=-1
+        )
+        mask = torch.repeat_interleave(
+            mask, torch.tensor(self.out_features // d).to(mask.device), dim=-2
+        )
+
         ret = torch.einsum("bij,bj->bi", mask * self.weight, inputs) + self.bias
-        
+
         return ret

@@ -1,12 +1,19 @@
-from .splines import unconstrained_rational_quadratic_spline, DEFAULT_MIN_BIN_HEIGHT, DEFAULT_MIN_BIN_WIDTH, DEFAULT_MIN_DERIVATIVE
+from .splines import (
+    unconstrained_rational_quadratic_spline,
+    DEFAULT_MIN_BIN_HEIGHT,
+    DEFAULT_MIN_BIN_WIDTH,
+    DEFAULT_MIN_DERIVATIVE,
+)
 import warnings
 import torch
 import torch.nn as nn
 import numpy as np
 from typing import Optional, Callable
 
+
 def _share_across_batch(params, batch_size):
     return params[None, ...].expand(batch_size, *params.shape)
+
 
 def sum_except_batch(x, num_batch_dims=1):
     """Sums all elements of `x` except for the first `num_batch_dims` dimensions."""
@@ -14,6 +21,7 @@ def sum_except_batch(x, num_batch_dims=1):
         raise TypeError("Number of batch dimensions must be a non-negative integer.")
     reduce_dims = list(range(num_batch_dims, x.ndimension()))
     return torch.sum(x, dim=reduce_dims)
+
 
 class InPlaceTransform(nn.Module):
     def __init__(
@@ -37,7 +45,7 @@ class InPlaceTransform(nn.Module):
             self.normalization = normalization(shape)
         else:
             self.normalization = None
-            
+
         self.tail_bound = tail_bound
 
         if isinstance(shape, int):
@@ -99,4 +107,3 @@ class InPlaceTransform(nn.Module):
         inputs, logdets_ = self._spline(inputs, inverse=True)
         logdets = logdets + logdets_
         return inputs, logdets
-

@@ -3,15 +3,15 @@ import torch
 from ocd.models.masked import MaskedMLP
 import torch.nn as nn
 
+
 class MaskedAffineFlowTransform(torch.nn.Module):
-    
     def _init_stabilizing_parameters(self):
         """
         This function stabilizes the scaling parameters by ensuring that they do not explode.
         To do so, the scale parameter is always ensured to be between an interval l_\theta and r_\theta
         where l_\theta is a learnable parameter and r_\theta = l_\theta + softplus(\Delta_\theta)
         these parameters have a gradient clipping hook to ensure that they do not explode.
-        
+
         s is then passed through a tanh function to ensure that it is within this interval.
         """
         self.register_parameter(
@@ -20,7 +20,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         )
         self.register_parameter(
             "scaling_stability_threshold_interval_size",
-            nn.Parameter(torch.tensor(5., dtype=torch.float32)),
+            nn.Parameter(torch.tensor(5.0, dtype=torch.float32)),
         )
         self.register_parameter(
             "shift_stability_threshold_l",
@@ -44,7 +44,7 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         self.shift_stability_threshold_interval_size.register_hook(
             lambda grad: torch.clamp(grad, min=-1e-3, max=1e-3)
         )
-        
+
     def __init__(
         self,
         # architecture
@@ -74,18 +74,24 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         self.stabilize = stabilize
         if stabilize:
             self._init_stabilizing_parameters()
-        
+
         self.masked_mlp_shift = MaskedMLP(**args)
-        self.masked_mlp_scale = MaskedMLP(**args) # NOTE: can remove this for memory efficiency
+        self.masked_mlp_scale = MaskedMLP(
+            **args
+        )  # NOTE: can remove this for memory efficiency
 
-
-        self.normalization = normalization(in_features) if normalization is not None else None
+        self.normalization = (
+            normalization(in_features) if normalization is not None else None
+        )
         self.ordering = ordering
 
     @property
     def _scale_len(self):
-        return torch.nn.functional.softplus(self.scaling_stability_threshold_interval_size) + 1e-3
-    
+        return (
+            torch.nn.functional.softplus(self.scaling_stability_threshold_interval_size)
+            + 1e-3
+        )
+
     @property
     def _scale_l(self):
         return self.scaling_stability_threshold_l
@@ -93,11 +99,14 @@ class MaskedAffineFlowTransform(torch.nn.Module):
     @property
     def _scale_r(self):
         return self.scaling_stability_threshold_l + self._scale_len
-    
+
     @property
     def _shift_len(self):
-        return torch.nn.functional.softplus(self.shift_stability_threshold_interval_size) + 1e-3
-    
+        return (
+            torch.nn.functional.softplus(self.shift_stability_threshold_interval_size)
+            + 1e-3
+        )
+
     @property
     def _shift_l(self):
         return self.shift_stability_threshold_l
@@ -105,20 +114,34 @@ class MaskedAffineFlowTransform(torch.nn.Module):
     @property
     def _shift_r(self):
         return self.shift_stability_threshold_l + self._shift_len
-    
-    def _get_scale_and_shift(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
-        t = self.masked_mlp_shift(inputs, perm_mat=perm_mat) 
-        s = self.masked_mlp_scale(inputs, perm_mat=perm_mat) if not self.additive else torch.zeros_like(t)
+
+    def _get_scale_and_shift(
+        self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        t = self.masked_mlp_shift(inputs, perm_mat=perm_mat)
+        s = (
+            self.masked_mlp_scale(inputs, perm_mat=perm_mat)
+            if not self.additive
+            else torch.zeros_like(t)
+        )
         # pass s and t through a tanh function to ensure numerical stability
         if self.stabilize:
             if not self.additive:
                 interval_len = self._scale_len
-                s = torch.tanh((s - self._scale_l) / interval_len) * interval_len + self._scale_l
+                s = (
+                    torch.tanh((s - self._scale_l) / interval_len) * interval_len
+                    + self._scale_l
+                )
             interval_len = self._shift_len
-            t = torch.tanh((t - self._shift_l) / interval_len) * interval_len + self._shift_l
+            t = (
+                torch.tanh((t - self._shift_l) / interval_len) * interval_len
+                + self._shift_l
+            )
         return s, t
 
-    def forward(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         $T$ is a function from data $x$ to latent $z$ of the form:
         $$T^{-1}(z_i) = x_i = e^{s_i} z_i + t_i$$
@@ -130,11 +153,11 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         s, t = self._get_scale_and_shift(inputs, perm_mat=perm_mat)
         outputs = (inputs - t) * torch.exp(-s)
         logabsdet = -torch.sum(s, dim=-1)
-        
+
         if self.normalization:
             outputs, logabsdet_ = self.normalization(outputs)
             logabsdet += logabsdet_
-            
+
         return outputs, logabsdet
 
     def inverse(
@@ -167,6 +190,8 @@ class MaskedAffineFlowTransform(torch.nn.Module):
             s, t = self._get_scale_and_shift(outputs, perm_mat=perm_mat)
             outputs = torch.exp(s) * z + t
 
-        logabsdet = logabsdet + torch.sum(s, dim=-1)  # this is the inverse of the logabsdet
+        logabsdet = logabsdet + torch.sum(
+            s, dim=-1
+        )  # this is the inverse of the logabsdet
 
         return outputs, logabsdet

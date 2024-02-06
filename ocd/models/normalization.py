@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 
+
 class ActNorm(torch.nn.Module):
     def __init__(self, features):
         """
@@ -19,7 +20,6 @@ class ActNorm(torch.nn.Module):
     @property
     def scale(self):
         return torch.exp(self.log_scale)
-
 
     def forward(self, inputs):
         if self.training and not self.initialized:
@@ -44,13 +44,14 @@ class ActNorm(torch.nn.Module):
 
     def _initialize(self, inputs):
         """Data-dependent initialization, s.t. post-actnorm activations have zero mean and unit
-        variance. """
+        variance."""
         with torch.no_grad():
             std = inputs.std(dim=0)
             mu = (inputs / std).mean(dim=0)
             self.log_scale.data = -torch.log(std)
             self.shift.data = -mu
             self.initialized.data = torch.tensor(True, dtype=torch.bool)
+
 
 class TanhTransform(torch.nn.Module):
     def __init__(
@@ -69,8 +70,14 @@ class TanhTransform(torch.nn.Module):
 
     def extra_repr(self) -> str:
         pre_act = "x"
-        pre_act = f"{pre_act} * {self.pre_act_scale}" if self.pre_act_scale != 1 else f"{pre_act}"
+        pre_act = (
+            f"{pre_act} * {self.pre_act_scale}"
+            if self.pre_act_scale != 1
+            else f"{pre_act}"
+        )
         act_name = "tanh"
         act = f"{act_name}({pre_act})"
-        post_act = f"{act} * {self.post_act_scale}" if self.post_act_scale != 1 else f"{act}"
+        post_act = (
+            f"{act} * {self.post_act_scale}" if self.post_act_scale != 1 else f"{act}"
+        )
         return super().extra_repr() + f"forward: {post_act}"

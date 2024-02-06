@@ -2,6 +2,7 @@ import torch
 from typing import List, Optional, Union
 from .linear import MaskedLinear
 
+
 class MaskedBlock(MaskedLinear):
     def __init__(
         self,
@@ -18,11 +19,13 @@ class MaskedBlock(MaskedLinear):
             in_features=in_features,
             out_features=out_features,
             auto_connection=auto_connection,
-            ordering=ordering
+            ordering=ordering,
         )
 
         if residual and not auto_connection:
-            raise ValueError("residual connections are only supported for auto_connection=True")
+            raise ValueError(
+                "residual connections are only supported for auto_connection=True"
+            )
 
         self.residual = residual
         self.dropout = torch.nn.Dropout(p=dropout) if dropout else None
@@ -70,7 +73,6 @@ class MaskedMLP(torch.nn.ModuleList):
                     ordering=ordering,
                 )
             )
-
 
     def forward(
         self,

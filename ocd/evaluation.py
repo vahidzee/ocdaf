@@ -2,6 +2,7 @@ import typing as th
 import numpy as np
 import random
 import networkx as nx
+
 # from cdt.metrics import SID, SHD
 
 
@@ -114,7 +115,11 @@ def shd(dag1: nx.DiGraph, dag2: nx.DiGraph, with_change_orientation=False):
             ret += 1
     if with_change_orientation:
         for u, v in dag1.edges():
-            if dag2.has_edge(u, v) and not dag2.has_edge(v, u) and not dag1.has_edge(v, u):
+            if (
+                dag2.has_edge(u, v)
+                and not dag2.has_edge(v, u)
+                and not dag1.has_edge(v, u)
+            ):
                 ret -= 1
     return ret
 

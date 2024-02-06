@@ -49,7 +49,8 @@ class OCDDataset(torch.utils.data.Dataset):
             # and mark the rows with z-score greater than 3 or less than -3 as outliers
             if reject_outliers:
                 outliers = outliers | (
-                    np.abs(self.samples[col].values - avg) > outlier_threshold * std)
+                    np.abs(self.samples[col].values - avg) > outlier_threshold * std
+                )
 
         # remove the outliers
         self.samples = self.samples.iloc[~outliers, :]

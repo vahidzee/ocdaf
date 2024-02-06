@@ -103,12 +103,10 @@ class SchedulerConfig(BaseModel):
     flow_frequency: int
     permutation_frequency: int
     flow_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer],
-                 torch.optim.lr_scheduler._LRScheduler]
+        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
     ] = None
     permutation_lr_scheduler: Optional[
-        Callable[[torch.optim.Optimizer],
-                 torch.optim.lr_scheduler._LRScheduler]
+        Callable[[torch.optim.Optimizer], torch.optim.lr_scheduler._LRScheduler]
     ] = None
 
 
@@ -117,7 +115,7 @@ class SoftSortConfig(BaseModel):
     temp: float
     parameterization_type: Literal["vanilla", "sigmoid"]
     uniform: bool = False
-    gumbel_std: float = 1.
+    gumbel_std: float = 1.0
 
 
 class ContrastiveDivergenceConfig(BaseModel):
@@ -126,7 +124,7 @@ class ContrastiveDivergenceConfig(BaseModel):
     parameterization_type: Literal["vanilla", "sigmoid"]
     uniform: bool = False
     chunk_size: Optional[int] = None
-    gumbel_std: float = 1.
+    gumbel_std: float = 1.0
 
 
 class SoftSinkhornConfig(BaseModel):
@@ -135,7 +133,7 @@ class SoftSinkhornConfig(BaseModel):
     iters: int
     parameterization_type: Literal["vanilla", "sigmoid"]
     uniform: bool = False
-    gumbel_std: float = 1.
+    gumbel_std: float = 1.0
 
 
 class GumbelTopKConfig(BaseModel):
@@ -145,7 +143,7 @@ class GumbelTopKConfig(BaseModel):
     chunk_size: Optional[int] = None
     different_flow_loss: bool = False
     uniform: bool = False
-    gumbel_std: float = 1.
+    gumbel_std: float = 1.0
 
 
 class GumbelSinkhornStraightThroughConfig(BaseModel):
@@ -154,7 +152,7 @@ class GumbelSinkhornStraightThroughConfig(BaseModel):
     iters: int
     parameterization_type: Literal["vanilla", "sigmoid"]
     uniform: bool = False
-    gumbel_std: float = 1.
+    gumbel_std: float = 1.0
 
 
 class TrainingConfig(BaseModel):
@@ -182,8 +180,7 @@ class TrainingConfig(BaseModel):
     @field_validator("device")
     def validate_device(cls, value):
         values = value.split(":")
-        assert values[0] in [
-            "cpu", "cuda"], "device must be either cpu or cuda"
+        assert values[0] in ["cpu", "cuda"], "device must be either cpu or cuda"
         if len(values) > 1 and values[1] != "":
             assert int(values[1]) >= 0, "device number must be positive"
         return value

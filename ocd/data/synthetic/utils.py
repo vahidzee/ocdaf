@@ -3,21 +3,23 @@ from typing import Optional, Tuple, Union, Literal
 from functools import partial
 from sklearn.metrics.pairwise import rbf_kernel
 
+
 class RandomGenerator:
     """
     Generalized reproducible random generator capable of generating different types of random variables.
-    
+
     For example, given noise_type == 'laplace', this generator will generate samples from a Laplace distribution.
-    
+
     Instantiation examples:
         generator = RandomGenerator('normal', loc=0, scale=1) # generates samples from a standard normal distribution
         generator = RandomGenerator('normal', loc=0, scale=1, seed=42) # generates samples from a standard normal distribution with seed 42
         generator = RandomGenerator('laplace', loc=0, scale=1) # generates samples from a Laplace distribution with mean 0 and scale 1
         generator = RandomGenerator('uniform', low=0, high=1) # generates samples from a uniform distribution in the range [0, 1)
-        
+
     Getting samples:
         samples = generator(size=(100, 100)) # generates a 100 by 100 matrix of samples from the specified distribution
     """
+
     def __init__(self, noise_type: str, seed: Optional[int], *args, **kwargs):
         if seed is not None:
             rng = np.random.default_rng(seed)
@@ -36,18 +38,21 @@ class RandomGenerator:
         """
         return self.rng(size=size)
 
-def softplus(x, threshold: float = 20.):
+
+def softplus(x, threshold: float = 20.0):
     # A numerically stable implementation of softplus
     return np.where(x > threshold, x, np.log(1 + np.exp(x)))
+
 
 def standardize(x):
     # Standardize the data to have zero mean and unit variance and also account for the case where the variance is zero
     return (x - np.mean(x)) / (np.std(x) if np.std(x) > 1e-3 else 1e-3)
 
+
 def perform_post_non_linear_transform(
-    x, 
+    x,
     type: Literal["exp", "softplus", "x_plus_sin", "nonparametric", "sinusoid"],
-    additional_params: Optional[dict] = None
+    additional_params: Optional[dict] = None,
 ):
     """
     Perform a post non-linear transform on the data.
@@ -55,7 +60,7 @@ def perform_post_non_linear_transform(
     if type == "exp":
         return np.exp(x)
     elif type == "softplus":
-        return np.where(x > 20., x, np.log(1 + np.exp(x)))
+        return np.where(x > 20.0, x, np.log(1 + np.exp(x)))
     elif type == "x_plus_sin" or type == "sinusoid":
         return x + np.sin(x)
     elif type == "nonparametric":

@@ -20,10 +20,12 @@ from ocd.training.trainer import Trainer
 import torch
 
 import logging
+
 logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
+    format="%(asctime)s %(levelname)-8s %(message)s",
     level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 # Add resolver for hydra
 OmegaConf.register_new_resolver("eval", eval)
@@ -71,17 +73,17 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
     and then create an appropriate training dataloader and return it.
     """
 
-    synth_cond1 = isinstance(
-        conf.dataset, config_ref.ParametricSyntheticConfig)
-    synth_cond2 = isinstance(
-        conf.dataset, config_ref.NonParametricSyntheticConfig)
+    synth_cond1 = isinstance(conf.dataset, config_ref.ParametricSyntheticConfig)
+    synth_cond2 = isinstance(conf.dataset, config_ref.NonParametricSyntheticConfig)
     if isinstance(conf, OCDDataset):
         dset = conf
     elif synth_cond1 or synth_cond2:
-        graph_generator = GraphGenerator(num_nodes=conf.dataset.graph.num_nodes,
-                                         seed=conf.dataset.graph.seed,
-                                         graph_type=conf.dataset.graph.graph_type,
-                                         enforce_ordering=conf.dataset.graph.enforce_ordering)
+        graph_generator = GraphGenerator(
+            num_nodes=conf.dataset.graph.num_nodes,
+            seed=conf.dataset.graph.seed,
+            graph_type=conf.dataset.graph.graph_type,
+            enforce_ordering=conf.dataset.graph.enforce_ordering,
+        )
         graph = graph_generator.generate_dag()
 
         if synth_cond1:
@@ -121,7 +123,7 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
         else:
             raise ValueError(f"Unknown real world dataset {conf.dataset.name}")
     elif isinstance(conf.dataset, config_ref.SemiSyntheticConfig):
-        if conf.dataset.name == 'syntren':
+        if conf.dataset.name == "syntren":
             dset = SyntrenOCDDataset(
                 standard=conf.standard,
                 reject_outliers=conf.reject_outliers,
@@ -129,8 +131,7 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
                 data_id=conf.dataset.data_id,
             )
         else:
-            raise ValueError(
-                f"Unknown semi synthetic dataset {conf.dataset.name}")
+            raise ValueError(f"Unknown semi synthetic dataset {conf.dataset.name}")
     else:
         raise ValueError(f"Unknown dataset type {conf.dataset}")
 
@@ -215,7 +216,8 @@ def main(conf: MainConfig):
 
         logging.info("Instantiate trainer...")
         trainer = instantiate_trainer(
-            conf.trainer, model, flow_dloader, perm_dloader, dag=dset.dag)
+            conf.trainer, model, flow_dloader, perm_dloader, dag=dset.dag
+        )
         logging.info("Start training ...")
         trainer.train()
 

@@ -26,7 +26,9 @@ def visualize_results(
         seed_everything(config["seed_everything"])
         model = dy.eval(config["model"]["class_path"])(**config["model"]["init_args"])
         if checkpoint_path is not None:
-            model.load_state_dict(torch.load(checkpoint_path, map_location="cpu")["state_dict"])
+            model.load_state_dict(
+                torch.load(checkpoint_path, map_location="cpu")["state_dict"]
+            )
         flow = model.model.flow
 
     data_config = yaml.safe_load(open(data_config_path, "r"))

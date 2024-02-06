@@ -14,6 +14,7 @@ from ocd.data.base_dataset import OCDDataset
 import pandas as pd
 from .utils import perform_post_non_linear_transform, softplus, standardize
 
+
 class AffineParametericDataset(OCDDataset):
     """
     This is an SCM generator that generates SCMs with the following function formulas:
@@ -28,13 +29,13 @@ class AffineParametericDataset(OCDDataset):
     s_inp(x_1, x_2, ..., x_k) = s_1 * x_1 + s_2 * x_2 + ... + s_k * x_k + s_0
     t_inp(x_1, x_2, ..., x_k) = t_1 * x_1 + t_2 * x_2 + ... + t_k * x_k + t_0
     where s_i and t_i are generated independently from a link_generator.
-    
+
     Finally, using the s_function and t_function, we get the actual s and t functions:
 
     s = softplus(s_inp), t = t_function(t_inp)
 
     where t_function is set according to the link parameter in the constructor.
-    
+
     t_function(x) = sin(x) + x if link == "sinusoid"
     t_function(x) = x**3 if link == "cubic"
     t_function(x) = x if link == "linear"
@@ -50,7 +51,9 @@ class AffineParametericDataset(OCDDataset):
         link: Literal["sinusoid", "cubic", "linear"] = "sinusoid",
         perform_normalization: bool = True,
         additive: bool = False,
-        post_non_linear_transform: Optional[Literal["exp", "softplus", "x_plus_sin", "nonparametric"]] = None,
+        post_non_linear_transform: Optional[
+            Literal["exp", "softplus", "x_plus_sin", "nonparametric"]
+        ] = None,
         **kwargs,
     ):
         """
@@ -63,49 +66,53 @@ class AffineParametericDataset(OCDDataset):
             perform_normalization: whether to normalize the data after generating the column, this is done for numerical stability
             additive: whether to use an additive noise model or not, for an additive model the noise does not get modulated
         """
-        
-        
+
         topological_order = list(nx.topological_sort(graph))
         # create an empty pandas dataframe with columns equal to the graph.nodes and rows equal to num_samples and initialize it with zeros
-        dset = pd.DataFrame(0, index=range(num_samples), columns=sorted(list(graph.nodes())))
+        dset = pd.DataFrame(
+            0, index=range(num_samples), columns=sorted(list(graph.nodes()))
+        )
         # iterate over the nodes in the topological order
         for v in topological_order:
             noises = noise_generator(num_samples)
             # get incoming nodes to v in graph
             parents = list(graph.predecessors(v))
-            
+
             s_coeffs = link_generator(len(parents) + 1)
             t_coeffs = link_generator(len(parents) + 1)
             if len(parents) == 0:
                 s_pre = np.ones(num_samples) * s_coeffs[-1]
                 t_pre = np.ones(num_samples) * t_coeffs[-1]
             else:
-                s_pre = np.einsum("i,ji->j", s_coeffs[:-1], dset[parents].values) + s_coeffs[-1]
-                t_pre = np.einsum("i,ji->j", t_coeffs[:-1], dset[parents].values) + t_coeffs[-1]
+                s_pre = (
+                    np.einsum("i,ji->j", s_coeffs[:-1], dset[parents].values)
+                    + s_coeffs[-1]
+                )
+                t_pre = (
+                    np.einsum("i,ji->j", t_coeffs[:-1], dset[parents].values)
+                    + t_coeffs[-1]
+                )
             # pass s_pre through a softplus
             s = softplus(s_pre)
             if link == "sinusoid":
                 t = np.sin(t_pre) + t_pre
             elif link == "cubic":
-                t = t_pre ** 3
+                t = t_pre**3
             elif link == "linear":
                 t = t_pre
             else:
                 raise Exception(f"Link {link} not supported")
             x = t + (s * noises if not additive else noises)
-            
+
             if perform_normalization:
                 x = standardize(x)
-            
+
             if post_non_linear_transform is not None:
                 x = perform_post_non_linear_transform(x, type=post_non_linear_transform)
-                
-                
+
             dset[v] = x.reshape(-1, 1)
-                
-        if not 'name' in kwargs:
-            kwargs['name'] = f"AffineNonParametericDataset"
-            
+
+        if not "name" in kwargs:
+            kwargs["name"] = f"AffineNonParametericDataset"
+
         super().__init__(dset, graph, *args, **kwargs)
-    
-    

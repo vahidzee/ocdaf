@@ -4,7 +4,7 @@ from typing import Optional, List, Union, Tuple, Dict, Callable
 from .postnonlinear import InPlaceTransform
 import torch
 
-    
+
 class OSlow(torch.nn.ModuleList):
     def __init__(
         self,
@@ -44,13 +44,17 @@ class OSlow(torch.nn.ModuleList):
         # initialize ordering
         self.register_buffer(
             "ordering",
-            ordering if ordering is not None else torch.arange(
+            ordering
+            if ordering is not None
+            else torch.arange(
                 self.in_features,
                 dtype=torch.int,
             ),
         )
         if additive and num_transforms > 1:
-            raise ValueError("Cannot use additive coupling with more than one transform, this will turn the model affine!")
+            raise ValueError(
+                "Cannot use additive coupling with more than one transform, this will turn the model affine!"
+            )
         # instantiate flows
         for _ in range(num_transforms):
             self.append(
@@ -82,7 +86,9 @@ class OSlow(torch.nn.ModuleList):
         """
         return next(self.parameters()).device
 
-    def forward(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
 
         Args:
@@ -105,8 +111,9 @@ class OSlow(torch.nn.ModuleList):
 
         return z, log_dets
 
-
-    def inverse(self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(
+        self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Computes the inverse of the flow.
 
@@ -130,7 +137,9 @@ class OSlow(torch.nn.ModuleList):
             log_dets += log_det  # sign is handled in flow.inverse
         return z, log_det
 
-    def sample(self, num_samples: int, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def sample(
+        self, num_samples: int, perm_mat: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Sample from the flow
 
         Args:
@@ -145,7 +154,9 @@ class OSlow(torch.nn.ModuleList):
 
         return self.inverse(z, perm_mat=perm_mat)[0]
 
-    def log_prob(self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def log_prob(
+        self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """Get log probability for batch
 
         $$\log p_x(x) = \log p_z(T(x)) + \log |det(J(T(x)))|$$
@@ -160,7 +171,12 @@ class OSlow(torch.nn.ModuleList):
         log_base_prob = self.base_distribution.log_prob(z).sum(-1)
         return log_base_prob + logabsdet
 
-    def intervene(self, num_samples: int, intervention: Dict[int, torch.Tensor], perm_mat: Optional[torch.Tensor] = None):
+    def intervene(
+        self,
+        num_samples: int,
+        intervention: Dict[int, torch.Tensor],
+        perm_mat: Optional[torch.Tensor] = None,
+    ):
         """
         Intervene on the model by setting the value of some variables to a fixed value.
 
@@ -179,13 +195,22 @@ class OSlow(torch.nn.ModuleList):
         # raise exception if the permutation matrices of at least two samples are different
         if perm_mat is not None:
             perm_mat = perm_mat.reshape(-1, perm_mat.shape[-2], perm_mat.shape[-1])
-            assert torch.all(perm_mat[0] == perm_mat).item(), "Permutation matrices of at least two samples are different"
+            assert torch.all(
+                perm_mat[0] == perm_mat
+            ).item(), "Permutation matrices of at least two samples are different"
         else:
-            perm_mat = torch.eye(self.in_features).unsqueeze(0).repeat(num_samples, 1, 1).to(self.device)
+            perm_mat = (
+                torch.eye(self.in_features)
+                .unsqueeze(0)
+                .repeat(num_samples, 1, 1)
+                .to(self.device)
+            )
 
         device = self.device
         # Set the noises and set their device
-        base_z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+        base_z = self.base_distribution.sample((num_samples, self.in_features)).to(
+            device
+        )
         x = self.inverse(base_z, perm_mat=perm_mat)[0]
 
         entailed_ordering = torch.einsum("bij, j -> bi", perm_mat, self.ordering).long()
@@ -196,6 +221,7 @@ class OSlow(torch.nn.ModuleList):
                 z[:, entailed_ordering[i + 1 :]] = base_z[:, entailed_ordering[i + 1 :]]
                 x = self.inverse(z, perm_mat=perm_mat)[0]
         return x
+
 
 # NOTE: this is a module for testing and we should remove it by the end
 class OSlowTest(torch.nn.Module):
@@ -209,19 +235,20 @@ class OSlowTest(torch.nn.Module):
         self.dummy = torch.nn.Parameter(torch.randn(1))
         self.base_matrix = base_matrix
 
-    
     @property
     def device(self) -> torch.device:
         """
         Get the device of the model
         """
         return next(self.parameters()).device
-    
-    def log_prob(self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None) -> torch.Tensor:
+
+    def log_prob(
+        self, x: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         if perm_mat.shape[0] != x.shape[0]:
             # repeat perm_mat to match the batch size
             perm_mat = perm_mat.unsqueeze(0).repeat(x.shape[0], 1, 1)
-        
+
         dots = perm_mat * self.base_matrix[None, :, :].to(x.device)
         dots = dots.sum(-1).sum(-1) + self.dummy.detach() - self.dummy
         return dots

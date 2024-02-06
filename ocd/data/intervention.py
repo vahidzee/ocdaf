@@ -16,7 +16,9 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         weight_t: th.Union[th.Tuple[float, float], float] = 0.1,
     ):
         super().__init__()
-        self.base_distribution = dy.get_value(base_distribution)(**base_distribution_args)
+        self.base_distribution = dy.get_value(base_distribution)(
+            **base_distribution_args
+        )
         self.num_samples = num_samples
         self.n = n
         self.seed = seed
@@ -52,18 +54,38 @@ class InterventionChainDataset(torch.utils.data.Dataset):
         for i in range(self.n):
             noise = base_noise[:, i]
             if self.transient:
-                scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
-                transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+                scale = (
+                    torch.ones(self.num_samples)
+                    if i == 0
+                    else (results * self.s_weight[:i]).sum(dim=1)
+                )
+                transform = (
+                    torch.zeros(self.num_samples)
+                    if i == 0
+                    else (results * self.t_weight[:i]).sum(dim=1)
+                )
             else:
-                scale = torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
-                transform = torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
+                scale = (
+                    torch.ones(self.num_samples)
+                    if i == 0
+                    else (results[:, i - 1] * self.s_weight[i - 1])
+                )
+                transform = (
+                    torch.zeros(self.num_samples)
+                    if i == 0
+                    else (results[:, i - 1] * self.t_weight[i - 1])
+                )
 
             x_i = noise * self.s_func(scale) + self.t_func(transform)
             means[i] = x_i.mean()
             stds[i] = x_i.std()
             if self.dislocate:
                 x_i = (x_i - means[i]) / stds[i]
-            results = torch.cat([results, x_i.reshape(-1, 1)], dim=1) if i > 0 else x_i.reshape(-1, 1)
+            results = (
+                torch.cat([results, x_i.reshape(-1, 1)], dim=1)
+                if i > 0
+                else x_i.reshape(-1, 1)
+            )
         return results, means, stds
 
     def intervene(self, idx, value, num_samples=1000):
@@ -74,20 +96,52 @@ class InterventionChainDataset(torch.utils.data.Dataset):
             else:
                 noise = base_noise[:, i]
                 if self.transient:
-                    scale = torch.ones(self.num_samples) if i == 0 else (results * self.s_weight[:i]).sum(dim=1)
-                    transform = torch.zeros(self.num_samples) if i == 0 else (results * self.t_weight[:i]).sum(dim=1)
+                    scale = (
+                        torch.ones(self.num_samples)
+                        if i == 0
+                        else (results * self.s_weight[:i]).sum(dim=1)
+                    )
+                    transform = (
+                        torch.zeros(self.num_samples)
+                        if i == 0
+                        else (results * self.t_weight[:i]).sum(dim=1)
+                    )
                 else:
-                    scale = torch.ones(self.num_samples) if i == 0 else (results[:, i - 1] * self.s_weight[i - 1])
-                    transform = torch.zeros(self.num_samples) if i == 0 else (results[:, i - 1] * self.t_weight[i - 1])
+                    scale = (
+                        torch.ones(self.num_samples)
+                        if i == 0
+                        else (results[:, i - 1] * self.s_weight[i - 1])
+                    )
+                    transform = (
+                        torch.zeros(self.num_samples)
+                        if i == 0
+                        else (results[:, i - 1] * self.t_weight[i - 1])
+                    )
                 x_i = noise * self.s_func(scale) + self.t_func(transform)
                 if self.dislocate:
                     x_i = (x_i - self.means[i]) / self.stds[i]
-            results = torch.cat([results, x_i.reshape(-1, 1)], dim=1) if i > 0 else x_i.reshape(-1, 1)
+            results = (
+                torch.cat([results, x_i.reshape(-1, 1)], dim=1)
+                if i > 0
+                else x_i.reshape(-1, 1)
+            )
         return results
 
-    def do(self, idx, values: th.Union[torch.Tensor, list], target: th.Optional[int] = None, num_samples=50):
-        values = values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
+    def do(
+        self,
+        idx,
+        values: th.Union[torch.Tensor, list],
+        target: th.Optional[int] = None,
+        num_samples=50,
+    ):
+        values = (
+            values.reshape(-1).tolist() if isinstance(values, torch.Tensor) else values
+        )
         results = torch.stack(
-            [self.intervene(idx=idx, value=value, num_samples=num_samples) for value in values], dim=0
+            [
+                self.intervene(idx=idx, value=value, num_samples=num_samples)
+                for value in values
+            ],
+            dim=0,
         )
         return results[:, :, target] if target is not None else results

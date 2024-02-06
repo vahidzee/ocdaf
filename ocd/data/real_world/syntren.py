@@ -48,17 +48,30 @@ def reordering(adj_mat, data):
 
 
 class SyntrenOCDDataset(OCDDataset):
-    def __init__(self, data_id: int, standardization: bool = False, reject_outliers_n_far_from_mean: th.Optional[float] = None):
-        """ Args:
-            data_id: The id of the dataset to load (from 0 to 9)
+    def __init__(
+        self,
+        data_id: int,
+        standardization: bool = False,
+        reject_outliers_n_far_from_mean: th.Optional[float] = None,
+    ):
+        """Args:
+        data_id: The id of the dataset to load (from 0 to 9)
         """
         # load csv file into pandas dataframe
         data = np.load(os.path.join(_DATA_DIR, "syntren", f"data{data_id+1}.npy"))
         adj_mat = np.load(os.path.join(_DATA_DIR, "syntren", f"DAG{data_id+1}.npy"))
 
-        adj_mat, data = reordering(adj_mat, data)  # Since the default order is [1, ..., d]
+        adj_mat, data = reordering(
+            adj_mat, data
+        )  # Since the default order is [1, ..., d]
         graph = nx.DiGraph(adj_mat)
 
         df = pd.DataFrame(data)
 
-        super().__init__(samples=df, dag=graph, name=f"Syntren-{data_id}", standardization=standardization, reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean)
+        super().__init__(
+            samples=df,
+            dag=graph,
+            name=f"Syntren-{data_id}",
+            standardization=standardization,
+            reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
+        )
