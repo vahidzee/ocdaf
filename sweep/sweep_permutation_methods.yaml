@@ -1,13 +1,11 @@
 ---
 program: train.py
 name: permutation_methods
-method: grid
+method: random
 metric:
     goal: minimize
     name: permutation/backward_penalty
 parameters:
-    data.dataset.link_generator.seed:
-        values: [42, 142, 242]
 
     model.in_features:
         values: [3, 10]
