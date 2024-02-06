@@ -31,7 +31,7 @@ OmegaConf.register_new_resolver("eval", eval)
 
 def init_run_dir(conf: MainConfig) -> MainConfig:
     # Handle preemption and resume
-    run_name = conf.wandb.run_name
+    run_name = str(conf.wandb.run_name)
     resume = True
     r = RandomWords()
     w1, w2 = r.get_random_word(), r.get_random_word()

@@ -84,8 +84,8 @@ class DataConfig(BaseModel):
 class WandBConfig(BaseModel):
     project: str
     entity: Optional[str] = None
-    run_name: Optional[str] = None
-    run_id: Optional[str] = None
+    run_name: Optional[Union[str, int]] = None
+    run_id: Optional[Union[str, int]] = None
     resume: bool = False
 
 
