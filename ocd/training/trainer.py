@@ -185,7 +185,7 @@ class Trainer:
                 wandb.log({"permutation/backward_penalty": backward_penalty})
 
                 # log the Birkhoff polytope
-                if self.birkhoff_config and (
+                if len(permutation) <= 4 and self.birkhoff_config and (
                     (j + epoch * self.permutation_frequency)
                     % self.birkhoff_config.frequency
                     == 0
