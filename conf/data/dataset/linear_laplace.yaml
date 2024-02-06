@@ -6,7 +6,7 @@ graph:
 noise_generator:
   _target_: ocd.data.synthetic.utils.RandomGenerator
   seed: 42
-  noise_type: normal
+  noise_type: laplace
   loc: 0
   scale: 1
 link_generator:
@@ -15,8 +15,8 @@ link_generator:
   noise_type: uniform
   low: 1
   high: 2
-link: sinusoid
-perform_normalization: false
+link: linear
+perform_normalization: true
 additive: ${model.additive}
 post_non_linear_transform: null
 seed: 42

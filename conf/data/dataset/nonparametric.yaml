@@ -1,4 +1,4 @@
-num_samples: 10000
+num_samples: 2000
 graph:
   graph_type: full
   num_nodes: ${model.in_features}
@@ -9,14 +9,10 @@ noise_generator:
   noise_type: normal
   loc: 0
   scale: 1
-link_generator:
-  _target_: ocd.data.synthetic.utils.RandomGenerator
-  seed: 42
-  noise_type: uniform
-  low: 1
-  high: 2
-link: sinusoid
-perform_normalization: false
+s_rbf_kernel_gamma: 1.0
+t_rbf_kernel_gamma: 1.0
+invertibility_coefficient: 1.0
+perform_normalization: true
 additive: ${model.additive}
 post_non_linear_transform: null
 seed: 42

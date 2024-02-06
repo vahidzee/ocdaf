@@ -15,8 +15,8 @@ link_generator:
   noise_type: uniform
   low: 1
   high: 2
-link: sinusoid
-perform_normalization: false
+link: cubic
+perform_normalization: true
 additive: ${model.additive}
 post_non_linear_transform: null
 seed: 42

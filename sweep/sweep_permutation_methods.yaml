@@ -1,11 +1,14 @@
 ---
 program: train.py
 name: permutation_methods
-method: random
+method: grid
 metric:
     goal: minimize
-    name: flow/loss
+    name: permutation/backward_penalty
 parameters:
+    data.dataset.link_generator.seed:
+        values: [42, 142, 242]
+
     model.in_features:
         values: [3, 5, 10]
 
@@ -13,7 +16,7 @@ parameters:
         values: [contrastive_div, gumbel_top_k, soft_sinkhorn, straight_through_sinkhorn, straight_through_softsort]
 
     trainer.permutation_batch_size:
-        values: [128, 512, 2048]
+        values: [128, 2048]
 
     trainer.permutation.parameterization_type:
         values: [vanilla, sigmoid]
@@ -23,6 +26,9 @@ parameters:
 
     trainer.permutation.gumbel_std:
         values: [0.5, 1.0, 2.0]
+
+    trainer.scheduler.flow_frequency:
+        values: [1, 4]
 
 
 command:
