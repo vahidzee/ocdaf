@@ -15,7 +15,6 @@ class ADNIOCDDataset(OCDDataset):
     def __init__(
         self,
         standardization: bool = False,
-        reject_outliers_n_far_from_mean: th.Optional[float] = None,
         name: th.Optional[str] = None,
     ):
         # load csv file into pandas dataframe
@@ -33,10 +32,12 @@ class ADNIOCDDataset(OCDDataset):
         inverse_mapping = {v: k for k, v in label_mapping.items()}
         df.rename(columns=inverse_mapping, inplace=True)
 
-        graph = {0: [4], 1: [], 2: [7], 3: [7], 4: [3, 5], 5: [7], 6: [4], 7: []}
+        graph = {0: [4], 1: [], 2: [7], 3: [7],
+                 4: [3, 5], 5: [7], 6: [4], 7: []}
         graph = nx.DiGraph(graph)
 
-        explanation = "\n".join([f"{k} -> {v}" for k, v in label_mapping.items()])
+        explanation = "\n".join(
+            [f"{k} -> {v}" for k, v in label_mapping.items()])
 
         super().__init__(
             samples=df,
@@ -44,7 +45,6 @@ class ADNIOCDDataset(OCDDataset):
             name=name if name is not None else "ADNI",
             explanation=explanation,
             standardization=standardization,
-            reject_outliers_n_far_from_mean=reject_outliers_n_far_from_mean,
         )
 
     def _load_preprocess(self):
@@ -70,7 +70,8 @@ class ADNIOCDDataset(OCDDataset):
             .drop(["RID", "EXAMDATE"], axis=1)
         )
 
-        data = data.replace({"ABETA": {">1700": 1700}, "PTAU": {">120": 120, "<8": 8}})
+        data = data.replace(
+            {"ABETA": {">1700": 1700}, "PTAU": {">120": 120, "<8": 8}})
 
         discrete_cols = ["DX", "PTGENDER", "APOE4", "PTEDUCAT"]
         le = LabelEncoder()

@@ -77,8 +77,6 @@ class DataConfig(BaseModel):
         NonParametricSyntheticConfig,
     ]
     standard: bool
-    reject_outliers: bool
-    outlier_kde_quantile: float = 0.95
 
 
 class WandBConfig(BaseModel):
@@ -115,52 +113,38 @@ class SchedulerConfig(BaseModel):
 class SoftSortConfig(BaseModel):
     method: str = "soft-sort"
     temp: float
-    parameterization_type: Literal["vanilla", "sigmoid"]
-    uniform: bool = False
-    gumbel_std: float = 1.0
 
 
 class ContrastiveDivergenceConfig(BaseModel):
     method: str = "contrastive-divergence"
     num_samples: int
-    parameterization_type: Literal["vanilla", "sigmoid"]
-    uniform: bool = False
-    chunk_size: Optional[int] = None
-    gumbel_std: float = 1.0
 
 
 class SoftSinkhornConfig(BaseModel):
     method: str = "soft-sinkhorn"
     temp: float
     iters: int
-    parameterization_type: Literal["vanilla", "sigmoid"]
-    uniform: bool = False
-    gumbel_std: float = 1.0
 
 
 class GumbelTopKConfig(BaseModel):
     method: str = "gumbel-top-k"
-    parameterization_type: Literal["vanilla", "sigmoid"]
     num_samples: int
-    chunk_size: Optional[int] = None
     different_flow_loss: bool = False
-    uniform: bool = False
-    gumbel_std: float = 1.0
 
 
 class GumbelSinkhornStraightThroughConfig(BaseModel):
     method: str = "straight-through-sinkhorn"
     temp: float
     iters: int
-    parameterization_type: Literal["vanilla", "sigmoid"]
-    uniform: bool = False
-    gumbel_std: float = 1.0
 
 
 class TrainingConfig(BaseModel):
     device: str
     checkpointing: Optional[CheckpointingConfig] = None
 
+    temperature: float = 1.0
+    temperature_scheduler: Literal['constant',
+                                   'linear', 'exponential'] = 'constant'
     # training loop configurations
     max_epochs: int
     flow_batch_size: int
@@ -171,9 +155,9 @@ class TrainingConfig(BaseModel):
     scheduler: SchedulerConfig
     permutation: Union[
         SoftSortConfig,
+        ContrastiveDivergenceConfig,
         SoftSinkhornConfig,
         GumbelSinkhornStraightThroughConfig,
-        ContrastiveDivergenceConfig,
         GumbelTopKConfig,
     ]
 

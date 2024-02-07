@@ -1,7 +1,6 @@
 method: gumbel-top-k
-num_samples: 128
+num_samples: 32
 different_flow_loss: false
-chunk_size: null
-uniform: false
-parameterization_type: vanilla
-gumbel_std: 1.
+
+# for parent config
+permutation_batch_size: 8

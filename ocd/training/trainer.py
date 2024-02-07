@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from torch.utils.data import DataLoader
-from typing import Union, Callable, Iterable, Optional
+from typing import Union, Callable, Iterable, Optional, Literal
 from ocd.models.oslow import OSlow
 from ocd.training.permutation import (
     GumbelTopK,
@@ -60,6 +60,9 @@ class Trainer:
             ContrastiveDivergenceConfig,
         ],
         birkhoff_config: Optional[BirkhoffConfig] = None,
+        temperature: float = 1.0,
+        temperature_scheduler: Literal['constant',
+                                       'linear', 'exponential'] = 'constant',
         device: str = "cpu",
     ):
         self.device = device
@@ -108,20 +111,30 @@ class Trainer:
             self.permutation_optimizer
         )
         self.dag = dag
-
+        self.initial_temperature = temperature
+        self.temperature_scheduler = temperature_scheduler
         self.perm_step_count = 0
         self.flow_step_count = 0
 
         # TODO create checkpointing
         self.checkpointing = None
 
-    def flow_train_step(self):
+    def get_temperature(self, epoch: int):
+        if self.temperature_scheduler == "constant":
+            return self.initial_temperature
+        # start from initial_temperature and decrease it to 0
+        if self.temperature_scheduler == "linear":
+            return self.initial_temperature * (1 - epoch / self.max_epochs)
+        if self.temperature_scheduler == "exponential":
+            return self.initial_temperature * (0.1 ** (epoch / self.max_epochs))
+
+    def flow_train_step(self, temperature: float = 1.0):
         self.permutation_learning_module._gamma.requires_grad = False
         for batch in self.flow_dataloader:
             batch = batch.to(self.model.device)
             self.flow_optimizer.zero_grad()
             loss = self.permutation_learning_module.flow_learning_loss(
-                model=self.model, batch=batch
+                model=self.model, batch=batch, temperature=temperature
             )
             loss.backward()
             self.flow_optimizer.step()
@@ -131,7 +144,7 @@ class Trainer:
         self.permutation_learning_module._gamma.requires_grad = True
         return loss
 
-    def permutation_train_step(self):
+    def permutation_train_step(self, temperature: float = 1.0):
         # stop gradient model
         self.model.eval()
         for param in self.model.parameters():
@@ -140,7 +153,7 @@ class Trainer:
             batch = batch.to(self.model.device)
             self.permutation_optimizer.zero_grad()
             loss = self.permutation_learning_module.permutation_learning_loss(
-                model=self.model, batch=batch
+                model=self.model, batch=batch, temperature=temperature
             )
             loss.backward()
             self.permutation_optimizer.step()
@@ -151,6 +164,22 @@ class Trainer:
             param.requires_grad = True
         self.model.train()
         return loss
+
+    def log_evaluation(self):
+
+        permutation_samples = (
+            self.permutation_learning_module.sample_hard_permutations(
+                100)
+        )
+        # find the majority of permutations being sampled
+        permutation, counts = torch.unique(
+            permutation_samples, dim=0, return_counts=True
+        )
+        # find the permutation with the highest count
+        permutation = permutation[counts.argmax()]
+        permutation = permutation.argmax(dim=-1).cpu().numpy().tolist()
+        backward_penalty = count_backward(permutation, self.dag)
+        wandb.log({"permutation/backward_penalty": backward_penalty})
 
     def train(self):
         self.model.train()
@@ -164,8 +193,12 @@ class Trainer:
             # reinsitialize the parameters of self.model
             self.model = self.model.to(self.device)
 
+            wandb.log({"permutation/temperature": self.get_temperature(epoch)})
+            wandb.log({"epoch": epoch})
+
             for i in range(self.flow_frequency):
-                loss = self.flow_train_step()
+                loss = self.flow_train_step(
+                    temperature=self.get_temperature(epoch))
                 logging.info(
                     f"Flow step {epoch * self.flow_frequency + i} / {true_epochs * self.flow_frequency}, flow loss: {loss.item()}"
                 )
@@ -177,7 +210,8 @@ class Trainer:
                     self.flow_scheduler.step()
 
             for j in range(self.permutation_frequency):
-                loss = self.permutation_train_step()
+                loss = self.permutation_train_step(
+                    temperature=self.get_temperature(epoch))
 
                 logging.info(
                     f"Permutation step {epoch * self.permutation_frequency + i} / {true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}"
@@ -191,23 +225,10 @@ class Trainer:
                     self.permutation_scheduler.step()
 
                 # log the evaluation metrics
-                permutation_samples = (
-                    self.permutation_learning_module.sample_hard_permutations(
-                        100)
-                )
-                # find the majority of permutations being sampled
-                permutation, counts = torch.unique(
-                    permutation_samples, dim=0, return_counts=True
-                )
-                # find the permutation with the highest count
-                permutation = permutation[counts.argmax()]
-                permutation = permutation.argmax(dim=-1).cpu().numpy().tolist()
-                backward_penalty = count_backward(permutation, self.dag)
-                wandb.log({"permutation/backward_penalty": backward_penalty})
-
+                self.log_evaluation()
                 # log the Birkhoff polytope
                 if (
-                    len(permutation) <= 4
+                    self.model.in_features <= 4
                     and self.birkhoff_config
                     and (
                         (j + epoch * self.permutation_frequency)

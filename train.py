@@ -99,8 +99,6 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
                 additive=conf.dataset.additive,
                 post_non_linear_transform=conf.dataset.post_non_linear_transform,
                 standard=conf.standard,
-                reject_outliers=conf.reject_outliers,
-                outlier_kde_quantile=conf.outlier_kde_quantile,
             )
         else:
             dset = AffineNonParametericDataset(
@@ -111,15 +109,11 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
                 additive=conf.dataset.additive,
                 post_non_linear_transform=conf.dataset.post_non_linear_transform,
                 standard=conf.standard,
-                reject_outliers=conf.reject_outliers,
-                outlier_kde_quantile=conf.outlier_kde_quantile,
             )
     elif isinstance(conf.dataset, config_ref.RealworldConfig):
         if conf.dataset.name == "sachs":
             dset = SachsOCDDataset(
                 standard=conf.standard,
-                reject_outliers=conf.reject_outliers,
-                outlier_kde_quantile=conf.outlier_kde_quantile,
                 name=conf.dataset.name,
             )
         else:
@@ -128,8 +122,6 @@ def instantiate_data(conf: Union[DataConfig, OCDDataset]):
         if conf.dataset.name == "syntren":
             dset = SyntrenOCDDataset(
                 standard=conf.standard,
-                reject_outliers=conf.reject_outliers,
-                outlier_kde_quantile=conf.outlier_kde_quantile,
                 data_id=conf.dataset.data_id,
             )
         else:
@@ -170,6 +162,8 @@ def instantiate_trainer(conf: TrainingConfig, model, flow_dloader, perm_dloader,
         flow_lr_scheduler=conf.scheduler.flow_lr_scheduler,
         permutation_lr_scheduler=conf.scheduler.permutation_lr_scheduler,
         device=conf.device,
+        temperature=conf.temperature,
+        temperature_scheduler=conf.temperature_scheduler,
         max_epochs=conf.max_epochs,
         permutation_learning_config=conf.permutation,
         birkhoff_config=conf.brikhoff,

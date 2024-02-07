@@ -1,7 +1,6 @@
 
 method: contrastive-divergence
-num_samples: 128
-chunk_size: null
-gumbel_std: 1.
-uniform: false
-parameterization_type: vanilla
+num_samples: 32
+
+# for parent config
+permutation_batch_size: 8

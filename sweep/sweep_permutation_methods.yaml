@@ -16,9 +16,6 @@ parameters:
     trainer.permutation.parameterization_type:
         values: [vanilla, sigmoid]
 
-    trainer.permutation.uniform:
-        values: [true, false]
-
     trainer.permutation.gumbel_std:
         values: [0.5, 1.0, 2.0]
 
@@ -28,8 +25,6 @@ parameters:
     trainer.scheduler.permutation_frequency:
         values: [1, 4]
 
-    data.reject_outliers:
-        values: [true, false]
 
 command:
     - ${env}

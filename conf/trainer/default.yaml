@@ -1,5 +1,6 @@
 defaults:
   - permutation: default
+  - _self_
 
 device: cuda
 checkpointing: null
@@ -7,7 +8,8 @@ checkpointing: null
 
 max_epochs: 500
 flow_batch_size: 128
-permutation_batch_size: 1024
+permutation_batch_size: ${.permutation.permutation_batch_size}
+
 flow_optimizer:
   _target_: torch.optim.Adam
   lr: 0.005
@@ -15,9 +17,12 @@ flow_optimizer:
 
 permutation_optimizer: ${.flow_optimizer}
 
+temperature: 1.0
+temperature_scheduler: linear
+
 scheduler:
-  flow_frequency: 4
-  permutation_frequency: 1
+  flow_frequency: 1
+  permutation_frequency: 4
   flow_lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
