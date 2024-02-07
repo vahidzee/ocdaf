@@ -25,7 +25,7 @@ parameters:
         values: [constant, linear]
 
     trainer.max_epochs:
-        values: [50, 100, 500]
+        values: [100, 500, 1000]
 
 command:
     - ${env}

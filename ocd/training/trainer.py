@@ -124,9 +124,9 @@ class Trainer:
             return self.initial_temperature
         # start from initial_temperature and decrease it to 0
         if self.temperature_scheduler == "linear":
-            return self.initial_temperature * (1 - epoch / self.true_epochs)
+            return self.initial_temperature * (1 - epoch / (self.true_epochs - 1))
         if self.temperature_scheduler == "exponential":
-            return self.initial_temperature * (0.1 ** (epoch / self.true_epochs))
+            return self.initial_temperature * (0.1 ** (epoch / (self.true_epochs - 1)))
 
     def flow_train_step(self, temperature: float = 1.0):
         self.permutation_learning_module._gamma.requires_grad = False
