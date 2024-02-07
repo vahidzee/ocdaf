@@ -124,9 +124,9 @@ class Trainer:
             return self.initial_temperature
         # start from initial_temperature and decrease it to 0
         if self.temperature_scheduler == "linear":
-            return self.initial_temperature * (1 - epoch / self.max_epochs)
+            return self.initial_temperature * (1 - epoch / self.true_epochs)
         if self.temperature_scheduler == "exponential":
-            return self.initial_temperature * (0.1 ** (epoch / self.max_epochs))
+            return self.initial_temperature * (0.1 ** (epoch / self.true_epochs))
 
     def flow_train_step(self, temperature: float = 1.0):
         self.permutation_learning_module._gamma.requires_grad = False
@@ -185,11 +185,11 @@ class Trainer:
         self.model.train()
         self.permutation_learning_module.train()
 
-        true_epochs = (
+        self.true_epochs = (
             self.max_epochs // (self.flow_frequency +
                                 self.permutation_frequency) + 1
         )
-        for epoch in range(true_epochs):
+        for epoch in range(self.true_epochs):
             # reinsitialize the parameters of self.model
             self.model = self.model.to(self.device)
 
@@ -200,7 +200,7 @@ class Trainer:
                 loss = self.flow_train_step(
                     temperature=self.get_temperature(epoch))
                 logging.info(
-                    f"Flow step {epoch * self.flow_frequency + i} / {true_epochs * self.flow_frequency}, flow loss: {loss.item()}"
+                    f"Flow step {epoch * self.flow_frequency + i} / {self.true_epochs * self.flow_frequency}, flow loss: {loss.item()}"
                 )
                 if isinstance(
                     self.flow_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
@@ -214,7 +214,7 @@ class Trainer:
                     temperature=self.get_temperature(epoch))
 
                 logging.info(
-                    f"Permutation step {epoch * self.permutation_frequency + i} / {true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}"
+                    f"Permutation step {epoch * self.permutation_frequency + i} / {self.true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}"
                 )
                 if isinstance(
                     self.permutation_scheduler,
