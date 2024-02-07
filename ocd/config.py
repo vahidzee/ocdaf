@@ -95,6 +95,7 @@ class CheckpointingConfig(BaseModel):
 class BirkhoffConfig(BaseModel):
     frequency: int
     num_samples: int
+    print_legend: bool = True
 
 
 class SchedulerConfig(BaseModel):

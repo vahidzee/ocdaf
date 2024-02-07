@@ -34,6 +34,7 @@ def visualize_birkhoff_polytope(
     data: Optional[Union[torch.Tensor, List[torch.Tensor]]] = None,
     flow_model: Optional[OSlow] = None,
     device: str = "cpu",
+    print_legend: bool = True,
 ):
     """
     This function is intended for either debugging purposes or just for visualizing the training process of the model itself.
@@ -55,7 +56,8 @@ def visualize_birkhoff_polytope(
         a numpy array that can be converted to an image representing the visualization of the Birkhoff polytope
     """
     permutation_model.to(device)
-    sampled_permutations = permutation_model.sample_hard_permutations(num_samples)
+    sampled_permutations = permutation_model.sample_hard_permutations(
+        num_samples)
 
     # (1) Handle the backbone and the PCA transform of the Birkhoff polytope
     d = sampled_permutations.shape[-1]
@@ -66,7 +68,8 @@ def visualize_birkhoff_polytope(
     pca.fit(backbone.reshape(backbone.shape[0], -1).cpu())
 
     # (2) find the closest reference permutation matrix for each sampled permutation
-    flattened_samples = sampled_permutations.reshape(sampled_permutations.shape[0], -1)
+    flattened_samples = sampled_permutations.reshape(
+        sampled_permutations.shape[0], -1)
     flattened_references = all_permutation_matrices.reshape(
         all_permutation_matrices.shape[0], -1
     )
@@ -99,7 +102,8 @@ def visualize_birkhoff_polytope(
             average_log_prob = 0.0
             if (closest_references == i).any():
                 close_samples = sampled_permutations[closest_references == i]
-                alpha_value = max(0.3, 1.0 / (closest_references == i).sum().item())
+                alpha_value = max(
+                    0.3, 1.0 / (closest_references == i).sum().item())
                 ax.scatter(
                     pca.transform(
                         close_samples.reshape(close_samples.shape[0], -1).cpu()
@@ -144,12 +148,14 @@ def visualize_birkhoff_polytope(
             marker="x",
             color="red",
         )
-        ax.legend()
+        if print_legend:
+            ax.legend()
 
         # draw everything to the figure for conversion
         fig.canvas.draw()
         # convert the figure to a numpy array
-        img_data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+        img_data = np.fromstring(
+            fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
         img_data = img_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     finally:
         plt.close()
