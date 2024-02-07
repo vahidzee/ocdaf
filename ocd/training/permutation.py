@@ -33,7 +33,7 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
 
     @property
     def gamma(self):
-        return torch.sigmoid(self._gamma)
+        return self._gamma
 
     def permutation_learning_loss(
         self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
