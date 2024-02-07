@@ -1,0 +1,35 @@
+---
+program: train.py
+name: novel_permutation_methods_no_sigmoid
+method: random
+metric:
+    goal: minimize
+    name: permutation/backward_penalty
+parameters:
+    model.in_features:
+        values: [3, 5, 10]
+
+    trainer/permutation:
+        values: [contrastive_div, gumbel_top_k]
+
+    trainer.permutation.num_samples:
+        values: [8, 32, 64]
+
+    trainer.permutation_batch_size:
+        values: [8, 32, 128]
+
+    trainer.scheduler.flow_frequency:
+        values: [1, 4]
+
+    trainer.temperature_scheduler:
+        values: [linear, constant]
+
+    trainer.max_epochs:
+        values: [100, 500, 1000]
+
+command:
+    - ${env}
+    - ./slurm/train_runner.sh
+    - trainer.temperature=1
+    - ${args_no_hyphens}
+    - test_run=false
