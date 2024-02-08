@@ -18,7 +18,8 @@ def _share_across_batch(params, batch_size):
 def sum_except_batch(x, num_batch_dims=1):
     """Sums all elements of `x` except for the first `num_batch_dims` dimensions."""
     if not (isinstance(x, int) and x >= 0):
-        raise TypeError("Number of batch dimensions must be a non-negative integer.")
+        raise TypeError(
+            "Number of batch dimensions must be a non-negative integer.")
     reduce_dims = list(range(num_batch_dims, x.ndimension()))
     return torch.sum(x, dim=reduce_dims)
 
@@ -51,8 +52,10 @@ class InPlaceTransform(nn.Module):
         if isinstance(shape, int):
             shape = (shape,)
         if identity_init:
-            self.unnormalized_widths = nn.Parameter(torch.zeros(*shape, num_bins))
-            self.unnormalized_heights = nn.Parameter(torch.zeros(*shape, num_bins))
+            self.unnormalized_widths = nn.Parameter(
+                torch.zeros(*shape, num_bins))
+            self.unnormalized_heights = nn.Parameter(
+                torch.zeros(*shape, num_bins))
 
             constant = np.log(np.exp(1 - min_derivative) - 1)
             num_derivatives = num_bins - 1
@@ -60,18 +63,31 @@ class InPlaceTransform(nn.Module):
                 constant * torch.ones(*shape, num_derivatives)
             )
         else:
-            self.unnormalized_widths = nn.Parameter(torch.rand(*shape, num_bins))
-            self.unnormalized_heights = nn.Parameter(torch.rand(*shape, num_bins))
+            self.unnormalized_widths = nn.Parameter(
+                torch.rand(*shape, num_bins))
+            self.unnormalized_heights = nn.Parameter(
+                torch.rand(*shape, num_bins))
 
             num_derivatives = num_bins - 1
             self.unnormalized_derivatives = nn.Parameter(
                 torch.rand(*shape, num_derivatives)
             )
 
+    def reinitialize(self):
+        if self.normalization:
+            self.normalization.reinitialize()
+        if isinstance(self.unnormalized_widths, nn.Parameter):
+            nn.init.xavier_normal_(self.unnormalized_widths)
+        if isinstance(self.unnormalized_heights, nn.Parameter):
+            nn.init.xavier_normal_(self.unnormalized_heights)
+        if isinstance(self.unnormalized_derivatives, nn.Parameter):
+            nn.init.xavier_normal_(self.unnormalized_derivatives)
+
     def _spline(self, inputs, inverse=False):
         batch_size = inputs.shape[0]
 
-        unnormalized_widths = _share_across_batch(self.unnormalized_widths, batch_size)
+        unnormalized_widths = _share_across_batch(
+            self.unnormalized_widths, batch_size)
         unnormalized_heights = _share_across_batch(
             self.unnormalized_heights, batch_size
         )

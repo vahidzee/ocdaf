@@ -137,6 +137,15 @@ class OSlow(torch.nn.ModuleList):
             log_dets += log_det  # sign is handled in flow.inverse
         return z, log_det
 
+    def reinitialize(self):
+        for transform in self:
+            if isinstance(transform, MaskedAffineFlowTransform):
+                transform.reinitialize()
+            elif isinstance(transform, InPlaceTransform):
+                transform.reinitialize()
+            else:
+                raise ValueError("Unknown transform type")
+
     def sample(
         self, num_samples: int, perm_mat: Optional[torch.Tensor] = None
     ) -> torch.Tensor:

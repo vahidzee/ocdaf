@@ -42,6 +42,12 @@ class MaskedAffineFlowTransform(torch.nn.Module):
         )
         self.ordering = ordering
 
+    def reinitialize(self):
+        if self.normalization:
+            self.normalization.reinitialize()
+        self.masked_mlp_shift.reinitialize()
+        self.masked_mlp_scale.reinitialize()
+
     def _get_scale_and_shift(
         self, inputs: torch.Tensor, perm_mat: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:

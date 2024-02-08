@@ -9,6 +9,7 @@ from ocd.config import (
     BirkhoffConfig,
 )
 
+import numpy as np
 import wandb
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -25,7 +26,7 @@ from ocd.training.permutation import (
 )
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
 from ocd.evaluation import backward_relative_penalty
-
+import os
 import logging
 
 logging.basicConfig(
@@ -33,6 +34,12 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+
+def _get_filename():
+    # This piece of code makes concurrency possible across processes for a single machine
+    # (This is because we ran these tasks in parallel)
+    return f".oslow_{os.getpid()}.pth"
 
 
 class Trainer:
@@ -64,6 +71,9 @@ class Trainer:
         temperature_scheduler: Literal['constant',
                                        'linear', 'exponential'] = 'constant',
         device: str = "cpu",
+
+        final_phase_epoch_count: int = 0,
+        final_phase_buffer_size: int = 0,
     ):
         self.device = device
         self.max_epochs = max_epochs
@@ -100,6 +110,7 @@ class Trainer:
         self.perm_dataloader = perm_dataloader
         self.permutation_learning_config = permutation_learning_config
         self.birkhoff_config = birkhoff_config
+        self.flow_optimizer_fn = flow_optimizer
         self.flow_optimizer = flow_optimizer(self.model.parameters())
         self.permutation_optimizer = permutation_optimizer(
             self.permutation_learning_module.parameters()
@@ -119,6 +130,9 @@ class Trainer:
         # TODO create checkpointing
         self.checkpointing = None
 
+        self.final_phase_epoch_count = final_phase_epoch_count
+        self.final_phase_buffer_size = final_phase_buffer_size
+
     def get_temperature(self, epoch: int):
         if self.temperature_scheduler == "constant":
             return self.initial_temperature
@@ -128,8 +142,9 @@ class Trainer:
         if self.temperature_scheduler == "exponential":
             return self.initial_temperature * (0.1 ** (0 if epoch == 0 else epoch / (self.max_epochs - 1)))
 
-    def flow_train_step(self, temperature: float = 1.0):
+    def flow_train_step(self, temperature: float = 1.0, lbl: str = "flow_ensemble/"):
         self.permutation_learning_module._gamma.requires_grad = False
+        avg_loss = []
         for batch in self.flow_dataloader:
             batch = batch.to(self.model.device)
             self.flow_optimizer.zero_grad()
@@ -139,10 +154,11 @@ class Trainer:
             loss.backward()
             self.flow_optimizer.step()
             self.flow_step_count += 1
-            wandb.log({"flow/step": self.flow_step_count})
-            wandb.log({"flow/loss": loss.item()})
+            wandb.log({f"{lbl}step": self.flow_step_count})
+            wandb.log({f"{lbl}loss": loss.item()})
+            avg_loss.append(loss.item())
         self.permutation_learning_module._gamma.requires_grad = True
-        return loss
+        return np.array(avg_loss).mean()
 
     def permutation_train_step(self, temperature: float = 1.0):
         # stop gradient model
@@ -240,7 +256,9 @@ class Trainer:
                     self.model.in_features <= 4
                     and self.birkhoff_config
                     and (
-                        (j + epoch * self.permutation_frequency)
+                        epoch == 0 or
+                        epoch == self.max_epochs - 1 or
+                        (j + epoch * self.permutation_frequency + 1)
                         % self.birkhoff_config.frequency
                         == 0
                     )
@@ -263,3 +281,39 @@ class Trainer:
                             )
                         }
                     )
+
+        final_phase_epoch_count = self.final_phase_epoch_count
+        final_phase_buffer_size = self.final_phase_buffer_size
+        if final_phase_epoch_count > 0 and final_phase_buffer_size > 0 and hasattr(self.permutation_learning_module, "update_buffer"):
+            # checkpoint_name = _get_filename()
+            # torch.save(self.model.state_dict(), checkpoint_name)
+            cap = min(final_phase_buffer_size, len(
+                self.permutation_learning_module.permutation_buffer))
+            candidate_permutations = self.permutation_learning_module.permutation_buffer[:cap].cpu(
+            ).numpy()
+            best_avg_loss = None
+            best_perm = None
+
+            def tmp_fn(perm_list, best_avg_loss, best_perm, lbl):
+                self.permutation_learning_module.fix_permutation(perm_list)
+                self.model.reinitialize()
+                self.flow_optimizer = self.flow_optimizer_fn(
+                    self.model.parameters())
+                for _ in range(final_phase_epoch_count):
+                    avg_loss = self.flow_train_step(
+                        temperature=0.0, lbl=f"{lbl}/{'-'.join(map(str, perm_list))}-")
+                if best_avg_loss is None or avg_loss < best_avg_loss:
+                    best_avg_loss = avg_loss
+                    best_perm = perm_list
+                return best_avg_loss, best_perm
+
+            for perm in candidate_permutations:
+                perm_list = perm.argmax(-1).tolist()
+                best_avg_loss, best_perm = tmp_fn(
+                    perm_list, best_avg_loss, best_perm, lbl="buffered_flows")
+
+            _, _ = tmp_fn(best_perm, best_avg_loss,
+                          best_perm, lbl="final_flow")
+            # remove the checkpoint
+            # os.remove(checkpoint_name)
+            self.log_evaluation(temperature=0.0)

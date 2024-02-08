@@ -177,6 +177,9 @@ class TrainingConfig(BaseModel):
 
     brikhoff: Optional[BirkhoffConfig] = None
 
+    final_phase_epoch_count: int = 0,
+    final_phase_buffer_size: int = 0,
+
     @field_validator("device")
     def validate_device(cls, value):
         values = value.split(":")

@@ -30,11 +30,19 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
     ):
         super().__init__()
         self.in_features = in_features
+        self.fixed = False
 
-    def _setup_hooks(self):
-        pass  # setup hooks for _gamma if needed!
-        # self._gamma.register_hook(
-        #     lambda grad: grad / self.in_features / self.in_features)
+    def fix_permutation(
+        self,
+        perm: List[int],
+    ):
+        self.fixed = True
+        self.fixed_perm = torch.IntTensor(perm)
+
+    def release_fix(
+        self,
+    ):
+        self.fixed = False
 
     @property
     def gamma(self):
@@ -85,37 +93,40 @@ class SoftSort(PermutationLearningModule):
             self.register_parameter(
                 "_gamma", torch.nn.Parameter(torch.randn(in_features)))
         self.temp = temp
-        self._setup_hooks()
 
     def sample_hard_permutations(
         self, num_samples: int, return_noises: bool = False, unique_and_resample: bool = False, gumbel_std: float = 1.0
     ):
-        gumbel_noise = sample_gumbel_noise(
-            (num_samples, *self.gamma.shape),
-            device=self.gamma.device,
-            std=gumbel_std,
-        )
-        scores = self.gamma + gumbel_noise
-        # perform argsort on every line of scores
-        permutations = torch.argsort(scores, dim=-1)
-        if unique_and_resample:
-            permutations = torch.unique(permutations, dim=0)
-            permutations = permutations[
-                torch.randint(
-                    0,
-                    permutations.shape[0],
-                    (num_samples,),
-                    device=permutations.device,
-                )
-            ]
+        if self.fixed:
+            return self.fixed_perm.unsqueeze(0).repeat(num_samples, 1)
+        else:
+            gumbel_noise = sample_gumbel_noise(
+                (num_samples, *self.gamma.shape),
+                device=self.gamma.device,
+                std=gumbel_std,
+            )
+            scores = self.gamma + gumbel_noise
+            # perform argsort on every line of scores
+            permutations = torch.argsort(scores, dim=-1)
+            if unique_and_resample:
+                permutations = torch.unique(permutations, dim=0)
+                permutations = permutations[
+                    torch.randint(
+                        0,
+                        permutations.shape[0],
+                        (num_samples,),
+                        device=permutations.device,
+                    )
+                ]
 
-        # turn permutations into permutation matrices
-        ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
+            # turn permutations into permutation matrices
+            ret = torch.stack([turn_into_matrix(perm)
+                              for perm in permutations])
 
-        # add some random noise to the permutation matrices
-        if return_noises:
-            return ret, gumbel_noise
-        return ret
+            # add some random noise to the permutation matrices
+            if return_noises:
+                return ret, gumbel_noise
+            return ret
 
     def permutation_learning_loss(
         self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
@@ -181,34 +192,37 @@ class PermutationMatrixLearningModule(PermutationLearningModule, abc.ABC):
                 "_gamma", torch.nn.Parameter(
                     torch.randn(in_features, in_features))
             )
-        self._setup_hooks()
 
     def sample_hard_permutations(
         self, num_samples: int, return_noises: bool = False, unique_and_resample: bool = False, gumbel_std: float = 1.0
     ):
-        gumbel_noise = sample_gumbel_noise(
-            (num_samples, *self.gamma.shape),
-            device=self.gamma.device,
-            std=gumbel_std,
-        )
-        permutations = hungarian(
-            self.gamma + gumbel_noise).to(self.gamma.device)
-        if unique_and_resample:
-            permutations = torch.unique(permutations, dim=0)
-            permutations = permutations[
-                torch.randint(
-                    0,
-                    permutations.shape[0],
-                    (num_samples,),
-                    device=permutations.device,
-                )
-            ]
-        # turn permutations into permutation matrices
-        ret = torch.stack([turn_into_matrix(perm) for perm in permutations])
-        # add some random noise to the permutation matrices
-        if return_noises:
-            return ret, gumbel_noise
-        return ret
+        if self.fixed:
+            return turn_into_matrix(self.fixed_perm).unsqueeze(0).repeat(num_samples, 1, 1)
+        else:
+            gumbel_noise = sample_gumbel_noise(
+                (num_samples, *self.gamma.shape),
+                device=self.gamma.device,
+                std=gumbel_std,
+            )
+            permutations = hungarian(
+                self.gamma + gumbel_noise).to(self.gamma.device)
+            if unique_and_resample:
+                permutations = torch.unique(permutations, dim=0)
+                permutations = permutations[
+                    torch.randint(
+                        0,
+                        permutations.shape[0],
+                        (num_samples,),
+                        device=permutations.device,
+                    )
+                ]
+            # turn permutations into permutation matrices
+            ret = torch.stack([turn_into_matrix(perm)
+                              for perm in permutations])
+            # add some random noise to the permutation matrices
+            if return_noises:
+                return ret, gumbel_noise
+            return ret
 
     def permutation_learning_loss(
         self, batch: torch.Tensor, model: OSlow, temperature: float = 1.0
@@ -295,6 +309,8 @@ class PermutationMatrixLearningModuleWithBuffer(PermutationMatrixLearningModule)
 
     def get_best(self, temperature: float = 1.0):
         # get the permutation corresponding to the max score
+        if self.fixed:
+            return super().get_best(temperature)
         idx_best = torch.argmax(self.permutation_buffer_scores).item()
         if self.permutation_buffer_scores[idx_best] == float("-inf"):
             return super().get_best(temperature)
