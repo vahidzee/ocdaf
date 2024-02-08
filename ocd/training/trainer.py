@@ -72,8 +72,7 @@ class Trainer:
                                        'linear', 'exponential'] = 'constant',
         device: str = "cpu",
 
-        final_phase_epoch_count: int = 0,
-        final_phase_buffer_size: int = 0,
+        perform_final_buffer_search: bool = False,
     ):
         self.device = device
         self.max_epochs = max_epochs
@@ -105,7 +104,11 @@ class Trainer:
             raise ValueError(
                 "permutation_learning_config must be of type GumbelSinkhornStraightThroughConfig or ContrastiveDivergenceConfig"
             )
-
+        self.perform_final_buffer_search = perform_final_buffer_search
+        if self.perform_final_buffer_search and not hasattr(self.permutation_learning_module, "update_buffer"):
+            raise ValueError(
+                "The permutation learning module must have a buffer to perform final buffer search"
+            )
         self.flow_dataloader = flow_dataloader
         self.perm_dataloader = perm_dataloader
         self.permutation_learning_config = permutation_learning_config
@@ -129,9 +132,6 @@ class Trainer:
 
         # TODO create checkpointing
         self.checkpointing = None
-
-        self.final_phase_epoch_count = final_phase_epoch_count
-        self.final_phase_buffer_size = final_phase_buffer_size
 
     def get_temperature(self, epoch: int):
         if self.temperature_scheduler == "constant":
@@ -282,11 +282,12 @@ class Trainer:
                         }
                     )
 
-        final_phase_epoch_count = self.final_phase_epoch_count
-        final_phase_buffer_size = self.final_phase_buffer_size
+        final_phase_buffer_size = len(
+            self.permutation_learning_module.permutation_buffer)
+        final_phase_epoch_count = self.max_epochs * \
+            (self.permutation_frequency +
+             self.flow_frequency) // final_phase_buffer_size
         if final_phase_epoch_count > 0 and final_phase_buffer_size > 0 and hasattr(self.permutation_learning_module, "update_buffer"):
-            # checkpoint_name = _get_filename()
-            # torch.save(self.model.state_dict(), checkpoint_name)
             cap = min(final_phase_buffer_size, len(
                 self.permutation_learning_module.permutation_buffer))
             candidate_permutations = self.permutation_learning_module.permutation_buffer[:cap].cpu(
@@ -314,6 +315,5 @@ class Trainer:
 
             _, _ = tmp_fn(best_perm, best_avg_loss,
                           best_perm, lbl="final_flow")
-            # remove the checkpoint
-            # os.remove(checkpoint_name)
+
             self.log_evaluation(temperature=0.0)
