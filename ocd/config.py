@@ -114,29 +114,42 @@ class SchedulerConfig(BaseModel):
 class SoftSortConfig(BaseModel):
     method: str = "soft-sort"
     temp: float
+    set_gamma_uniform: bool = False
+    set_gamma_custom: Optional[List[List[int]]] = None
 
 
 class ContrastiveDivergenceConfig(BaseModel):
     method: str = "contrastive-divergence"
     num_samples: int
+    buffer_size: int
+    buffer_update: int
+    set_gamma_uniform: bool = False
+    set_gamma_custom: Optional[List[List[int]]] = None
 
 
 class SoftSinkhornConfig(BaseModel):
     method: str = "soft-sinkhorn"
     temp: float
     iters: int
+    set_gamma_uniform: bool = False
+    set_gamma_custom: Optional[List[List[int]]] = None
 
 
 class GumbelTopKConfig(BaseModel):
     method: str = "gumbel-top-k"
     num_samples: int
-    different_flow_loss: bool = False
+    buffer_size: int
+    buffer_update: int
+    set_gamma_uniform: bool = False
+    set_gamma_custom: Optional[List[List[int]]] = None
 
 
 class GumbelSinkhornStraightThroughConfig(BaseModel):
     method: str = "straight-through-sinkhorn"
     temp: float
     iters: int
+    set_gamma_uniform: bool = False
+    set_gamma_custom: Optional[List[List[int]]] = None
 
 
 class TrainingConfig(BaseModel):

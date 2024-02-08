@@ -5,7 +5,9 @@ import torch
 from ocd.models.oslow import OSlow
 from functools import lru_cache
 from sklearn.decomposition import PCA
-from ocd.training.permutation import PermutationLearningModule
+from ocd.training.permutation import PermutationLearningModule, PermutationMatrixLearningModuleWithBuffer
+import networkx as nx
+from ocd.evaluation import backward_relative_penalty
 
 
 @lru_cache(maxsize=128)
@@ -35,6 +37,8 @@ def visualize_birkhoff_polytope(
     flow_model: Optional[OSlow] = None,
     device: str = "cpu",
     print_legend: bool = True,
+    dag: Optional[nx.DiGraph] = None,
+    temperature: float = 1.0,
 ):
     """
     This function is intended for either debugging purposes or just for visualizing the training process of the model itself.
@@ -57,7 +61,7 @@ def visualize_birkhoff_polytope(
     """
     permutation_model.to(device)
     sampled_permutations = permutation_model.sample_hard_permutations(
-        num_samples)
+        num_samples, gumbel_std=temperature)
 
     # (1) Handle the backbone and the PCA transform of the Birkhoff polytope
     d = sampled_permutations.shape[-1]
@@ -97,8 +101,15 @@ def visualize_birkhoff_polytope(
             data = [data]
 
         for i, permutation in enumerate(all_permutation_matrices):
+            txt = "NA"
             lbl = get_label_from_permutation_matrix(permutation)
 
+            if isinstance(permutation_model, PermutationMatrixLearningModuleWithBuffer):
+                idx = permutation_model._get_in_buffer_index(
+                    permutation.unsqueeze(0))[0].item()
+                if idx != -1:
+                    txt = f"*{permutation_model.permutation_buffer_scores[idx].item():.2f}"
+                # check if there is any matrix in my_buffer that is equal to permutation
             average_log_prob = 0.0
             if (closest_references == i).any():
                 close_samples = sampled_permutations[closest_references == i]
@@ -106,10 +117,12 @@ def visualize_birkhoff_polytope(
                     0.3, 1.0 / (closest_references == i).sum().item())
                 ax.scatter(
                     pca.transform(
-                        close_samples.reshape(close_samples.shape[0], -1).cpu()
+                        close_samples.reshape(
+                            close_samples.shape[0], -1).cpu()
                     )[:, 0],
                     pca.transform(
-                        close_samples.reshape(close_samples.shape[0], -1).cpu()
+                        close_samples.reshape(
+                            close_samples.shape[0], -1).cpu()
                     )[:, 1],
                     label=lbl,
                     alpha=alpha_value,
@@ -127,18 +140,25 @@ def visualize_birkhoff_polytope(
                             ).sum()
                             num_data += data_batch.shape[0]
                         average_log_prob = log_prob_sum / num_data
+                num_samples = (closest_references == i).sum()
+                if num_samples > 0:
+                    if txt == "NA":
+                        txt = f"{average_log_prob:.2f}:#{num_samples}"
+                    else:
+                        txt = f"{txt}:{average_log_prob:.2f}:#{num_samples}"
+
+            if dag is not None:
+                perm_list = torch.argmax(
+                    permutation, dim=-1).cpu().numpy().tolist()
+                txt = f"{txt}:{backward_relative_penalty(perm_list, dag):.2f}"
+
             x, y = (
                 pca.transform(permutation.reshape(1, -1).cpu())[0, 0],
                 pca.transform(permutation.reshape(1, -1).cpu())[0, 1],
             )
             # count the number of entries in the closest references that is equal to i
             # write a text on (x, y) with value of average_log_prob
-            num_samples = (closest_references == i).sum()
-            if num_samples == 0:
-                txt = "no_sample"
-            else:
-                txt = f"{average_log_prob:.2f} : #{num_samples}"
-            ax.text(x, y, txt, fontsize=8)
+            ax.text(x, y, txt, fontsize=6)
 
         mean_samples = torch.mean(sampled_permutations, dim=0)
         ax.scatter(

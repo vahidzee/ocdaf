@@ -24,7 +24,7 @@ from ocd.training.permutation import (
     SoftSinkhorn,
 )
 from ocd.visualization.birkhoff import visualize_birkhoff_polytope
-from ocd.evaluation import count_backward
+from ocd.evaluation import backward_relative_penalty
 
 import logging
 
@@ -124,9 +124,9 @@ class Trainer:
             return self.initial_temperature
         # start from initial_temperature and decrease it to 0
         if self.temperature_scheduler == "linear":
-            return self.initial_temperature * (1 - epoch / (self.true_epochs - 1))
+            return self.initial_temperature * (1 - (0 if epoch == 0 else epoch / (self.max_epochs - 1)))
         if self.temperature_scheduler == "exponential":
-            return self.initial_temperature * (0.1 ** (epoch / (self.true_epochs - 1)))
+            return self.initial_temperature * (0.1 ** (0 if epoch == 0 else epoch / (self.max_epochs - 1)))
 
     def flow_train_step(self, temperature: float = 1.0):
         self.permutation_learning_module._gamma.requires_grad = False
@@ -165,31 +165,33 @@ class Trainer:
         self.model.train()
         return loss
 
-    def log_evaluation(self):
+    def log_evaluation(self, temperature: float = 1.0):
 
-        permutation_samples = (
-            self.permutation_learning_module.sample_hard_permutations(
-                100)
-        )
-        # find the majority of permutations being sampled
-        permutation, counts = torch.unique(
-            permutation_samples, dim=0, return_counts=True
-        )
-        # find the permutation with the highest count
-        permutation = permutation[counts.argmax()]
+        permutation = self.permutation_learning_module.get_best(
+            temperature=temperature)
         permutation = permutation.argmax(dim=-1).cpu().numpy().tolist()
-        backward_penalty = count_backward(permutation, self.dag)
-        wandb.log({"permutation/backward_penalty": backward_penalty})
+        backward_penalty = backward_relative_penalty(permutation, self.dag)
+        wandb.log({"permutation/best_backward_penalty": backward_penalty})
+
+        sampled_permutations = self.permutation_learning_module.sample_hard_permutations(
+            100, gumbel_std=temperature
+        )
+        sampled_permutations_unique, counts = torch.unique(
+            sampled_permutations, dim=0, return_counts=True)
+        sm = 0
+        for perm, c in zip(sampled_permutations_unique, counts):
+            backward_penalty = backward_relative_penalty(
+                perm.argmax(dim=-1).cpu().numpy().tolist(), self.dag)
+            sm += c * backward_penalty
+        wandb.log(
+            {"permutation/avg_backward_penalty": sm/100}
+        )
 
     def train(self):
         self.model.train()
         self.permutation_learning_module.train()
 
-        self.true_epochs = (
-            self.max_epochs // (self.flow_frequency +
-                                self.permutation_frequency) + 1
-        )
-        for epoch in range(self.true_epochs):
+        for epoch in range(self.max_epochs):
             # reinsitialize the parameters of self.model
             self.model = self.model.to(self.device)
 
@@ -199,9 +201,9 @@ class Trainer:
             for i in range(self.flow_frequency):
                 loss = self.flow_train_step(
                     temperature=self.get_temperature(epoch))
-                logging.info(
-                    f"Flow step {epoch * self.flow_frequency + i} / {self.true_epochs * self.flow_frequency}, flow loss: {loss.item()}"
-                )
+                # logging.info(
+                #     f"Flow step {epoch * self.flow_frequency + i} / {self.max_epochs * self.flow_frequency}, flow loss: {loss.item()}"
+                # )
                 if isinstance(
                     self.flow_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
                 ):
@@ -209,13 +211,19 @@ class Trainer:
                 else:
                     self.flow_scheduler.step()
 
+            if hasattr(self.permutation_learning_module, "update_buffer"):
+                self.permutation_learning_module.update_buffer(
+                    dloader=self.perm_dataloader,
+                    model=self.model,
+                    temperature=self.get_temperature(epoch),
+                )
             for j in range(self.permutation_frequency):
                 loss = self.permutation_train_step(
                     temperature=self.get_temperature(epoch))
 
-                logging.info(
-                    f"Permutation step {epoch * self.permutation_frequency + i} / {self.true_epochs * self.permutation_frequency}, permutation loss: {loss.item()}"
-                )
+                # logging.info(
+                #     f"Permutation step {epoch * self.permutation_frequency + i} / {self.max_epochs * self.permutation_frequency}, permutation loss: {loss.item()}"
+                # )
                 if isinstance(
                     self.permutation_scheduler,
                     torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -225,7 +233,8 @@ class Trainer:
                     self.permutation_scheduler.step()
 
                 # log the evaluation metrics
-                self.log_evaluation()
+                self.log_evaluation(temperature=self.get_temperature(epoch))
+
                 # log the Birkhoff polytope
                 if (
                     self.model.in_features <= 4
@@ -243,6 +252,9 @@ class Trainer:
                         data=batch,
                         flow_model=self.model,
                         device=self.device,
+                        print_legend=self.birkhoff_config.print_legend,
+                        dag=self.dag,
+                        temperature=self.get_temperature(epoch),
                     )
                     wandb.log(
                         {
