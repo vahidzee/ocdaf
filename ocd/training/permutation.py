@@ -49,7 +49,7 @@ class PermutationLearningModule(torch.nn.Module, abc.ABC):
         raise NotImplementedError
 
     def get_best(self, temperature: float = 1.0):
-        permutation_samples = self.permutation_learning_module.sample_hard_permutations(
+        permutation_samples = self.sample_hard_permutations(
             100, unique_and_resample=False, gumbel_std=temperature).detach()
         # find the majority of permutations being sampled
         permutation, counts = torch.unique(
