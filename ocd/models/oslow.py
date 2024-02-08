@@ -150,7 +150,8 @@ class OSlow(torch.nn.ModuleList):
         # Get the device of the current model
         device = self.device
         # Set the noises and set their device
-        z = self.base_distribution.sample((num_samples, self.in_features)).to(device)
+        z = self.base_distribution.sample(
+            (num_samples, self.in_features)).to(device)
 
         return self.inverse(z, perm_mat=perm_mat)[0]
 
@@ -194,7 +195,8 @@ class OSlow(torch.nn.ModuleList):
         # perm_mat is a tensor of size (num_samples, D, D)
         # raise exception if the permutation matrices of at least two samples are different
         if perm_mat is not None:
-            perm_mat = perm_mat.reshape(-1, perm_mat.shape[-2], perm_mat.shape[-1])
+            perm_mat = perm_mat.reshape(-1,
+                                        perm_mat.shape[-2], perm_mat.shape[-1])
             assert torch.all(
                 perm_mat[0] == perm_mat
             ).item(), "Permutation matrices of at least two samples are different"
@@ -213,12 +215,14 @@ class OSlow(torch.nn.ModuleList):
         )
         x = self.inverse(base_z, perm_mat=perm_mat)[0]
 
-        entailed_ordering = torch.einsum("bij, j -> bi", perm_mat, self.ordering).long()
+        entailed_ordering = torch.einsum(
+            "bij, j -> bi", perm_mat, self.ordering).long()
         for i, idx in enumerate(entailed_ordering):
             if idx in intervention:
                 x[:, idx] = intervention[idx]
                 z = self(x, perm_mat=perm_mat)[0]
-                z[:, entailed_ordering[i + 1 :]] = base_z[:, entailed_ordering[i + 1 :]]
+                z[:, entailed_ordering[i + 1:]] = base_z[:,
+                                                         entailed_ordering[i + 1:]]
                 x = self.inverse(z, perm_mat=perm_mat)[0]
         return x
 
