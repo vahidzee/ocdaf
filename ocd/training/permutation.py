@@ -368,13 +368,13 @@ class PermutationMatrixLearningModuleWithBuffer(PermutationMatrixLearningModule)
                 R = 0
                 for unique_perms_chunk in torch.split(new_unique_perms, self.num_samples):
                     R += unique_perms_chunk.shape[0]
-                    new_unique_perms_repeated = new_unique_perms.repeat_interleave(
+                    new_unique_perms_repeated = unique_perms_chunk.repeat_interleave(
                         x.shape[0], dim=0)
-                    x_repeated = x.repeat(len(new_unique_perms), 1)
+                    x_repeated = x.repeat(len(unique_perms_chunk), 1)
                     log_probs = model.log_prob(
                         x_repeated, perm_mat=new_unique_perms_repeated).detach()
                     log_probs = log_probs.reshape(
-                        len(new_unique_perms), x.shape[0])
+                        len(unique_perms_chunk), x.shape[0])
                     new_scores[L:R] += log_probs.sum(dim=-1)
                     _new_score_counts[L:R] += x.shape[0]
                     L = R

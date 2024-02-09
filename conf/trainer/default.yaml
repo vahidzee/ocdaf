@@ -19,6 +19,7 @@ permutation_optimizer: ${.flow_optimizer}
 
 temperature: 1.0
 temperature_scheduler: linear
+perform_final_buffer_search: false
 
 scheduler:
   flow_frequency: 1

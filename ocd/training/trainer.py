@@ -36,11 +36,6 @@ logging.basicConfig(
 )
 
 
-def _get_filename():
-    # This piece of code makes concurrency possible across processes for a single machine
-    # (This is because we ran these tasks in parallel)
-    return f".oslow_{os.getpid()}.pth"
-
 
 class Trainer:
     def __init__(
@@ -288,7 +283,7 @@ class Trainer:
             (self.permutation_frequency +
              self.flow_frequency) // final_phase_buffer_size
         if final_phase_epoch_count > 0 and final_phase_buffer_size > 0 and hasattr(self.permutation_learning_module, "update_buffer"):
-            cap = min(final_phase_buffer_size, len(
+            cap = min(10, len(
                 self.permutation_learning_module.permutation_buffer))
             candidate_permutations = self.permutation_learning_module.permutation_buffer[:cap].cpu(
             ).numpy()
