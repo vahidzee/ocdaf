@@ -473,10 +473,9 @@ class ContrastiveDivergence(PermutationMatrixLearningModuleWithBuffer):
                 )
                 batch_repeated = batch.repeat(len(unique_perms[idx == -1]), 1)
 
-                scores[idx == -1] = model.log_prob(
+                all_log_probs = model.log_prob(
                     batch_repeated, perm_mat=permutations_repeated)
-                scores[idx == -1] = scores[idx == -
-                                           1].reshape(len(unique_perms[idx == -1]), -1).mean(dim=-1)
+                scores[idx == -1] = all_log_probs.reshape(len(unique_perms[idx == -1]), -1).mean(dim=-1)
 
         all_energies = torch.einsum("ijk,jk->i", unique_perms, self.gamma)
         weight_free_term = torch.sum(all_energies * counts) / torch.sum(counts)

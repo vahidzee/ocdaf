@@ -40,5 +40,6 @@ command:
     - ${env}
     - ./slurm/train_runner.sh
     - model.additive=false
+    - trainer.birkhoff=null
     - ${args_no_hyphens}
     - test_run=false
