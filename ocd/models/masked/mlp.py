@@ -31,6 +31,11 @@ class MaskedBlock(MaskedLinear):
         self.dropout = torch.nn.Dropout(p=dropout) if dropout else None
         self.activation = activation
 
+    def reinitialize(self):
+        super().reinitialize()
+        if self.dropout:
+            self.dropout.reset_parameters()
+
     def forward(self, inputs: torch.Tensor, perm_mat: torch.Tensor) -> torch.Tensor:
         outputs = super().forward(inputs, perm_mat=perm_mat)
         outputs = self.activation(outputs) if self.activation else outputs
@@ -73,6 +78,10 @@ class MaskedMLP(torch.nn.ModuleList):
                     ordering=ordering,
                 )
             )
+
+    def reinitialize(self):
+        for layer in self:
+            layer.reinitialize()
 
     def forward(
         self,

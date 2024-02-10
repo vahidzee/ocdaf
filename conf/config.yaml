@@ -1,7 +1,7 @@
 defaults:
+  - data: default
   - model: default
   - trainer: default
-  - data: default
   - hydra: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
@@ -11,9 +11,6 @@ wandb:
   run_name: default
   project: default
   entity: ordered-causal-discovery
-
-model:
-  in_features: 3
 
 test_run: true
 out_dir: runs/

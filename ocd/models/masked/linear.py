@@ -1,6 +1,7 @@
 import torch
 from typing import List, Optional, Union
 import functools
+import math
 
 
 class MaskedLinear(torch.nn.Linear):
@@ -41,7 +42,8 @@ class MaskedLinear(torch.nn.Linear):
         self.out_features = out_features
 
         if len(in_features) != len(out_features):
-            raise ValueError("in_features and out_features must have the same length")
+            raise ValueError(
+                "in_features and out_features must have the same length")
 
         if ordering is None:
             ordering = torch.arange(
@@ -73,6 +75,17 @@ class MaskedLinear(torch.nn.Linear):
             "mask",
             (ordering_row > ordering_col).int() + diagonal,
         )
+
+    def reinitialize(self):
+        """
+        Reinitialize the weights and biases of the linear layer.
+        """
+        torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(
+                self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            torch.nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(
         self,
@@ -116,6 +129,7 @@ class MaskedLinear(torch.nn.Linear):
             mask, torch.tensor(self.out_features // d).to(mask.device), dim=-2
         )
 
-        ret = torch.einsum("bij,bj->bi", mask * self.weight, inputs) + self.bias
+        ret = torch.einsum("bij,bj->bi", mask *
+                           self.weight, inputs) + self.bias
 
         return ret

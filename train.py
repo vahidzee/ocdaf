@@ -27,9 +27,32 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+def get_torch_distribution(distr_name):
+    if distr_name == 'laplace':
+        return 'torch.distributions.Laplace'
+    elif distr_name == 'normal':
+        return 'torch.distributions.Normal'
+    elif distr_name == 'uniform':
+        return 'torch.distributions.Uniform'
+    else:
+        ValueError(f"Distribution {distr_name} cannot be resolved!")
+
+def get_torch_distribution_args(distr_name):
+    if distr_name == 'laplace':
+        return [0., 1.]
+    elif distr_name == 'normal':
+        return [0., 1.]
+    elif distr_name == 'uniform':
+        return [0., 1.]
+    else:
+        ValueError(f"Distribution {distr_name} cannot be resolved!")
+    
+
+
 # Add resolver for hydra
 OmegaConf.register_new_resolver("eval", eval)
-
+OmegaConf.register_new_resolver("get_torch_distribution", get_torch_distribution)
+OmegaConf.register_new_resolver("get_torch_distribution_args", get_torch_distribution_args)
 
 def init_run_dir(conf: MainConfig) -> MainConfig:
     # Handle preemption and resume

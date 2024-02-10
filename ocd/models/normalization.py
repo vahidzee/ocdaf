@@ -13,9 +13,15 @@ class ActNorm(torch.nn.Module):
         """
         super().__init__()
 
-        self.register_buffer("initialized", torch.tensor(False, dtype=torch.bool))
+        self.register_buffer(
+            "initialized", torch.tensor(False, dtype=torch.bool))
         self.log_scale = nn.Parameter(torch.zeros(features))
         self.shift = nn.Parameter(torch.zeros(features))
+
+    def reinitialize(self):
+        self.initialized.data = torch.tensor(False, dtype=torch.bool)
+        self.log_scale.data = torch.zeros_like(self.log_scale)
+        self.shift.data = torch.zeros_like(self.shift)
 
     @property
     def scale(self):
