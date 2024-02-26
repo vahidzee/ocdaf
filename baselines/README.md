@@ -1,8 +1,9 @@
 # Setup
-## Install dependencies
-Some of the baselines require specific R packages to be installed. After making sure that R is installed on your system, you can install the required packages by running the following commands in the R console:
+
+## Install R packages
+Some of the baselines require specific R packages to be installed. After [making sure that R is installed on your system](https://cran.r-project.org/doc/manuals/r-release/R-admin.html), you can install the required packages by running the following commands in the R console:
 ```R
-install.package("devtools");
+install.packages("devtools");
 library(devtools);
 install_github("https://github.com/cran/CAM");
 ```
